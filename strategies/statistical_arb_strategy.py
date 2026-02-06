@@ -313,7 +313,10 @@ class StatisticalArbStrategy:
             return None
         
         # Calculate divergence
-        divergence_pct = abs((price_1 - price_2) / ((price_1 + price_2) / 2)) * 100
+        avg_price = (price_1 + price_2) / 2
+        if avg_price == 0:
+            return None
+        divergence_pct = abs((price_1 - price_2) / avg_price) * 100
         
         if divergence_pct < self.min_divergence_pct:
             return None
@@ -578,7 +581,10 @@ class StatisticalArbStrategy:
             spread_change = current_spread - entry_spread
         
         # Profit is proportional to spread change
-        pnl = trade_size * (spread_change / abs(entry_spread))
+        if abs(entry_spread) == 0:
+            pnl = 0.0
+        else:
+            pnl = trade_size * (spread_change / abs(entry_spread))
         
         # Update statistics
         if pnl > 0:
@@ -632,6 +638,13 @@ class StatisticalArbStrategy:
         total_trades = self.opportunities_taken
         net_profit = self.total_profit - self.total_loss
         
+        # Calculate actual win rate (would need to track winning vs losing trades separately)
+        # For now, use profit ratio as an approximation
+        if self.total_profit + self.total_loss > 0:
+            profit_ratio = (self.total_profit / (self.total_profit + self.total_loss)) * 100
+        else:
+            profit_ratio = 0.0
+        
         return {
             'strategy_name': self.strategy_name,
             'opportunities_found': self.opportunities_found,
@@ -641,7 +654,7 @@ class StatisticalArbStrategy:
             'net_profit': net_profit,
             'active_positions': len(self.active_positions),
             'tracked_pairs': len(self.correlation_trackers),
-            'win_rate': (self.total_profit / max(self.total_profit + self.total_loss, 1)) * 100
+            'profit_ratio': profit_ratio
         }
     
     def reset_statistics(self) -> None:

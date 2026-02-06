@@ -390,6 +390,12 @@ class ArbitrageStrategy:
         Returns:
             Dictionary with strategy statistics
         """
+        # Calculate execution rate (percentage of opportunities that were traded)
+        if self.opportunities_found > 0:
+            execution_rate = (self.opportunities_taken / self.opportunities_found) * 100
+        else:
+            execution_rate = 0.0
+        
         return {
             'strategy_name': self.strategy_name,
             'opportunities_found': self.opportunities_found,
@@ -397,7 +403,7 @@ class ArbitrageStrategy:
             'total_expected_profit': self.total_expected_profit,
             'total_actual_profit': self.total_actual_profit,
             'active_positions': len(self.active_positions),
-            'win_rate': (self.opportunities_taken / max(self.opportunities_found, 1)) * 100
+            'execution_rate': execution_rate
         }
     
     def reset_statistics(self) -> None:

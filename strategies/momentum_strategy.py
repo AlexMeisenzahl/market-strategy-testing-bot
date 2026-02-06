@@ -244,7 +244,7 @@ class MomentumStrategy:
         
         # Calculate acceleration (is momentum increasing?)
         acceleration = 0.0
-        if price_change_15m != 0:
+        if abs(price_change_15m) > 0.01:  # Small threshold to avoid division by near-zero
             # If 5m change is larger than 15m average, momentum is accelerating
             acceleration = (abs(price_change_5m) / (abs(price_change_15m) / 3)) - 1.0
             acceleration = max(-1.0, min(1.0, acceleration))  # Clamp to [-1, 1]
@@ -570,6 +570,12 @@ class MomentumStrategy:
         total_trades = self.opportunities_taken
         net_profit = self.total_profit - self.total_loss
         
+        # Calculate profit ratio as approximation of win rate
+        if self.total_profit + self.total_loss > 0:
+            profit_ratio = (self.total_profit / (self.total_profit + self.total_loss)) * 100
+        else:
+            profit_ratio = 0.0
+        
         return {
             'strategy_name': self.strategy_name,
             'opportunities_found': self.opportunities_found,
@@ -578,7 +584,7 @@ class MomentumStrategy:
             'total_loss': self.total_loss,
             'net_profit': net_profit,
             'active_positions': len(self.active_positions),
-            'win_rate': (self.total_profit / max(self.total_profit + self.total_loss, 1)) * 100
+            'profit_ratio': profit_ratio
         }
     
     def reset_statistics(self) -> None:

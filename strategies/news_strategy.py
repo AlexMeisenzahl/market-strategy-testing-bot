@@ -264,8 +264,9 @@ class NewsStrategy:
         # Calculate price changes
         changes = []
         for i in range(1, len(prices)):
-            if prices[i-1][1] != 0:
-                change = ((prices[i][1] - prices[i-1][1]) / prices[i-1][1]) * 100
+            prev_price = prices[i-1][1]
+            if prev_price != 0 and prev_price is not None:
+                change = ((prices[i][1] - prev_price) / prev_price) * 100
                 changes.append(change)
         
         if not changes:
@@ -565,6 +566,12 @@ class NewsStrategy:
         total_trades = self.opportunities_taken
         net_profit = self.total_profit - self.total_loss
         
+        # Calculate profit ratio as approximation of win rate
+        if self.total_profit + self.total_loss > 0:
+            profit_ratio = (self.total_profit / (self.total_profit + self.total_loss)) * 100
+        else:
+            profit_ratio = 0.0
+        
         return {
             'strategy_name': self.strategy_name,
             'opportunities_found': self.opportunities_found,
@@ -573,7 +580,7 @@ class NewsStrategy:
             'total_loss': self.total_loss,
             'net_profit': net_profit,
             'active_positions': len(self.active_positions),
-            'win_rate': (self.total_profit / max(self.total_profit + self.total_loss, 1)) * 100
+            'profit_ratio': profit_ratio
         }
     
     def reset_statistics(self) -> None:
