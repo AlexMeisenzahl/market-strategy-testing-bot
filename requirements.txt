@@ -3,3 +3,11 @@ requests>=2.31.0        # HTTP requests for API calls
 pyyaml>=6.0            # YAML configuration file parsing
 rich>=13.0.0           # Beautiful terminal dashboard
 python-dateutil>=2.8.2 # Date/time utilities
+
+# Additional dependencies for multi-strategy enhancements
+aiohttp>=3.9.0           # Async HTTP for performance
+asyncio>=3.4.3          # Async operations
+plyer>=2.1.0            # Desktop notifications
+numpy>=1.24.0           # Numerical operations for statistics
+scipy>=1.11.0           # Statistical functions (Sharpe ratio, etc.)
+pandas>=2.0.0           # Data analysis for backtesting
