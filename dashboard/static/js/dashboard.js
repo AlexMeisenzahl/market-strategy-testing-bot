@@ -506,14 +506,6 @@ async function loadBotStatus() {
         document.getElementById('connected-symbols').textContent = data.connected_symbols || 0;
         document.getElementById('active-strategies-count').textContent = data.active_strategies || 0;
         
-        // Show uptime if available
-        if (data.uptime && data.uptime > 0) {
-            const hours = Math.floor(data.uptime / 3600);
-            const minutes = Math.floor((data.uptime % 3600) / 60);
-            const uptimeText = `${hours}h ${minutes}m`;
-            // You could display this in the UI if there's a place for it
-        }
-        
     } catch (error) {
         console.error('Error loading bot status:', error);
         // Default to historical data on error

@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 import json
+import psutil  # For process monitoring
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -466,7 +467,6 @@ def get_bot_status():
     """Get current bot status"""
     try:
         # Check if bot.py process is actually running
-        import psutil
         bot_running = False
         bot_pid = None
         bot_uptime = 0
