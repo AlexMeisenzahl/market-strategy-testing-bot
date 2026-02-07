@@ -147,6 +147,17 @@
                         <i class="fas fa-play-circle mr-2"></i>Control
                     </button>
                     
+                    <!-- Manual Refresh Button -->
+                    <button id="manual-refresh-btn" class="px-3 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 transition" title="Refresh data">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    
+                    <!-- Connection Status -->
+                    <div id="connection-status" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
+                        <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                        <span id="connection-status-text">Connected</span>
+                    </div>
+                    
                     <!-- Bot Status Indicator -->
                     <div class="flex items-center">
                         <span class="relative flex h-3 w-3 mr-2">
@@ -165,9 +176,18 @@
         
         <!-- Overview Page -->
         <div id="page-overview" class="page-content">
-            <div class="mb-8">
-                <h2 class="text-3xl font-bold mb-2">Dashboard Overview</h2>
-                <p class="text-gray-400">Real-time performance metrics and analytics</p>
+            <div class="mb-8 flex justify-between items-center">
+                <div>
+                    <h2 class="text-3xl font-bold mb-2">Dashboard Overview</h2>
+                    <p class="text-gray-400">Real-time performance metrics and analytics</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <label class="flex items-center cursor-pointer">
+                        <span class="text-sm text-gray-400 mr-2">Auto-refresh (30s)</span>
+                        <input type="checkbox" id="auto-refresh-toggle" class="sr-only peer" checked>
+                        <div class="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
             </div>
             
             <!-- Key Metrics Cards -->
@@ -561,6 +581,8 @@
         </div>
     </div>
     
+    <!-- Load utilities first, then dashboard -->
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>

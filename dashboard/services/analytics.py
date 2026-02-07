@@ -2,12 +2,13 @@
 Analytics Service
 
 Calculates performance metrics, statistics, and analytics
-for the trading bot.
+for the trading bot including Sharpe ratio, max drawdown, and more.
 """
 
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 from dashboard.services.data_parser import DataParser
+import math
 
 
 class AnalyticsService:
@@ -22,9 +23,140 @@ class AnalyticsService:
         """
         self.data_parser = data_parser
     
+    def calculate_sharpe_ratio(self, trades: List[Dict[str, Any]], risk_free_rate: float = 0.02) -> float:
+        """
+        Calculate Sharpe ratio for the trading strategy
+        
+        Args:
+            trades: List of trade dictionaries
+            risk_free_rate: Annual risk-free rate (default 2%)
+            
+        Returns:
+            Sharpe ratio
+        """
+        if not trades or len(trades) < 2:
+            return 0.0
+        
+        # Calculate daily returns
+        returns = [t['pnl_pct'] / 100 for t in trades]  # Convert percentage to decimal
+        
+        if not returns:
+            return 0.0
+        
+        # Calculate mean and std of returns
+        mean_return = sum(returns) / len(returns)
+        
+        # Calculate standard deviation
+        variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
+        std_return = math.sqrt(variance) if variance > 0 else 0
+        
+        if std_return == 0:
+            return 0.0
+        
+        # Annualize (assuming 252 trading days per year)
+        daily_risk_free = risk_free_rate / 252
+        sharpe_ratio = (mean_return - daily_risk_free) / std_return * math.sqrt(252)
+        
+        return sharpe_ratio
+    
+    def calculate_max_drawdown(self, trades: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Calculate maximum drawdown from peak equity
+        
+        Args:
+            trades: List of trade dictionaries sorted by time
+            
+        Returns:
+            Dictionary with max drawdown info
+        """
+        if not trades:
+            return {
+                'max_drawdown': 0.0,
+                'max_drawdown_pct': 0.0,
+                'peak_value': 0.0,
+                'trough_value': 0.0
+            }
+        
+        # Calculate cumulative equity curve
+        cumulative_pnl = 0
+        peak = 0
+        max_drawdown = 0
+        peak_value = 0
+        trough_value = 0
+        
+        for trade in trades:
+            cumulative_pnl += trade['pnl_usd']
+            
+            # Update peak if current value is higher
+            if cumulative_pnl > peak:
+                peak = cumulative_pnl
+            
+            # Calculate drawdown from peak
+            drawdown = peak - cumulative_pnl
+            
+            # Update max drawdown if current is larger
+            if drawdown > max_drawdown:
+                max_drawdown = drawdown
+                peak_value = peak
+                trough_value = cumulative_pnl
+        
+        # Calculate percentage drawdown
+        max_drawdown_pct = (max_drawdown / peak_value * 100) if peak_value > 0 else 0
+        
+        return {
+            'max_drawdown': round(max_drawdown, 2),
+            'max_drawdown_pct': round(max_drawdown_pct, 2),
+            'peak_value': round(peak_value, 2),
+            'trough_value': round(trough_value, 2)
+        }
+    
+    def calculate_profit_factor(self, trades: List[Dict[str, Any]]) -> float:
+        """
+        Calculate profit factor (gross profit / gross loss)
+        
+        Args:
+            trades: List of trade dictionaries
+            
+        Returns:
+            Profit factor
+        """
+        wins = [t for t in trades if t['pnl_usd'] > 0]
+        losses = [t for t in trades if t['pnl_usd'] < 0]
+        
+        gross_profit = sum(t['pnl_usd'] for t in wins)
+        gross_loss = abs(sum(t['pnl_usd'] for t in losses))
+        
+        return (gross_profit / gross_loss) if gross_loss > 0 else 0
+    
+    def calculate_win_loss_ratio(self, trades: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Calculate win/loss ratio metrics
+        
+        Args:
+            trades: List of trade dictionaries
+            
+        Returns:
+            Dictionary with win/loss metrics
+        """
+        wins = [t for t in trades if t['pnl_usd'] > 0]
+        losses = [t for t in trades if t['pnl_usd'] < 0]
+        
+        avg_win = sum(t['pnl_usd'] for t in wins) / len(wins) if wins else 0
+        avg_loss = abs(sum(t['pnl_usd'] for t in losses) / len(losses)) if losses else 0
+        
+        win_loss_ratio = (avg_win / avg_loss) if avg_loss > 0 else 0
+        
+        return {
+            'avg_win': round(avg_win, 2),
+            'avg_loss': round(avg_loss, 2),
+            'win_loss_ratio': round(win_loss_ratio, 2),
+            'total_wins': len(wins),
+            'total_losses': len(losses)
+        }
+    
     def get_overview_stats(self) -> Dict[str, Any]:
         """
-        Get overview dashboard statistics
+        Get overview dashboard statistics with advanced metrics
         
         Returns:
             Dictionary with key metrics
@@ -42,7 +174,7 @@ class AnalyticsService:
         # Calculate profit factor
         gross_profit = sum(t['pnl_usd'] for t in wins)
         gross_loss = abs(sum(t['pnl_usd'] for t in losses))
-        profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else 0
+        profit_factor = self.calculate_profit_factor(trades)
         
         # Calculate average trade duration
         avg_duration = sum(t['duration_minutes'] for t in trades) / len(trades) if trades else 0
@@ -74,6 +206,11 @@ class AnalyticsService:
         # Simplified percentage (would need historical data for accurate calculation)
         pnl_change_pct = (recent_pnl / abs(total_pnl) * 100) if total_pnl != 0 else 0
         
+        # Calculate advanced metrics
+        sharpe_ratio = self.calculate_sharpe_ratio(trades)
+        max_drawdown_info = self.calculate_max_drawdown(sorted(trades, key=lambda x: x['entry_time']))
+        win_loss_info = self.calculate_win_loss_ratio(trades)
+        
         return {
             'total_pnl': round(total_pnl, 2),
             'pnl_change_pct': round(pnl_change_pct, 2),
@@ -88,8 +225,12 @@ class AnalyticsService:
             'gross_loss': round(gross_loss, 2),
             'largest_win': round(max([t['pnl_usd'] for t in wins]), 2) if wins else 0,
             'largest_loss': round(min([t['pnl_usd'] for t in losses]), 2) if losses else 0,
-            'avg_win': round(gross_profit / len(wins), 2) if wins else 0,
-            'avg_loss': round(gross_loss / len(losses), 2) if losses else 0
+            'avg_win': win_loss_info['avg_win'],
+            'avg_loss': win_loss_info['avg_loss'],
+            'win_loss_ratio': win_loss_info['win_loss_ratio'],
+            'sharpe_ratio': round(sharpe_ratio, 2),
+            'max_drawdown': max_drawdown_info['max_drawdown'],
+            'max_drawdown_pct': max_drawdown_info['max_drawdown_pct']
         }
     
     def get_strategy_stats(self) -> Dict[str, Dict[str, Any]]:

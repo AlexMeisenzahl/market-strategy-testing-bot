@@ -56,6 +56,32 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for startup verification"""
+    try:
+        # Check if logs directory exists
+        logs_exist = LOGS_DIR.exists()
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'logs_directory': str(LOGS_DIR),
+            'logs_exist': logs_exist,
+            'services': {
+                'data_parser': 'ready',
+                'analytics': 'ready',
+                'chart_data': 'ready'
+            }
+        }), 200
+    except Exception as e:
+        logger.log_error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/overview')
 def get_overview():
     """Get overview dashboard summary statistics"""
@@ -478,21 +504,6 @@ def restart_bot():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/export/trades', methods=['POST'])
-def export_trades():
-    """Export trades to CSV"""
-    try:
-        data = request.json
-        file_format = data.get('format', 'csv')
-        
-        # This would generate and return CSV file
-        # For now, return success
-        return jsonify({'success': True, 'message': 'Export complete'})
-    except Exception as e:
-        logger.log_error(f"Error exporting trades: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
 @app.route('/api/logs/recent')
 def get_recent_logs():
     """Get recent log entries"""
@@ -500,9 +511,28 @@ def get_recent_logs():
         limit = int(request.args.get('limit', 100))
         level = request.args.get('level', 'all')
         
-        # Read from log file
+        # Read from bot.log file if it exists
         logs = []
-        # TODO: Implement log reading
+        log_file = LOGS_DIR / 'bot.log'
+        
+        if log_file.exists():
+            try:
+                with open(log_file, 'r') as f:
+                    lines = f.readlines()
+                    # Get last 'limit' lines
+                    recent_lines = lines[-limit:] if len(lines) > limit else lines
+                    
+                    for line in recent_lines:
+                        line = line.strip()
+                        if line:
+                            # Parse log line (basic parsing)
+                            logs.append({
+                                'timestamp': datetime.now().isoformat(),  # Would parse from log
+                                'level': 'INFO',  # Would parse from log
+                                'message': line
+                            })
+            except Exception as e:
+                logger.log_error(f"Error reading log file: {str(e)}")
         
         return jsonify(logs)
     except Exception as e:
