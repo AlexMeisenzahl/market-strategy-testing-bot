@@ -33,3 +33,10 @@ alert_on_opportunities: true        # Show when arbitrage found
 auto_rate_limit_management: true     # Automatically manage request rate
 auto_pause_on_connection_loss: true  # Stop trading if connection unstable
 auto_pause_on_api_error: true       # Stop if API format changes
+
+# === DASHBOARD SETTINGS ===
+dashboard:
+  enabled: true                      # Enable web dashboard
+  port: 5000                        # Dashboard port
+  host: "localhost"                  # Dashboard host
+  auto_open_browser: true            # Auto-open browser on start

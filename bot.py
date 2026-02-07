@@ -8,6 +8,8 @@ Paper trading only - NO REAL MONEY
 import yaml
 import time
 import sys
+import threading
+import webbrowser
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -24,6 +26,7 @@ from monitor import PolymarketMonitor
 from detector import ArbitrageDetector
 from paper_trader import PaperTrader
 from logger import get_logger
+from dashboard_server import create_dashboard_server
 
 
 class ArbitrageBot:
@@ -55,6 +58,10 @@ class ArbitrageBot:
         # Activity log for dashboard
         self.activities = []
         self.alerts = []
+        
+        # Dashboard server
+        self.dashboard = None
+        self.dashboard_thread = None
         
         # Verify paper trading is enabled
         if not self.config.get('paper_trading', True):
@@ -276,6 +283,14 @@ class ArbitrageBot:
                                     f"${self.config['max_trade_size']:.0f} NO\n"
                                     f"           Expected profit: ${trade.expected_profit:.2f}"
                                 )
+                                
+                                # Log to dashboard
+                                if self.dashboard:
+                                    self.dashboard.add_trade(trade.to_dict())
+                        
+                        # Log opportunity to dashboard
+                        if self.dashboard:
+                            self.dashboard.add_opportunity(opp.to_dict())
                     else:
                         # No opportunity
                         self.add_activity(f"✓ Scanned: {market['question']} (no opportunity)")
@@ -312,6 +327,14 @@ class ArbitrageBot:
         self.console.clear()
         self.console.print("[bold cyan]Starting Polymarket Arbitrage Bot...[/bold cyan]")
         self.console.print("[yellow]Paper Trading Mode - NO REAL MONEY[/yellow]")
+        
+        # Start web dashboard if enabled
+        dashboard_config = self.config.get('dashboard', {})
+        if dashboard_config.get('enabled', True):
+            self.console.print("[cyan]Starting web dashboard...[/cyan]")
+            self._start_dashboard()
+            time.sleep(1)
+        
         time.sleep(2)
         
         layout = self.create_dashboard()
@@ -344,6 +367,41 @@ class ArbitrageBot:
         finally:
             self.console.print("\n[cyan]Shutting down...[/cyan]")
             self.console.print(f"[green]Total paper profit: ${self.trader.get_statistics()['total_profit']:.2f}[/green]")
+    
+    def _start_dashboard(self):
+        """Start the web dashboard in a separate thread"""
+        try:
+            # Create dashboard server
+            self.dashboard = create_dashboard_server(self, self.config)
+            
+            # Get dashboard config
+            dashboard_config = self.config.get('dashboard', {})
+            host = dashboard_config.get('host', 'localhost')
+            port = dashboard_config.get('port', 5000)
+            auto_open = dashboard_config.get('auto_open_browser', True)
+            
+            # Start dashboard in separate thread
+            self.dashboard_thread = threading.Thread(
+                target=self.dashboard.run,
+                kwargs={'host': host, 'port': port, 'debug': False},
+                daemon=True
+            )
+            self.dashboard_thread.start()
+            
+            # Open browser if configured
+            if auto_open:
+                dashboard_url = f"http://{host}:{port}"
+                self.console.print(f"[green]Dashboard available at: {dashboard_url}[/green]")
+                threading.Timer(2.0, lambda: webbrowser.open(dashboard_url)).start()
+            
+        except Exception as e:
+            self.console.print(f"[yellow]Warning: Could not start dashboard: {e}[/yellow]")
+            self.logger.log_error(f"Dashboard startup error: {e}")
+    
+    def resume(self):
+        """Resume the bot from paused state"""
+        self.paused = False
+        self.running = True
 
 
 def main():
