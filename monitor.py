@@ -97,7 +97,7 @@ class PolymarketMonitor:
         self.logger = get_logger()
         
         # Initialize free API clients (from PR #8)
-        self.price_aggregator = PriceAggregator(config)
+        self.price_aggregator = PriceAggregator(logger=self.logger)
         self.subgraph_client = PolymarketSubgraph()
         
         # Initialize Live API client (from PR #6) - OPTIONAL
@@ -286,7 +286,7 @@ class PolymarketMonitor:
         Returns:
             Dictionary with price information and sources, or None on error
         """
-        return self.price_aggregator.get_price(symbol)
+        return self.price_aggregator.get_best_price(symbol)
     
     def _get_live_market_prices(self, market_id: str) -> Optional[Dict[str, float]]:
         """
