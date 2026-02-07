@@ -189,6 +189,199 @@ def update_strategy_settings():
         return jsonify({'error': str(e)}), 500
 
 
+
+
+@app.route('/api/analytics/overview')
+def analytics_overview():
+    """
+    Get dashboard overview analytics statistics
+    
+    Returns comprehensive statistics including:
+    - Total opportunities found
+    - Total trades executed
+    - Profit/loss trends
+    - Success rate by strategy
+    """
+    try:
+        # Get date range from query params
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Get trades and opportunities
+        trades = data_parser.get_trades(start_date=start_date, end_date=end_date, page=1, per_page=10000)
+        opportunities = data_parser.get_opportunities(start_date=start_date, end_date=end_date)
+        
+        # Calculate statistics
+        total_opportunities = len(opportunities) if opportunities else 0
+        total_trades = trades.get('total', 0) if isinstance(trades, dict) else 0
+        trade_list = trades.get('trades', []) if isinstance(trades, dict) else []
+        
+        # Calculate P&L
+        total_pnl = sum(t.get('profit', 0) for t in trade_list)
+        winning_trades = len([t for t in trade_list if t.get('profit', 0) > 0])
+        losing_trades = len([t for t in trade_list if t.get('profit', 0) < 0])
+        win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+        
+        # Success rate by strategy
+        strategy_stats = {}
+        for trade in trade_list:
+            strategy = trade.get('strategy', 'unknown')
+            if strategy not in strategy_stats:
+                strategy_stats[strategy] = {'total': 0, 'wins': 0, 'profit': 0}
+            strategy_stats[strategy]['total'] += 1
+            if trade.get('profit', 0) > 0:
+                strategy_stats[strategy]['wins'] += 1
+            strategy_stats[strategy]['profit'] += trade.get('profit', 0)
+        
+        # Calculate win rate per strategy
+        for strategy in strategy_stats:
+            total = strategy_stats[strategy]['total']
+            wins = strategy_stats[strategy]['wins']
+            strategy_stats[strategy]['win_rate'] = (wins / total * 100) if total > 0 else 0
+        
+        return jsonify({
+            'total_opportunities': total_opportunities,
+            'total_trades': total_trades,
+            'winning_trades': winning_trades,
+            'losing_trades': losing_trades,
+            'win_rate': round(win_rate, 2),
+            'total_pnl': round(total_pnl, 2),
+            'average_profit_per_trade': round(total_pnl / total_trades, 2) if total_trades > 0 else 0,
+            'strategy_performance': strategy_stats
+        })
+    except Exception as e:
+        logger.log_error(f"Error getting analytics overview: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/charts')
+def analytics_charts():
+    """
+    Get chart data for visualizations
+    
+    Returns data for:
+    - Cumulative P&L over time
+    - Daily opportunity count
+    - Profit distribution by market
+    """
+    try:
+        # Get date range from query params
+        time_range = request.args.get('range', '1M')
+        
+        # Get existing chart data
+        cumulative_pnl = chart_data.get_cumulative_pnl(time_range)
+        daily_pnl = chart_data.get_daily_pnl()
+        strategy_performance = chart_data.get_strategy_performance()
+        
+        # Get opportunity count data
+        opportunities = data_parser.get_opportunities()
+        
+        # Group opportunities by date
+        from collections import defaultdict
+        from datetime import datetime
+        
+        daily_opportunities = defaultdict(int)
+        if opportunities:
+            for opp in opportunities:
+                date_str = opp.get('timestamp', '')[:10] if opp.get('timestamp') else ''
+                if date_str:
+                    daily_opportunities[date_str] += 1
+        
+        # Convert to sorted list
+        opportunity_timeline = [
+            {'date': date, 'count': count}
+            for date, count in sorted(daily_opportunities.items())
+        ]
+        
+        return jsonify({
+            'cumulative_pnl': cumulative_pnl,
+            'daily_pnl': daily_pnl,
+            'strategy_performance': strategy_performance,
+            'opportunity_timeline': opportunity_timeline
+        })
+    except Exception as e:
+        logger.log_error(f"Error getting analytics charts: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/export/trades', methods=['POST'])
+def export_trades():
+    """
+    Export trades to CSV for external analysis
+    
+    Accepts filters in request body:
+    - start_date: Filter trades after this date
+    - end_date: Filter trades before this date
+    - market: Filter by specific market
+    - strategy: Filter by strategy name
+    """
+    try:
+        import csv
+        import io
+        from flask import make_response
+        
+        # Get filters from request
+        data = request.json or {}
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        market = data.get('market')
+        strategy = data.get('strategy')
+        
+        # Get all trades matching filters
+        trades_data = data_parser.get_trades(
+            start_date=start_date,
+            end_date=end_date,
+            symbol=market,
+            strategy=strategy,
+            page=1,
+            per_page=10000  # Get all trades
+        )
+        
+        trade_list = trades_data.get('trades', []) if isinstance(trades_data, dict) else []
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow([
+            'Timestamp',
+            'Market',
+            'Strategy',
+            'Entry Price',
+            'Exit Price',
+            'Size',
+            'Profit/Loss',
+            'Status',
+            'Notes'
+        ])
+        
+        # Write data rows
+        for trade in trade_list:
+            writer.writerow([
+                trade.get('timestamp', ''),
+                trade.get('market', ''),
+                trade.get('strategy', ''),
+                trade.get('entry_price', ''),
+                trade.get('exit_price', ''),
+                trade.get('size', ''),
+                trade.get('profit', 0),
+                trade.get('status', ''),
+                trade.get('notes', '')
+            ])
+        
+        # Create response
+        output.seek(0)
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=trades_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        
+        return response
+    except Exception as e:
+        logger.log_error(f"Error exporting trades: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/notifications/test', methods=['POST'])
 def test_notification():
     """Send test notification"""
@@ -208,10 +401,8 @@ def test_notification():
                 "This is a test from the web dashboard"
             )
         elif notification_type == 'email':
-            # Email notifications use send_sms method (it's named incorrectly but sends email)
-            result = notifier.send_sms("Test email from web dashboard")
+            result = notifier.send_email("Test email from web dashboard")
         elif notification_type == 'telegram':
-            # Telegram uses send_push method
             result = notifier.send_push(
                 "Test Notification",
                 "This is a test from the web dashboard"

@@ -86,17 +86,15 @@ class PolymarketMonitor:
         self.config = config
         self.logger = get_logger()
         
-        # Check if live data is enabled
-        polymarket_config = config.get('polymarket', {})
-        self.use_live_data = polymarket_config.get('use_live_data', True)
+        # Initialize Polymarket API client
+        polymarket_config = config.get('polymarket', {}).get('api', {})
+        self.api = PolymarketAPI(
+            timeout=polymarket_config.get('timeout', 10),
+            retry_attempts=polymarket_config.get('retry_attempts', 3)
+        )
         
-        # Initialize Polymarket API client for live data
-        if self.use_live_data:
-            self.api_client = PolymarketAPI(config)
-            # Live data mode enabled
-        else:
-            self.api_client = None
-            # Simulated data mode enabled
+        # Check if live API is enabled
+        self.live_api_enabled = polymarket_config.get('enabled', True)
         
         # Initialize rate limiter
         self.rate_limiter = RateLimiter(
@@ -204,9 +202,9 @@ class PolymarketMonitor:
             List of active market dictionaries
         """
         # Use live data if enabled
-        if self.use_live_data and self.api_client:
+        if self.live_api_enabled and self.api:
             try:
-                return self.api_client.fetch_markets(limit=100)
+                return self.api.get_markets(active=True, limit=100)
             except Exception as e:
                 self.logger.log_error(f"Error fetching live markets: {str(e)}")
                 return []
@@ -226,7 +224,7 @@ class PolymarketMonitor:
             Dictionary with 'yes' and 'no' prices, or None on error
         """
         # Use live data if enabled
-        if self.use_live_data and self.api_client:
+        if self.live_api_enabled and self.api:
             return self._get_live_market_prices(market_id)
         else:
             return self._get_simulated_market_prices(market_id)
@@ -242,25 +240,19 @@ class PolymarketMonitor:
             Dictionary with 'yes' and 'no' prices, or None on error
         """
         try:
-            # Fetch prices from API
-            prices = self.api_client.fetch_market_prices(market_id)
+            # Fetch prices from API using our API client
+            prices = self.api.get_market_prices(market_id)
             
             if prices is None:
                 self.logger.log_warning(f"Failed to fetch live prices for {market_id}")
                 return None
             
-            # Convert bid/ask to yes/no format
-            # In Polymarket, bid is the highest buy price and ask is the lowest sell price
-            # For a YES token: bid = highest price someone will pay, ask = lowest price someone will sell
-            # The complement gives us NO prices: NO bid ≈ 1 - YES ask, NO ask ≈ 1 - YES bid
-            yes_price = prices.get('mid', (prices.get('bid', 0.5) + prices.get('ask', 0.5)) / 2)
-            no_price = 1.0 - yes_price
-            
+            # Our API already returns in the correct format with 'yes' and 'no'
             return {
-                'yes': round(yes_price, 3),
-                'no': round(no_price, 3),
+                'yes': prices.get('yes', 0.5),
+                'no': prices.get('no', 0.5),
                 'market_id': market_id,
-                'timestamp': prices.get('timestamp', datetime.now().isoformat())
+                'timestamp': datetime.now().isoformat()
             }
             
         except Exception as e:
@@ -285,7 +277,27 @@ class PolymarketMonitor:
             # Add delay between requests
             time.sleep(self.request_delay)
             
-            # Simulate prices (for paper trading/testing)
+            if self.live_api_enabled:
+                # Use LIVE Polymarket API
+                prices = self.api.get_market_prices(market_id)
+                
+                self.rate_limiter.record_request()
+                
+                if prices:
+                    return {
+                        'yes': prices.get('yes', 0.5),
+                        'no': prices.get('no', 0.5),
+                        'market_id': market_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                else:
+                    # Fallback to simulated if API fails
+                    self.logger.log_warning(
+                        f"Live API failed for {market_id}, using fallback data"
+                    )
+            
+            # Fallback: Simulate prices (for when API is disabled or fails)
+            # This ensures paper trading can continue even if API is unavailable
             import random
             yes_price = round(random.uniform(0.40, 0.60), 3)
             no_price = round(random.uniform(0.40, 0.60), 3)

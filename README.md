@@ -1,8 +1,29 @@
 # Polymarket Arbitrage Bot - Paper Trading Edition
 
-A complete, production-ready arbitrage bot for Polymarket with **professional web dashboard** and comprehensive safety features. **PAPER TRADING ONLY - NO REAL MONEY IS USED.**
+A complete, production-ready arbitrage bot for Polymarket with **live API integration**, **professional web dashboard**, and comprehensive safety features. **PAPER TRADING ONLY - NO REAL MONEY IS USED.**
 
-## 📊 NEW: Professional Web Dashboard
+## 🚀 NEW: Live Polymarket API Integration
+
+**The bot now connects to the real Polymarket API** for live market data and prices!
+
+### Live API Features:
+- 🔴 **Live Market Data** - Fetches real-time YES/NO prices from Polymarket
+- 📊 **Active Markets Discovery** - Automatically finds and filters active markets
+- 🎯 **Smart Filtering** - Filter by liquidity, volume, keywords, and categories
+- 🛡️ **Graceful Fallback** - Continues with simulated data if API is unavailable
+- ⚡ **Rate Limiting** - Respects API limits with exponential backoff
+- 🔄 **Auto-Retry** - Automatically retries failed requests
+
+👉 **[See API Integration Guide](API_INTEGRATION.md)**
+
+### Enhanced Notification System:
+- 📱 **Granular Controls** - Configure notifications per event type and channel
+- ⏰ **Quiet Hours** - Set hours when notifications are suppressed
+- 🚦 **Rate Limiting** - Prevent notification spam with smart rate limiting
+- 📧 **Multiple Channels** - Desktop, Email, and Telegram notifications
+- 🎯 **Smart Triggers** - Configurable triggers for high-value opportunities
+
+## 📊 Professional Web Dashboard
 
 **Access a beautiful, modern web interface** to monitor and control your trading bot!
 
@@ -13,6 +34,8 @@ A complete, production-ready arbitrage bot for Polymarket with **professional we
 - 🔔 **Notification Center** - Configure email, desktop, and Telegram alerts
 - 🎛️ **Bot Control** - Start, stop, and monitor your bot from the web
 - 🎨 **Professional Design** - Dark theme, responsive, smooth animations
+- 📥 **CSV Export** - Export trade history for external analysis
+- 📈 **Advanced Analytics** - Opportunity trends, profit distribution, and more
 
 ### Quick Start Dashboard:
 
@@ -46,7 +69,7 @@ This bot watches Polymarket prediction markets and looks for arbitrage opportuni
 - One will pay out: $1.00
 - Your profit: $0.03 (3% return)
 
-This bot finds these opportunities automatically and simulates trades (paper trading) so you can learn how arbitrage works without risking any money.
+This bot finds these opportunities automatically and can now use **real live data from Polymarket** while still simulating trades (paper trading) so you can learn how arbitrage works without risking any money.
 
 ## ⚠️ IMPORTANT SAFETY WARNINGS
 
@@ -96,16 +119,62 @@ Or if you're using Python 3:
 pip3 install -r requirements.txt
 ```
 
-### Step 3: Verify Configuration
+### Step 3: Configure the Bot
+
+Copy the example configuration and customize it:
+
+```bash
+cp config.example.yaml config.yaml
+```
 
 Open `config.yaml` in a text editor and verify these settings:
 
 ```yaml
-paper_trading: true        # ✓ Should be true
+# Safety settings (DO NOT CHANGE)
+paper_trading: true        # ✓ Must be true
 kill_switch: false         # ✓ Should be false to run
+
+# Trading parameters
 max_trade_size: 10        # Max $ per trade (paper money)
 min_profit_margin: 0.02   # Minimum 2% profit to attempt trade
+
+# Live API settings (NEW!)
+polymarket:
+  api:
+    enabled: true          # Set to true for live data
+    timeout: 10
+    retry_attempts: 3
+  
+  market_filters:
+    min_liquidity: 1000   # Filter by liquidity
+    min_volume_24h: 5000  # Filter by volume
+
+# Optional: Filter by specific markets
+markets_to_watch: []      # Leave empty for all markets
+# Or specify keywords: ['Bitcoin', 'Ethereum', 'Election']
+
+# Notifications (NEW!)
+notifications:
+  desktop:
+    enabled: true
+    event_types:
+      trade: true
+      opportunity: true
+      error: true
+  
+  rate_limiting:
+    enabled: true
+    max_per_hour: 20
+  
+  quiet_hours:
+    enabled: false
+    start_time: "23:00"
+    end_time: "07:00"
 ```
+
+See [config.example.yaml](config.example.yaml) for all available options.
+
+👉 **[Full API Integration Guide](API_INTEGRATION.md)**
 
 **DO NOT change `paper_trading` to false!**
 

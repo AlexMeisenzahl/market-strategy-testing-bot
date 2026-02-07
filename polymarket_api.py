@@ -1,322 +1,322 @@
 """
-Polymarket API Integration Module
+Live Polymarket API integration
+Documentation: https://docs.polymarket.com/
 
-Handles live data fetching from Polymarket's public APIs:
-- Gamma API: Market listings and metadata
-- CLOB API: Order book and price data
-
-Features:
-- Rate limiting
-- Response caching
-- Error handling with exponential backoff
-- No authentication required for public data
+Official Polymarket CLOB (Central Limit Order Book) API client
+- Public endpoints (no authentication needed for market data)
+- Rate limiting: respects API limits with exponential backoff
+- Error handling: retries with exponential backoff
 """
 
 import requests
 import time
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
+from datetime import datetime
 from logger import get_logger
 
 
 class PolymarketAPI:
-    """Client for Polymarket public APIs"""
+    """
+    Official Polymarket API client for accessing market data
     
-    # API endpoints (public, no authentication needed)
-    GAMMA_API_URL = "https://gamma-api.polymarket.com"
-    CLOB_API_URL = "https://clob.polymarket.com"
+    This client interfaces with the Polymarket CLOB API to fetch:
+    - Active markets and market details
+    - Real-time YES/NO prices
+    - Order book data for liquidity analysis
+    """
     
-    def __init__(self, config: Dict[str, Any]):
+    BASE_URL = "https://clob.polymarket.com"
+    
+    def __init__(self, timeout: int = 10, retry_attempts: int = 3):
         """
         Initialize Polymarket API client
         
         Args:
-            config: Configuration dictionary
+            timeout: Request timeout in seconds (default: 10)
+            retry_attempts: Number of retry attempts on failure (default: 3)
         """
-        self.config = config
+        self.timeout = timeout
+        self.retry_attempts = retry_attempts
         self.logger = get_logger()
-        
-        # Extract polymarket config if available
-        polymarket_config = config.get('polymarket', {})
-        
-        # API endpoints
-        self.gamma_url = polymarket_config.get('api_base_url', self.GAMMA_API_URL)
-        self.clob_url = polymarket_config.get('clob_api_url', self.CLOB_API_URL)
-        
-        # Rate limiting
-        self.rate_limit = polymarket_config.get('rate_limit_per_minute', 60)
-        self.request_timestamps = []
-        
-        # Caching
-        self.cache_duration = polymarket_config.get('cache_duration_seconds', 15)
-        self.cache = {}
-        
-        # Request settings
-        self.timeout = polymarket_config.get('timeout_seconds', config.get('api_timeout_seconds', 10))
-        self.max_retries = config.get('max_retries', 3)
-        self.backoff_factor = 2
-        
-    def _check_rate_limit(self) -> bool:
-        """
-        Check if we can make a request without exceeding rate limit
-        
-        Returns:
-            True if request can proceed, False if rate limited
-        """
-        now = datetime.now()
-        cutoff = now - timedelta(seconds=60)
-        
-        # Clean old timestamps
-        self.request_timestamps = [ts for ts in self.request_timestamps if ts > cutoff]
-        
-        # Check if under limit
-        if len(self.request_timestamps) >= self.rate_limit:
-            self.logger.log_warning(f"Rate limit reached ({self.rate_limit}/min)")
-            return False
-        
-        return True
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Market-Strategy-Testing-Bot/1.0',
+            'Accept': 'application/json'
+        })
     
-    def _record_request(self) -> None:
-        """Record that a request was made"""
-        self.request_timestamps.append(datetime.now())
-    
-    def _get_from_cache(self, cache_key: str) -> Optional[Any]:
+    def _make_request(
+        self, 
+        endpoint: str, 
+        params: Optional[Dict[str, Any]] = None,
+        retry_count: int = 0
+    ) -> Optional[Any]:
         """
-        Get data from cache if available and not expired
+        Make HTTP request with exponential backoff retry logic
         
         Args:
-            cache_key: Cache key
-            
-        Returns:
-            Cached data or None if not available/expired
-        """
-        if cache_key in self.cache:
-            cached_data, timestamp = self.cache[cache_key]
-            age = (datetime.now() - timestamp).total_seconds()
-            
-            if age < self.cache_duration:
-                # Cache hit
-                return cached_data
-        
-        return None
-    
-    def _save_to_cache(self, cache_key: str, data: Any) -> None:
-        """
-        Save data to cache
-        
-        Args:
-            cache_key: Cache key
-            data: Data to cache
-        """
-        self.cache[cache_key] = (data, datetime.now())
-    
-    def _make_request(self, url: str, params: Optional[Dict] = None) -> Optional[Dict]:
-        """
-        Make HTTP request with retry logic
-        
-        Args:
-            url: Request URL
+            endpoint: API endpoint path
             params: Query parameters
+            retry_count: Current retry attempt number
             
         Returns:
-            Response JSON or None on error
+            Response JSON data or None on failure
         """
-        # Check rate limit
-        if not self._check_rate_limit():
-            # Wait for rate limit to reset
-            time.sleep(1)
-            return None
+        url = f"{self.BASE_URL}{endpoint}"
         
-        # Try with exponential backoff
-        for attempt in range(self.max_retries):
-            try:
-                response = requests.get(
-                    url,
-                    params=params,
-                    timeout=self.timeout,
-                    headers={'User-Agent': 'PolymarketBot/1.0'}
-                )
-                
-                self._record_request()
-                
-                if response.status_code == 200:
-                    return response.json()
-                elif response.status_code == 429:
-                    # Rate limited
-                    wait_time = (2 ** attempt) * self.backoff_factor
-                    self.logger.log_warning(f"Rate limited, waiting {wait_time}s")
+        try:
+            response = self.session.get(
+                url,
+                params=params,
+                timeout=self.timeout
+            )
+            
+            # Check for rate limiting
+            if response.status_code == 429:
+                if retry_count < self.retry_attempts:
+                    # Exponential backoff: 2^retry_count seconds
+                    wait_time = 2 ** retry_count
+                    self.logger.log_warning(
+                        f"Rate limited by API. Waiting {wait_time}s before retry..."
+                    )
                     time.sleep(wait_time)
+                    return self._make_request(endpoint, params, retry_count + 1)
                 else:
-                    self.logger.log_error(f"API error: HTTP {response.status_code}")
+                    self.logger.log_error("Rate limit exceeded, max retries reached")
                     return None
-                    
-            except requests.exceptions.Timeout:
-                self.logger.log_warning(f"Request timeout (attempt {attempt + 1}/{self.max_retries})")
-            except requests.exceptions.ConnectionError as e:
-                self.logger.log_warning(f"Connection error (attempt {attempt + 1}/{self.max_retries}): {str(e)}")
-            except Exception as e:
-                self.logger.log_error(f"Unexpected error: {str(e)}")
+            
+            # Success
+            if response.status_code == 200:
+                return response.json()
+            
+            # Client error (4xx)
+            if 400 <= response.status_code < 500:
+                self.logger.log_error(
+                    f"API client error {response.status_code}: {response.text}"
+                )
                 return None
             
-            # Wait before retry
-            if attempt < self.max_retries - 1:
-                wait_time = (2 ** attempt) * self.backoff_factor
+            # Server error (5xx) - retry with backoff
+            if 500 <= response.status_code < 600:
+                if retry_count < self.retry_attempts:
+                    wait_time = 2 ** retry_count
+                    self.logger.log_warning(
+                        f"API server error {response.status_code}. "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    time.sleep(wait_time)
+                    return self._make_request(endpoint, params, retry_count + 1)
+                else:
+                    self.logger.log_error(
+                        f"API server error {response.status_code}, max retries reached"
+                    )
+                    return None
+            
+            return None
+            
+        except requests.exceptions.Timeout:
+            if retry_count < self.retry_attempts:
+                wait_time = 2 ** retry_count
+                self.logger.log_warning(f"Request timeout. Retrying in {wait_time}s...")
                 time.sleep(wait_time)
-        
-        return None
+                return self._make_request(endpoint, params, retry_count + 1)
+            else:
+                self.logger.log_error("Request timeout, max retries reached")
+                return None
+                
+        except requests.exceptions.ConnectionError as e:
+            if retry_count < self.retry_attempts:
+                wait_time = 2 ** retry_count
+                self.logger.log_warning(
+                    f"Connection error: {str(e)}. Retrying in {wait_time}s..."
+                )
+                time.sleep(wait_time)
+                return self._make_request(endpoint, params, retry_count + 1)
+            else:
+                self.logger.log_error(f"Connection error, max retries reached: {str(e)}")
+                return None
+                
+        except Exception as e:
+            self.logger.log_error(f"Unexpected API error: {str(e)}")
+            return None
     
-    def fetch_markets(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_markets(
+        self, 
+        active: bool = True, 
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict]:
         """
         Fetch active markets from Polymarket
         
         Args:
-            limit: Maximum number of markets to fetch
-            
+            active: If True, only return active markets (default: True)
+            limit: Maximum number of markets to return (default: 100)
+            offset: Pagination offset (default: 0)
+        
         Returns:
-            List of market dictionaries
+            List of market objects with:
+            - condition_id (unique identifier)
+            - question (market question)
+            - outcomes (YES/NO)
+            - end_date_iso (market closing date)
+            - volume (trading volume)
+            - liquidity (available liquidity)
+            - tokens (token addresses for YES/NO)
         """
-        cache_key = f"markets_{limit}"
-        
-        # Check cache
-        cached = self._get_from_cache(cache_key)
-        if cached is not None:
-            return cached
-        
-        # Fetch from API
-        url = f"{self.gamma_url}/markets"
         params = {
-            'closed': 'false',
-            'limit': limit
+            'limit': limit,
+            'offset': offset
         }
         
-        # Fetching markets from API
-        data = self._make_request(url, params)
+        if active:
+            params['closed'] = 'false'
+        
+        data = self._make_request('/markets', params)
         
         if data is None:
-            self.logger.log_error("Failed to fetch markets")
             return []
         
-        # Handle different response formats
-        markets = data if isinstance(data, list) else data.get('data', [])
-        
-        # Cache the results
-        self._save_to_cache(cache_key, markets)
-        
-        # Successfully fetched markets
-        return markets
-    
-    def fetch_market_prices(self, token_id: str) -> Optional[Dict[str, float]]:
-        """
-        Fetch current prices for a market token
-        
-        Args:
-            token_id: Market token ID
-            
-        Returns:
-            Dictionary with 'bid' and 'ask' prices, or None on error
-        """
-        cache_key = f"prices_{token_id}"
-        
-        # Check cache
-        cached = self._get_from_cache(cache_key)
-        if cached is not None:
-            return cached
-        
-        # Fetch from CLOB API
-        url = f"{self.clob_url}/price"
-        params = {'token_id': token_id}
-        
-        data = self._make_request(url, params)
-        
-        if data is None:
-            return None
-        
-        try:
-            # Extract bid/ask prices
-            prices = {
-                'bid': float(data.get('bid', 0)),
-                'ask': float(data.get('ask', 0)),
-                'mid': float(data.get('mid', 0)),
-                'timestamp': datetime.now().isoformat()
-            }
-            
-            # Cache the results
-            self._save_to_cache(cache_key, prices)
-            
-            return prices
-            
-        except (KeyError, ValueError, TypeError) as e:
-            self.logger.log_error(f"Error parsing price data for {token_id}: {str(e)}")
-            return None
-    
-    def fetch_events(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        Fetch events (prediction markets) from Polymarket
-        
-        Args:
-            limit: Maximum number of events to fetch
-            
-        Returns:
-            List of event dictionaries
-        """
-        cache_key = f"events_{limit}"
-        
-        # Check cache
-        cached = self._get_from_cache(cache_key)
-        if cached is not None:
-            return cached
-        
-        # Fetch from API
-        url = f"{self.gamma_url}/events"
-        params = {
-            'closed': 'false',
-            'limit': limit
-        }
-        
-        # Fetching events from API
-        data = self._make_request(url, params)
-        
-        if data is None:
-            self.logger.log_error("Failed to fetch events")
+        # Handle both list and single market response
+        if isinstance(data, list):
+            return data
+        elif isinstance(data, dict):
+            return [data]
+        else:
+            self.logger.log_error(f"Unexpected markets response format: {type(data)}")
             return []
-        
-        # Handle different response formats
-        events = data if isinstance(data, list) else data.get('data', [])
-        
-        # Cache the results
-        self._save_to_cache(cache_key, events)
-        
-        # Successfully fetched events
-        return events
     
-    def get_market_by_id(self, market_id: str) -> Optional[Dict[str, Any]]:
+    def get_market(self, condition_id: str) -> Optional[Dict]:
         """
-        Get a specific market by ID
+        Get detailed information for a specific market
         
         Args:
-            market_id: Market ID
+            condition_id: Unique market identifier
             
         Returns:
-            Market dictionary or None if not found
+            Market object or None if not found
         """
-        cache_key = f"market_{market_id}"
-        
-        # Check cache
-        cached = self._get_from_cache(cache_key)
-        if cached is not None:
-            return cached
-        
-        # Fetch from API
-        url = f"{self.gamma_url}/markets/{market_id}"
-        
-        data = self._make_request(url)
-        
-        if data is not None:
-            self._save_to_cache(cache_key, data)
-        
+        data = self._make_request(f'/markets/{condition_id}')
         return data
     
-    def clear_cache(self) -> None:
-        """Clear all cached data"""
-        self.cache.clear()
-        # Cache cleared
+    def get_market_prices(self, condition_id: str) -> Dict[str, float]:
+        """
+        Get current YES/NO prices for a market
+        
+        Args:
+            condition_id: Unique market identifier
+        
+        Returns:
+            Dictionary with 'yes' and 'no' prices
+            Example: {"yes": 0.52, "no": 0.48}
+        """
+        # First get market details to find token IDs
+        market = self.get_market(condition_id)
+        
+        if not market or 'tokens' not in market:
+            self.logger.log_error(f"Could not get market details for {condition_id}")
+            return {"yes": 0.5, "no": 0.5}  # Return default if unavailable
+        
+        tokens = market.get('tokens', [])
+        if len(tokens) < 2:
+            self.logger.log_error(f"Market {condition_id} has insufficient tokens")
+            return {"yes": 0.5, "no": 0.5}
+        
+        # Get prices for YES and NO tokens
+        yes_token = tokens[0].get('token_id', '')
+        no_token = tokens[1].get('token_id', '')
+        
+        yes_price = self._get_token_price(yes_token)
+        no_price = self._get_token_price(no_token)
+        
+        return {
+            "yes": yes_price if yes_price is not None else 0.5,
+            "no": no_price if no_price is not None else 0.5
+        }
+    
+    def _get_token_price(self, token_id: str) -> Optional[float]:
+        """
+        Get current price for a specific token
+        
+        Args:
+            token_id: Token identifier
+            
+        Returns:
+            Price as float or None if unavailable
+        """
+        data = self._make_request('/price', params={'token_id': token_id})
+        
+        if data and 'price' in data:
+            return float(data['price'])
+        
+        return None
+    
+    def get_orderbook(self, token_id: str) -> Dict:
+        """
+        Get full orderbook for deep liquidity analysis
+        
+        Args:
+            token_id: Token identifier for YES or NO outcome
+        
+        Returns:
+            Orderbook with bids and asks:
+            {
+                'bids': [{'price': 0.51, 'size': 100}, ...],
+                'asks': [{'price': 0.52, 'size': 150}, ...]
+            }
+        """
+        data = self._make_request('/book', params={'token_id': token_id})
+        
+        if data is None:
+            return {'bids': [], 'asks': []}
+        
+        return {
+            'bids': data.get('bids', []),
+            'asks': data.get('asks', [])
+        }
+    
+    def get_market_trades(
+        self, 
+        condition_id: str, 
+        limit: int = 100
+    ) -> List[Dict]:
+        """
+        Get recent trades for a market
+        
+        Args:
+            condition_id: Unique market identifier
+            limit: Maximum number of trades to return (default: 100)
+            
+        Returns:
+            List of recent trades with price, size, and timestamp
+        """
+        params = {
+            'market': condition_id,
+            'limit': limit
+        }
+        
+        data = self._make_request('/trades', params)
+        
+        if data is None:
+            return []
+        
+        if isinstance(data, list):
+            return data
+        
+        return []
+    
+    def check_health(self) -> bool:
+        """
+        Check if Polymarket API is accessible
+        
+        Returns:
+            True if API is healthy, False otherwise
+        """
+        try:
+            response = self.session.get(
+                f"{self.BASE_URL}/markets",
+                params={'limit': 1},
+                timeout=5
+            )
+            return response.status_code == 200
+        except Exception:
+            return False

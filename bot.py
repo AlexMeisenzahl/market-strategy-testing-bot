@@ -237,14 +237,8 @@ class ArbitrageBot:
                     self.add_alert("🚨 Connection lost - trading paused")
                     return
             
-            # Get active markets (use live data if enabled, otherwise demo)
-            polymarket_config = self.config.get('polymarket', {})
-            use_live_data = polymarket_config.get('use_live_data', True)
-            
-            if use_live_data:
-                markets_to_scan = self._fetch_live_markets()
-            else:
-                markets_to_scan = self._get_demo_markets()
+            # Get active markets (use live API if enabled, otherwise demo)
+            markets_to_scan = self._get_live_markets()
             
             # Fetch prices for each market
             prices_dict = {}
@@ -317,85 +311,83 @@ class ArbitrageBot:
         
         return demo_markets
     
-    def _fetch_live_markets(self) -> list:
-        """
-        Fetch live markets from Polymarket API with filtering
-        
-        Returns:
-            List of filtered market dictionaries
-        """
+    def _get_live_markets(self) -> list:
+        """Fetch active markets from Polymarket API"""
         try:
-            # Get polymarket config
-            polymarket_config = self.config.get('polymarket', {})
-            markets_config = polymarket_config.get('markets', {})
-            
-            # Get all active markets from API
-            all_markets = self.monitor.get_active_markets()
-            
-            if not all_markets:
-                self.logger.log_warning("No live markets fetched, using demo markets")
+            # Check if live API is enabled
+            polymarket_config = self.config.get('polymarket', {}).get('api', {})
+            if not polymarket_config.get('enabled', True):
+                self.logger.log_warning("Live API disabled, using demo markets")
                 return self._get_demo_markets()
             
+            # Get active markets from API
+            markets = self.monitor.api.get_markets(active=True, limit=100)
+            
+            if not markets:
+                self.logger.log_warning("No markets returned from API, using demo markets")
+                return self._get_demo_markets()
+            
+            # Get filtering configuration
+            market_filters = self.config.get('polymarket', {}).get('market_filters', {})
+            min_liquidity = market_filters.get('min_liquidity', 1000)
+            min_volume = market_filters.get('min_volume_24h', 5000)
+            categories = market_filters.get('categories', [])
+            
+            # Get configured keywords for filtering
+            configured_keywords = self.config.get('markets_to_watch', [])
+            
             # Filter markets
-            filtered_markets = []
-            
-            # Get filter settings
-            max_markets = markets_config.get('max_markets', 50)
-            min_liquidity = markets_config.get('min_liquidity', 1000)
-            categories = [cat.lower() for cat in markets_config.get('categories', [])]  # Normalize once
-            exclude_keywords = [kw.lower() for kw in markets_config.get('exclude_keywords', ['test', 'demo'])]
-            
-            for market in all_markets:
-                # Skip if market doesn't have required fields
-                if not isinstance(market, dict):
+            filtered = []
+            for market in markets:
+                # Skip if below liquidity threshold
+                if market.get('liquidity', 0) < min_liquidity:
                     continue
                 
-                # Extract market info
-                question = market.get('question', market.get('title', ''))
-                market_id = market.get('id', market.get('condition_id', ''))
-                volume = float(market.get('volume', market.get('volume_24hr', 0)))
-                category = market.get('category', market.get('tags', [''])[0] if market.get('tags') else '')
-                
-                # Skip if missing essential fields
-                if not question or not market_id:
+                # Skip if below volume threshold
+                if market.get('volume', 0) < min_volume:
                     continue
                 
-                # Filter by liquidity
-                if volume < min_liquidity:
-                    continue
-                
-                # Filter by category if specified (case-insensitive exact match)
-                if categories and category:
-                    if category.lower() not in categories:
+                # If keywords configured, filter by keywords
+                if configured_keywords:
+                    question = market.get('question', '').lower()
+                    if not any(keyword.lower() in question for keyword in configured_keywords):
                         continue
                 
-                # Filter by exclude keywords
-                question_lower = question.lower()
-                if exclude_keywords:
-                    if any(keyword in question_lower for keyword in exclude_keywords):
+                # If categories configured, filter by category
+                if categories:
+                    market_category = market.get('category', '').lower()
+                    if market_category not in [c.lower() for c in categories]:
                         continue
                 
-                # Add to filtered list
-                filtered_markets.append({
-                    'id': market_id,
-                    'question': question,
-                    'volume': volume,
-                    'category': category
+                # Add market with standardized format
+                filtered.append({
+                    'id': market.get('condition_id', market.get('id', '')),
+                    'question': market.get('question', 'Unknown Market'),
+                    'liquidity': market.get('liquidity', 0),
+                    'volume': market.get('volume', 0),
+                    'end_date': market.get('end_date_iso', '')
                 })
             
-            # Sort by volume and limit
-            filtered_markets.sort(key=lambda m: m.get('volume', 0), reverse=True)
-            filtered_markets = filtered_markets[:max_markets]
+            # Sort by volume (highest first) and limit to top 20
+            filtered.sort(key=lambda m: m.get('volume', 0), reverse=True)
+            filtered = filtered[:20]
             
-            self.logger.log_info(f"Filtered {len(filtered_markets)} markets from {len(all_markets)} total")
+            if not filtered:
+                self.logger.log_warning(
+                    "No markets passed filters, using demo markets"
+                )
+                return self._get_demo_markets()
             
-            return filtered_markets
+            self.logger.log_info(
+                f"Fetched {len(filtered)} live markets from Polymarket API"
+            )
+            
+            return filtered
             
         except Exception as e:
-            self.logger.log_error(f"Error fetching live markets: {str(e)}")
-            # Fallback to demo markets on error
+            self.logger.log_error(f"Failed to fetch live markets: {str(e)}")
+            self.logger.log_warning("Falling back to demo markets")
             return self._get_demo_markets()
-
     
     def run(self) -> None:
         """Main bot loop with live dashboard"""
