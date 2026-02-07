@@ -24,6 +24,7 @@ from monitor import PolymarketMonitor
 from detector import ArbitrageDetector
 from paper_trader import PaperTrader
 from logger import get_logger
+from notifier import Notifier
 
 
 class ArbitrageBot:
@@ -44,6 +45,7 @@ class ArbitrageBot:
         self.monitor = PolymarketMonitor(self.config)
         self.detector = ArbitrageDetector(self.config)
         self.trader = PaperTrader(self.config)
+        self.notifier = Notifier(self.config)
         
         # Bot state
         self.running = True
@@ -267,8 +269,10 @@ class ArbitrageBot:
                             f"SUM: ${price_sum:.2f} ({opp.profit_margin:.1f}% profit)"
                         )
                         
-                        # Execute paper trade if possible
-                        if not self.paused and self.trader.can_trade():
+                        # Add alert for opportunity
+                        if self.config.get("alert_on_opportunities", True):
+                            self.add_alert(f"💰 {market['question'][:40]}... ({opp.profit_margin:.1f}% profit)")
+                            self.notifier.alert_opportunity_found(market['question'], opp.profit_margin)
                             trade = self.trader.execute_paper_trade(opp)
                             if trade:
                                 self.add_activity(

@@ -316,12 +316,10 @@ class PolymarketMonitor:
         return 0
     
     def get_rate_limit_status(self) -> Dict[str, Any]:
-        """
-        Get current rate limit status for dashboard
+        """Get current rate limit status"""
+        # CLEAN OLD REQUESTS FIRST!
+        self.rate_limiter._clean_old_requests()
         
-        Returns:
-            Dictionary with rate limit information
-        """
         return {
             'current': len(self.rate_limiter.requests),
             'max': self.rate_limiter.max_requests,
