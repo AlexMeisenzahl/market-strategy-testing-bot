@@ -319,6 +319,139 @@ rate_limit_pause_threshold: 0.95      # Pause at 95%
 - **Paper trading**: Simulated, no real money, safe to learn
 - **Real trading**: Uses real money, requires authentication, has risk
 
+## 🌐 Live Market Data Integration
+
+### Overview
+
+The bot now supports **live, real-time data from the Polymarket API**! This allows you to test strategies against actual market conditions while remaining in safe paper trading mode.
+
+### Features
+
+- **Real Market Data**: Fetches live markets from Polymarket
+- **Actual Prices**: Uses real bid/ask spreads from the order book
+- **Smart Caching**: Reduces API calls with 15-second cache
+- **Rate Limiting**: Respects API limits (60 requests/minute)
+- **Market Filtering**: Focus on specific categories and liquidity levels
+- **Fallback Mode**: Automatically uses simulated data if API fails
+
+### Configuration
+
+Edit `config.yaml` (or `config.example.yaml`) to configure live data:
+
+```yaml
+polymarket:
+  use_live_data: true              # Enable live data (set false for testing)
+  api_base_url: "https://gamma-api.polymarket.com"
+  clob_api_url: "https://clob.polymarket.com"
+  rate_limit_per_minute: 60        # Max API requests per minute
+  cache_duration_seconds: 15       # Cache market data for this long
+  
+  markets:
+    max_markets: 50                # Maximum markets to monitor
+    min_liquidity: 1000            # Minimum $ liquidity
+    categories:                    # Categories to include (empty = all)
+      - "Crypto"
+      - "Politics"
+      - "Sports"
+      - "Business"
+    exclude_keywords:              # Skip markets with these keywords
+      - "test"
+      - "demo"
+```
+
+### How It Works
+
+1. **Market Fetching**: Bot fetches active markets from Polymarket's Gamma API
+2. **Filtering**: Applies category, liquidity, and keyword filters
+3. **Price Updates**: Gets real-time bid/ask prices from CLOB API
+4. **Opportunity Detection**: Finds arbitrage opportunities in real markets
+5. **Paper Trading**: Simulates trades without risking real money
+
+### API Endpoints Used
+
+The bot uses these **public Polymarket APIs** (no authentication required):
+
+- **Markets**: `https://gamma-api.polymarket.com/markets`
+  - Returns list of active prediction markets
+  
+- **Events**: `https://gamma-api.polymarket.com/events`
+  - Returns market metadata and details
+  
+- **Prices**: `https://clob.polymarket.com/price`
+  - Returns current bid/ask prices from order book
+
+### Rate Limits & Best Practices
+
+**Rate Limits:**
+- Default: 60 requests per minute
+- Bot automatically tracks and respects limits
+- Implements exponential backoff on errors
+
+**Best Practices:**
+1. Use caching (enabled by default)
+2. Don't set cache duration too low (< 10 seconds)
+3. Limit `max_markets` to reasonable number (50-100)
+4. Monitor rate limit warnings in dashboard
+
+### Troubleshooting API Issues
+
+**Problem: "Failed to fetch live markets"**
+- **Solution**: Check internet connection, API may be temporarily down
+- **Fallback**: Bot automatically uses simulated data
+
+**Problem: "Rate limited"**
+- **Solution**: Increase `cache_duration_seconds` in config
+- **Solution**: Decrease `max_markets` to reduce API calls
+- **Fallback**: Bot waits for rate limit to reset
+
+**Problem: API returns empty data**
+- **Cause**: No active markets match your filters
+- **Solution**: Broaden category filters or reduce `min_liquidity`
+
+**Problem: Connection timeout**
+- **Cause**: Slow network or API latency
+- **Solution**: Increase `api_timeout_seconds` in config
+
+### Testing Live Data
+
+To verify live data is working:
+
+1. Start bot with `use_live_data: true`
+2. Check dashboard for real market names (not "BTC-above-100k")
+3. Verify prices change over time (not static)
+4. Check logs for "Fetching markets from" messages
+
+### Switching Between Live and Simulated Data
+
+**Use Live Data** (recommended):
+```yaml
+polymarket:
+  use_live_data: true
+```
+
+**Use Simulated Data** (for testing):
+```yaml
+polymarket:
+  use_live_data: false
+```
+
+Simulated mode is useful for:
+- Testing bot logic without API calls
+- Development and debugging
+- When API is down or unavailable
+
+### Security Notes
+
+- ✅ **No authentication required** for public data
+- ✅ **Read-only access** - bot only fetches data
+- ✅ **No wallet needed** - paper trading only
+- ✅ **No API keys** - public endpoints are free
+- ✅ **Privacy preserved** - no personal data sent
+
+**Important**: Even with live data, **paper trading remains enabled**. Real money is never at risk.
+
+---
+
 ## 📚 Learning Resources
 
 To understand arbitrage trading better:

@@ -1,3 +1,27 @@
+# Polymarket API Configuration
+# Configure live market data integration
+
+# TELEGRAM BOT CONFIGURATION (Optional - for notifications)
 # Replace with: bot_token: "YOUR_BOT_TOKEN_HERE"
 #               password: "YOUR_APP_PASSWORD_HERE"
+
+# Polymarket Settings
+polymarket:
+  use_live_data: true              # Set to false for testing with mock data
+  api_base_url: "https://gamma-api.polymarket.com"
+  clob_api_url: "https://clob.polymarket.com"
+  rate_limit_per_minute: 60        # Max API requests per minute
+  cache_duration_seconds: 15       # Cache market data for this long
+  
+  markets:
+    max_markets: 50                # Maximum markets to monitor
+    min_liquidity: 1000            # Minimum $ liquidity
+    categories:                    # Categories to include (empty = all)
+      - "Crypto"
+      - "Politics"
+      - "Sports"
+      - "Business"
+    exclude_keywords:              # Skip markets with these keywords
+      - "test"
+      - "demo"
 
