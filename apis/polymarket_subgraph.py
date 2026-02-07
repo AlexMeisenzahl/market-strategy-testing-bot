@@ -366,5 +366,7 @@ class PolymarketSubgraph:
             query = '{ markets(first: 1) { id } }'
             data = self._execute_query(query)
             return data is not None and 'markets' in data
-        except:
+        except Exception as e:
+            if self.logger:
+                self.logger.log_error(f"Subgraph health check failed: {str(e)}")
             return False

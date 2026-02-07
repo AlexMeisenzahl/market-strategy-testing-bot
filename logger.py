@@ -126,7 +126,11 @@ class Logger:
     
     def log_info(self, message: str) -> None:
         """Log an informational message"""
-        self.log_error(message, level="INFO")
+        info_file = self.log_dir / "errors.log"
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        with open(info_file, 'a') as f:
+            f.write(f"[{timestamp}] INFO: {message}\n")
     
     def log_connection(self, status: str, response_time_ms: Optional[int] = None,
                       message: str = "") -> None:

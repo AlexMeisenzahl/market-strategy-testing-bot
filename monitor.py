@@ -299,7 +299,9 @@ class PolymarketMonitor:
                     'timestamp': datetime.now().isoformat()
                 }
             return None
-        except:
+        except (KeyError, IndexError, ValueError, TypeError) as e:
+            if self.logger:
+                self.logger.log_error(f"Error parsing market prices: {str(e)}")
             return None
     
     def get_crypto_price(self, symbol: str) -> Optional[Dict]:
