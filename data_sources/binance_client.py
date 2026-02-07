@@ -12,6 +12,17 @@ import time
 from typing import Dict, Optional, List, Callable
 from datetime import datetime
 
+# Import logger if available
+try:
+    from logger import get_logger
+    logger = get_logger()
+except ImportError:
+    # Fallback to print if logger not available
+    class FallbackLogger:
+        def log_error(self, msg): print(f"ERROR: {msg}")
+        def log_warning(self, msg): print(f"WARNING: {msg}")
+    logger = FallbackLogger()
+
 
 class BinanceClient:
     """Client for Binance WebSocket and REST API"""
@@ -47,7 +58,7 @@ class BinanceClient:
             return float(data['price'])
             
         except Exception as e:
-            print(f"Error fetching price for {symbol}: {e}")
+            logger.log_error(f"Error fetching price for {symbol}: {e}")
             return None
     
     def get_24h_ticker(self, symbol: str = 'BTCUSDT') -> Optional[Dict]:
@@ -78,7 +89,7 @@ class BinanceClient:
             }
             
         except Exception as e:
-            print(f"Error fetching 24h ticker for {symbol}: {e}")
+            logger.log_error(f"Error fetching 24h ticker for {symbol}: {e}")
             return None
     
     def get_historical_klines(self, symbol: str = 'BTCUSDT', 
@@ -125,7 +136,7 @@ class BinanceClient:
             return klines
             
         except Exception as e:
-            print(f"Error fetching klines for {symbol}: {e}")
+            logger.log_error(f"Error fetching klines for {symbol}: {e}")
             return None
     
     async def stream_price(self, symbol: str = 'BTCUSDT', 
@@ -166,7 +177,7 @@ class BinanceClient:
                         callback(price_data)
                         
         except Exception as e:
-            print(f"WebSocket error for {symbol}: {e}")
+            logger.log_error(f"WebSocket error for {symbol}: {e}")
     
     async def stream_multiple_prices(self, symbols: List[str], 
                                      callback: Optional[Callable] = None) -> None:
@@ -189,17 +200,28 @@ class BinanceClient:
             symbols: List of trading pair symbols to stream
             callback: Function to call with price updates
         """
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        # Create task for streaming
-        task = loop.create_task(self.stream_multiple_prices(symbols, callback))
-        self.ws_tasks.append(task)
-        
-        # Run in background thread
-        import threading
-        thread = threading.Thread(target=loop.run_forever, daemon=True)
-        thread.start()
+        if not self.websocket_started:
+            try:
+                # Get or create event loop
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                # Create task for streaming
+                task = loop.create_task(self.stream_multiple_prices(symbols, callback))
+                self.ws_tasks.append(task)
+                
+                # Run in background thread
+                import threading
+                thread = threading.Thread(target=loop.run_forever, daemon=True)
+                thread.start()
+                
+                self.websocket_started = True
+            except Exception as e:
+                logger.log_warning(f"Could not start WebSocket streams: {e}")
+                logger.log_warning("Falling back to REST API only")
     
     def get_cached_price(self, symbol: str) -> Optional[Dict]:
         """

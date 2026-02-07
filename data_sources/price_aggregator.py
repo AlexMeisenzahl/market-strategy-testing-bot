@@ -13,6 +13,17 @@ import time
 from .binance_client import BinanceClient
 from .coingecko_client import CoinGeckoClient
 
+# Import logger if available
+try:
+    from logger import get_logger
+    logger = get_logger()
+except ImportError:
+    # Fallback to print if logger not available
+    class FallbackLogger:
+        def log_error(self, msg): print(f"ERROR: {msg}")
+        def log_warning(self, msg): print(f"WARNING: {msg}")
+    logger = FallbackLogger()
+
 
 class PriceAggregator:
     """Aggregates cryptocurrency prices from multiple sources with intelligent fallback"""

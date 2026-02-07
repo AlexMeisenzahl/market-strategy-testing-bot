@@ -9,6 +9,17 @@ import requests
 from typing import Dict, Optional, List, Any
 from datetime import datetime
 
+# Import logger if available
+try:
+    from logger import get_logger
+    logger = get_logger()
+except ImportError:
+    # Fallback to print if logger not available
+    class FallbackLogger:
+        def log_error(self, msg): print(f"ERROR: {msg}")
+        def log_warning(self, msg): print(f"WARNING: {msg}")
+    logger = FallbackLogger()
+
 
 class PolymarketSubgraph:
     """Client for Polymarket Subgraph via The Graph"""
@@ -54,7 +65,7 @@ class PolymarketSubgraph:
             return data.get('data')
             
         except Exception as e:
-            print(f"Error executing GraphQL query: {e}")
+            logger.log_error(f"Error executing GraphQL query: {e}")
             return None
     
     def query_markets(self, filters: Optional[Dict] = None, 
@@ -94,7 +105,7 @@ class PolymarketSubgraph:
             return markets
             
         except Exception as e:
-            print(f"Error querying markets: {e}")
+            logger.log_error(f"Error querying markets: {e}")
             return None
     
     def get_market(self, market_id: str) -> Optional[Dict]:
@@ -117,7 +128,7 @@ class PolymarketSubgraph:
             return self._parse_market(data)
             
         except Exception as e:
-            print(f"Error fetching market {market_id}: {e}")
+            logger.log_error(f"Error fetching market {market_id}: {e}")
             return None
     
     def get_market_trades(self, market_id: str, limit: int = 100) -> Optional[List[Dict]]:
@@ -159,7 +170,7 @@ class PolymarketSubgraph:
             return trades
             
         except Exception as e:
-            print(f"Error fetching trades for market {market_id}: {e}")
+            logger.log_error(f"Error fetching trades for market {market_id}: {e}")
             return None
     
     def get_market_prices(self, market_id: str) -> Optional[Dict]:
@@ -188,7 +199,7 @@ class PolymarketSubgraph:
             }
             
         except Exception as e:
-            print(f"Error fetching prices for market {market_id}: {e}")
+            logger.log_error(f"Error fetching prices for market {market_id}: {e}")
             return None
     
     def get_market_liquidity(self, market_id: str) -> Optional[Dict]:
@@ -226,7 +237,7 @@ class PolymarketSubgraph:
             }
             
         except Exception as e:
-            print(f"Error fetching liquidity for market {market_id}: {e}")
+            logger.log_error(f"Error fetching liquidity for market {market_id}: {e}")
             return None
     
     def get_active_markets_with_volume(self, min_volume: float = 1000, 

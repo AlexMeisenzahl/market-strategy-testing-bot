@@ -10,6 +10,17 @@ import time
 from typing import Dict, Optional, List
 from datetime import datetime
 
+# Import logger if available
+try:
+    from logger import get_logger
+    logger = get_logger()
+except ImportError:
+    # Fallback to print if logger not available
+    class FallbackLogger:
+        def log_error(self, msg): print(f"ERROR: {msg}")
+        def log_warning(self, msg): print(f"WARNING: {msg}")
+    logger = FallbackLogger()
+
 
 class CoinGeckoClient:
     """Client for CoinGecko Free API"""
@@ -83,7 +94,7 @@ class CoinGeckoClient:
             return None
             
         except Exception as e:
-            print(f"Error fetching price from CoinGecko for {symbol}: {e}")
+            logger.log_error(f"Error fetching price from CoinGecko for {symbol}: {e}")
             return None
     
     def get_prices_batch(self, symbols: List[str]) -> Dict[str, float]:
@@ -120,7 +131,7 @@ class CoinGeckoClient:
             return prices
             
         except Exception as e:
-            print(f"Error fetching batch prices from CoinGecko: {e}")
+            logger.log_error(f"Error fetching batch prices from CoinGecko: {e}")
             return {}
     
     def get_market_data(self, symbol: str = 'BTCUSDT') -> Optional[Dict]:
@@ -164,7 +175,7 @@ class CoinGeckoClient:
             return None
             
         except Exception as e:
-            print(f"Error fetching market data from CoinGecko for {symbol}: {e}")
+            logger.log_error(f"Error fetching market data from CoinGecko for {symbol}: {e}")
             return None
     
     def get_market_chart(self, symbol: str = 'BTCUSDT', days: int = 7) -> Optional[List[Dict]]:
@@ -205,7 +216,7 @@ class CoinGeckoClient:
             return prices
             
         except Exception as e:
-            print(f"Error fetching market chart from CoinGecko for {symbol}: {e}")
+            logger.log_error(f"Error fetching market chart from CoinGecko for {symbol}: {e}")
             return None
     
     def get_trending_coins(self) -> Optional[List[Dict]]:
@@ -240,7 +251,7 @@ class CoinGeckoClient:
             return trending
             
         except Exception as e:
-            print(f"Error fetching trending coins from CoinGecko: {e}")
+            logger.log_error(f"Error fetching trending coins from CoinGecko: {e}")
             return None
     
     def search_coins(self, query: str) -> Optional[List[Dict]]:
@@ -277,5 +288,5 @@ class CoinGeckoClient:
             return results
             
         except Exception as e:
-            print(f"Error searching coins on CoinGecko: {e}")
+            logger.log_error(f"Error searching coins on CoinGecko: {e}")
             return None
