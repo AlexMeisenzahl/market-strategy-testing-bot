@@ -95,7 +95,7 @@ class PolymarketAPI:
             age = (datetime.now() - timestamp).total_seconds()
             
             if age < self.cache_duration:
-                self.logger.log_info(f"Cache hit for {cache_key} (age: {age:.1f}s)")
+                # Cache hit
                 return cached_data
         
         return None
@@ -189,7 +189,7 @@ class PolymarketAPI:
             'limit': limit
         }
         
-        self.logger.log_info(f"Fetching markets from {url}")
+        # Fetching markets from API
         data = self._make_request(url, params)
         
         if data is None:
@@ -202,7 +202,7 @@ class PolymarketAPI:
         # Cache the results
         self._save_to_cache(cache_key, markets)
         
-        self.logger.log_info(f"Fetched {len(markets)} markets")
+        # Successfully fetched markets
         return markets
     
     def fetch_market_prices(self, token_id: str) -> Optional[Dict[str, float]]:
@@ -273,7 +273,7 @@ class PolymarketAPI:
             'limit': limit
         }
         
-        self.logger.log_info(f"Fetching events from {url}")
+        # Fetching events from API
         data = self._make_request(url, params)
         
         if data is None:
@@ -286,7 +286,7 @@ class PolymarketAPI:
         # Cache the results
         self._save_to_cache(cache_key, events)
         
-        self.logger.log_info(f"Fetched {len(events)} events")
+        # Successfully fetched events
         return events
     
     def get_market_by_id(self, market_id: str) -> Optional[Dict[str, Any]]:
@@ -319,4 +319,4 @@ class PolymarketAPI:
     def clear_cache(self) -> None:
         """Clear all cached data"""
         self.cache.clear()
-        self.logger.log_info("Cache cleared")
+        # Cache cleared

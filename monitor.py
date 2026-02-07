@@ -93,10 +93,10 @@ class PolymarketMonitor:
         # Initialize Polymarket API client for live data
         if self.use_live_data:
             self.api_client = PolymarketAPI(config)
-            self.logger.log_info("Polymarket Monitor initialized with LIVE data")
+            # Live data mode enabled
         else:
             self.api_client = None
-            self.logger.log_info("Polymarket Monitor initialized with SIMULATED data")
+            # Simulated data mode enabled
         
         # Initialize rate limiter
         self.rate_limiter = RateLimiter(

@@ -25,3 +25,27 @@ polymarket:
       - "test"
       - "demo"
 
+# Trading Settings
+paper_trading: true                # ALWAYS keep this true - NO REAL MONEY
+max_trade_size: 10                # Maximum trade size in $ (paper money)
+min_profit_margin: 0.02           # Minimum 2% profit to execute trade
+
+# Bot Behavior
+kill_switch: false                # Set to true to stop the bot
+connection_check_interval: 10     # Seconds between connection checks
+auto_pause_on_connection_loss: true  # Auto-pause if connection lost
+alert_on_opportunities: true      # Show alerts for opportunities
+
+# API Settings
+api_timeout_seconds: 10           # Request timeout
+max_retries: 3                    # Max retry attempts
+request_delay_seconds: 0.5        # Delay between requests
+rate_limit_max: 100               # Max requests per minute
+rate_limit_warning_threshold: 0.80  # Warn at 80% usage
+rate_limit_pause_threshold: 0.95    # Pause at 95% usage
+
+# Markets to Watch (for simulated mode)
+markets_to_watch:
+  - "BTC above $100k"
+  - "ETH above $4k"
+
