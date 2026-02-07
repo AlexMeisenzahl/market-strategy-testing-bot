@@ -146,24 +146,24 @@ class Notifier:
         Returns:
             True if notification should be sent, False otherwise
         """
+        # Map channels to their enabled flags and event types
+        channel_config = {
+            'desktop': (self.desktop_enabled, self.desktop_event_types),
+            'email': (self.email_enabled, self.email_event_types),
+            'telegram': (self.telegram_enabled, self.telegram_event_types)
+        }
+        
         # Check if channel is enabled
-        if channel == 'desktop' and not self.desktop_enabled:
+        if channel not in channel_config:
             return False
-        elif channel == 'email' and not self.email_enabled:
-            return False
-        elif channel == 'telegram' and not self.telegram_enabled:
+        
+        is_enabled, event_types = channel_config[channel]
+        if not is_enabled:
             return False
         
         # Check if event type is enabled for this channel
-        if channel == 'desktop':
-            if not self.desktop_event_types.get(event_type, True):
-                return False
-        elif channel == 'email':
-            if not self.email_event_types.get(event_type, True):
-                return False
-        elif channel == 'telegram':
-            if not self.telegram_event_types.get(event_type, True):
-                return False
+        if not event_types.get(event_type, True):
+            return False
         
         # Check rate limits
         if self.rate_limiter and not self.rate_limiter.allow():

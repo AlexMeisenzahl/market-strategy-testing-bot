@@ -5,7 +5,7 @@ Allows configuration of quiet hours during which notifications are suppressed.
 Supports timezone-aware time checking.
 """
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import Optional
 import pytz
 
@@ -108,7 +108,6 @@ class QuietHours:
         
         # If end time is in the past today, it's tomorrow
         if end_today <= now:
-            from datetime import timedelta
             end_today += timedelta(days=1)
         
         return end_today
