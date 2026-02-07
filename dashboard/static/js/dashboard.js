@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Page Navigation
-function showPage(pageName) {
+function showPage(pageName, event) {
     // Hide all pages
     document.querySelectorAll('.page-content').forEach(page => {
         page.classList.add('hidden');
@@ -168,7 +168,7 @@ async function loadCumulativePNLChart(timeRange) {
 }
 
 // Update cumulative P&L time range
-function updateCumulativePNL(timeRange) {
+function updateCumulativePNL(timeRange, event) {
     currentTimeRange = timeRange;
     
     // Update button states
@@ -488,7 +488,7 @@ async function restartBot() {
 }
 
 // Settings Functions
-function showSettingsTab(tabName) {
+function showSettingsTab(tabName, event) {
     // Hide all settings content
     document.querySelectorAll('.settings-content').forEach(content => {
         content.classList.add('hidden');

@@ -208,8 +208,10 @@ def test_notification():
                 "This is a test from the web dashboard"
             )
         elif notification_type == 'email':
+            # Email notifications use send_sms method (it's named incorrectly but sends email)
             result = notifier.send_sms("Test email from web dashboard")
         elif notification_type == 'telegram':
+            # Telegram uses send_push method
             result = notifier.send_push(
                 "Test Notification",
                 "This is a test from the web dashboard"
