@@ -10,24 +10,165 @@ let cumulativePNLChart = null;
 let dailyPNLChart = null;
 let strategyChart = null;
 let currentTimeRange = '1M';
+let autoRefreshEnabled = true;
+let autoRefreshInterval = null;
+let isRefreshing = false;
 
 // API Base URL
 const API_BASE = window.location.origin;
 
+// Initialize API client
+const apiClient = new APIClient(API_BASE);
+
+// Auto-refresh interval (30 seconds instead of 10)
+const REFRESH_INTERVAL = 30000;
+
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard loaded');
+    
+    // Check connection status first
+    checkConnectionStatus();
+    
+    // Load initial data
     loadOverviewData();
     loadBotStatus();
     
-    // Auto-refresh every 10 seconds
-    setInterval(() => {
-        if (currentPage === 'overview') {
-            loadOverviewData();
-        }
-        loadBotStatus();
-    }, 10000);
+    // Setup auto-refresh with longer interval (30s)
+    startAutoRefresh();
+    
+    // Add manual refresh button handler
+    const refreshBtn = document.getElementById('manual-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', handleManualRefresh);
+    }
+    
+    // Add auto-refresh toggle handler
+    const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
+    if (autoRefreshToggle) {
+        autoRefreshToggle.addEventListener('change', handleAutoRefreshToggle);
+    }
 });
+
+// Connection status checker
+async function checkConnectionStatus() {
+    try {
+        const isConnected = await checkConnection(`${API_BASE}/health`);
+        updateConnectionIndicator(isConnected);
+        return isConnected;
+    } catch (error) {
+        console.error('Connection check failed:', error);
+        updateConnectionIndicator(false);
+        return false;
+    }
+}
+
+// Update connection indicator UI
+function updateConnectionIndicator(isConnected) {
+    const indicator = document.getElementById('connection-status');
+    const statusText = document.getElementById('connection-status-text');
+    
+    if (indicator && statusText) {
+        if (isConnected) {
+            indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400';
+            statusText.textContent = 'Connected';
+        } else {
+            indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-900/20 text-red-400';
+            statusText.textContent = 'Disconnected';
+        }
+    }
+}
+
+// Start auto-refresh
+function startAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    autoRefreshInterval = setInterval(() => {
+        if (autoRefreshEnabled && !isRefreshing) {
+            refreshCurrentPage();
+        }
+    }, REFRESH_INTERVAL);
+}
+
+// Stop auto-refresh
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+// Handle auto-refresh toggle
+function handleAutoRefreshToggle(event) {
+    autoRefreshEnabled = event.target.checked;
+    
+    if (autoRefreshEnabled) {
+        startAutoRefresh();
+        showToast('Auto-refresh enabled (30s interval)', 'success');
+    } else {
+        stopAutoRefresh();
+        showToast('Auto-refresh disabled', 'info');
+    }
+    
+    // Save preference
+    storage.set('autoRefreshEnabled', autoRefreshEnabled);
+}
+
+// Handle manual refresh
+async function handleManualRefresh() {
+    if (isRefreshing) {
+        showToast('Refresh already in progress', 'info');
+        return;
+    }
+    
+    const refreshBtn = document.getElementById('manual-refresh-btn');
+    const refreshIcon = refreshBtn?.querySelector('i');
+    
+    try {
+        isRefreshing = true;
+        
+        // Add spinning animation to icon
+        if (refreshIcon) {
+            refreshIcon.classList.add('fa-spin');
+        }
+        
+        await refreshCurrentPage();
+        showToast('Data refreshed successfully', 'success');
+    } catch (error) {
+        console.error('Manual refresh failed:', error);
+        showToast('Failed to refresh data', 'error');
+    } finally {
+        isRefreshing = false;
+        
+        // Remove spinning animation
+        if (refreshIcon) {
+            refreshIcon.classList.remove('fa-spin');
+        }
+    }
+}
+
+// Refresh current page data
+async function refreshCurrentPage() {
+    // Check connection first
+    const isConnected = await checkConnectionStatus();
+    if (!isConnected) {
+        console.warn('Not connected to server, skipping refresh');
+        return;
+    }
+    
+    if (currentPage === 'overview') {
+        await loadOverviewData();
+    } else if (currentPage === 'trades') {
+        await loadTradesData();
+    } else if (currentPage === 'settings') {
+        await loadSettings();
+    }
+    
+    // Always refresh bot status
+    await loadBotStatus();
+}
 
 // Page Navigation
 function showPage(pageName, event) {
@@ -62,14 +203,13 @@ function showPage(pageName, event) {
 // Load Overview Data
 async function loadOverviewData() {
     try {
-        const response = await fetch(`${API_BASE}/api/overview`);
-        const data = await response.json();
+        const data = await apiClient.get('/api/overview');
         
         // Update key metrics
         document.getElementById('total-pnl').textContent = formatCurrency(data.total_pnl);
         document.getElementById('total-pnl').className = data.total_pnl >= 0 ? 'text-3xl font-bold mb-1 text-profit' : 'text-3xl font-bold mb-1 text-loss';
         
-        document.getElementById('pnl-change').textContent = (data.pnl_change_pct >= 0 ? '+' : '') + data.pnl_change_pct.toFixed(2) + '%';
+        document.getElementById('pnl-change').textContent = formatPercentage(data.pnl_change_pct);
         document.getElementById('pnl-change').className = data.pnl_change_pct >= 0 ? 'text-profit' : 'text-loss';
         
         document.getElementById('win-rate').textContent = data.win_rate.toFixed(1) + '%';
@@ -78,10 +218,8 @@ async function loadOverviewData() {
         document.getElementById('active-trades').textContent = data.active_trades;
         document.getElementById('total-trades').textContent = data.total_trades;
         
-        // Load charts
-        loadCumulativePNLChart(currentTimeRange);
-        loadDailyPNLChart();
-        loadStrategyPerformance();
+        // Load charts (debounced to prevent too many updates)
+        debouncedLoadCharts();
         loadRecentActivity();
         
     } catch (error) {
@@ -90,73 +228,46 @@ async function loadOverviewData() {
     }
 }
 
+// Debounced chart loading to prevent flickering
+const debouncedLoadCharts = debounce(() => {
+    loadCumulativePNLChart(currentTimeRange);
+    loadDailyPNLChart();
+    loadStrategyPerformance();
+}, 500);
+
 // Load Cumulative P&L Chart
 async function loadCumulativePNLChart(timeRange) {
     try {
-        const response = await fetch(`${API_BASE}/api/charts/cumulative-pnl?range=${timeRange}`);
-        const data = await response.json();
+        const response = await apiClient.get('/api/charts/cumulative-pnl', { range: timeRange });
+        const data = response;
         
         const ctx = document.getElementById('cumulative-pnl-chart');
+        if (!ctx) return;
         
-        // Destroy existing chart
-        if (cumulativePNLChart) {
-            cumulativePNLChart.destroy();
-        }
+        // Properly destroy existing chart
+        cumulativePNLChart = destroyChart(cumulativePNLChart);
         
         // Prepare data
         const labels = data.data.map(d => new Date(d.timestamp).toLocaleDateString());
         const values = data.data.map(d => d.value);
         
-        cumulativePNLChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Cumulative P&L',
-                    data: values,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                        titleColor: '#f1f5f9',
-                        bodyColor: '#cbd5e1',
-                        borderColor: '#475569',
-                        borderWidth: 1
-                    }
-                },
-                scales: {
-                    y: {
-                        grid: {
-                            color: '#334155'
-                        },
-                        ticks: {
-                            color: '#94a3b8',
-                            callback: function(value) {
-                                return '$' + value.toFixed(2);
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            color: '#334155'
-                        },
-                        ticks: {
-                            color: '#94a3b8',
-                            maxRotation: 45,
-                            minRotation: 45
+        // Create chart with no animations
+        cumulativePNLChart = createChart(ctx, 'line', {
+            labels: labels,
+            datasets: [{
+                label: 'Cumulative P&L',
+                data: values,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        }, {
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
                         }
                     }
                 }
@@ -164,6 +275,7 @@ async function loadCumulativePNLChart(timeRange) {
         });
     } catch (error) {
         console.error('Error loading cumulative P&L chart:', error);
+        showToast('Error loading cumulative P&L chart', 'error');
     }
 }
 
@@ -185,147 +297,97 @@ function updateCumulativePNL(timeRange, event) {
 // Load Daily P&L Chart
 async function loadDailyPNLChart() {
     try {
-        const response = await fetch(`${API_BASE}/api/charts/daily-pnl`);
-        const data = await response.json();
+        const response = await apiClient.get('/api/charts/daily-pnl');
+        const data = response;
         
         const ctx = document.getElementById('daily-pnl-chart');
+        if (!ctx) return;
         
-        // Destroy existing chart
-        if (dailyPNLChart) {
-            dailyPNLChart.destroy();
-        }
+        // Properly destroy existing chart
+        dailyPNLChart = destroyChart(dailyPNLChart);
         
         // Prepare data
         const labels = data.data.map(d => new Date(d.date).toLocaleDateString());
         const values = data.data.map(d => d.pnl);
         const colors = data.data.map(d => d.pnl >= 0 ? '#10b981' : '#ef4444');
         
-        dailyPNLChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Daily P&L',
-                    data: values,
-                    backgroundColor: colors,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                        titleColor: '#f1f5f9',
-                        bodyColor: '#cbd5e1',
-                        borderColor: '#475569',
-                        borderWidth: 1
+        // Create chart with no animations
+        dailyPNLChart = createChart(ctx, 'bar', {
+            labels: labels,
+            datasets: [{
+                label: 'Daily P&L',
+                data: values,
+                backgroundColor: colors,
+                borderRadius: 4
+            }]
+        }, {
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(0);
+                        }
                     }
                 },
-                scales: {
-                    y: {
-                        grid: {
-                            color: '#334155'
-                        },
-                        ticks: {
-                            color: '#94a3b8',
-                            callback: function(value) {
-                                return '$' + value.toFixed(0);
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            color: '#94a3b8',
-                            maxRotation: 45,
-                            minRotation: 45
-                        }
+                x: {
+                    grid: {
+                        display: false
                     }
                 }
             }
         });
     } catch (error) {
         console.error('Error loading daily P&L chart:', error);
+        showToast('Error loading daily P&L chart', 'error');
     }
 }
 
 // Load Strategy Performance Chart
 async function loadStrategyPerformance() {
     try {
-        const response = await fetch(`${API_BASE}/api/charts/strategy-performance`);
-        const data = await response.json();
+        const response = await apiClient.get('/api/charts/strategy-performance');
+        const data = response;
         
         const ctx = document.getElementById('strategy-performance-chart');
+        if (!ctx) return;
         
-        // Destroy existing chart
-        if (strategyChart) {
-            strategyChart.destroy();
-        }
+        // Properly destroy existing chart
+        strategyChart = destroyChart(strategyChart);
         
         // Prepare data
         const labels = data.strategies.map(s => s.name);
         const values = data.strategies.map(s => s.pnl);
         const colors = values.map(v => v >= 0 ? '#10b981' : '#ef4444');
         
-        strategyChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'P&L by Strategy',
-                    data: values,
-                    backgroundColor: colors,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                        titleColor: '#f1f5f9',
-                        bodyColor: '#cbd5e1',
-                        borderColor: '#475569',
-                        borderWidth: 1
+        // Create chart with no animations
+        strategyChart = createChart(ctx, 'bar', {
+            labels: labels,
+            datasets: [{
+                label: 'P&L by Strategy',
+                data: values,
+                backgroundColor: colors,
+                borderRadius: 4
+            }]
+        }, {
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(0);
+                        }
                     }
                 },
-                scales: {
-                    x: {
-                        grid: {
-                            color: '#334155'
-                        },
-                        ticks: {
-                            color: '#94a3b8',
-                            callback: function(value) {
-                                return '$' + value.toFixed(0);
-                            }
-                        }
-                    },
-                    y: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            color: '#94a3b8'
-                        }
+                y: {
+                    grid: {
+                        display: false
                     }
                 }
             }
         });
     } catch (error) {
         console.error('Error loading strategy performance:', error);
+        showToast('Error loading strategy performance', 'error');
     }
 }
 
