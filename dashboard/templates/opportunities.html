@@ -169,8 +169,10 @@
                 if (status) params.append('status', status);
                 
                 const response = await fetch(`${API_BASE}/api/opportunities?${params.toString()}`);
-                const opportunities = await response.json();
+                const data = await response.json();
                 
+                // Handle both array and object responses
+                const opportunities = Array.isArray(data) ? data : (data.opportunities || []);
                 currentOpportunities = opportunities;
                 renderOpportunities(opportunities);
             } catch (error) {
@@ -205,11 +207,12 @@
                 // Format timestamp
                 const timestamp = new Date(opp.timestamp).toLocaleString();
                 
-                // Status badge
+                // Status badge - map action_taken to status
                 let statusBadge = '';
-                if (opp.status === 'executed') {
+                let status = opp.status || (opp.action_taken ? 'executed' : 'pending');
+                if (status === 'executed' || opp.action_taken) {
                     statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-green-900/20 text-green-400">Executed</span>';
-                } else if (opp.status === 'pending') {
+                } else if (status === 'pending') {
                     statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-yellow-900/20 text-yellow-400">Pending</span>';
                 } else {
                     statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-red-900/20 text-red-400">Rejected</span>';
@@ -222,17 +225,24 @@
                 else if (confidence >= 70) confidenceColor = 'text-yellow-400';
                 else confidenceColor = 'text-red-400';
                 
+                // Signal type
+                const signal = opp.signal || opp.signal_type || 'BUY';
+                
+                // Price (if available)
+                const price = opp.price || 'N/A';
+                const priceDisplay = typeof price === 'number' ? `$${price.toFixed(2)}` : price;
+                
                 row.innerHTML = `
                     <td class="px-6 py-4 text-sm text-gray-400">${timestamp}</td>
                     <td class="px-6 py-4 text-sm font-medium">${opp.symbol}</td>
                     <td class="px-6 py-4 text-sm">${opp.strategy}</td>
                     <td class="px-6 py-4 text-sm">
-                        <span class="px-2 py-1 text-xs font-semibold rounded ${opp.signal === 'BUY' ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}">
-                            ${opp.signal}
+                        <span class="px-2 py-1 text-xs font-semibold rounded ${signal === 'BUY' ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}">
+                            ${signal}
                         </span>
                     </td>
                     <td class="px-6 py-4 text-sm font-medium ${confidenceColor}">${confidence}%</td>
-                    <td class="px-6 py-4 text-sm">$${parseFloat(opp.price).toFixed(2)}</td>
+                    <td class="px-6 py-4 text-sm">${priceDisplay}</td>
                     <td class="px-6 py-4 text-sm">${statusBadge}</td>
                     <td class="px-6 py-4 text-sm">
                         <button onclick="event.stopPropagation(); viewOpportunityDetails(${JSON.stringify(opp).replace(/"/g, '&quot;')})" 
