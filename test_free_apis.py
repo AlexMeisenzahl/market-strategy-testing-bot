@@ -245,7 +245,7 @@ def main():
     ]
     
     results = []
-    for name, test_func in tests:
+    for i, (name, test_func) in enumerate(tests):
         try:
             print(f"\n{'=' * 60}")
             print(f"Running: {name}")
@@ -253,8 +253,8 @@ def main():
             result = test_func()
             results.append((name, result))
             
-            # Add delay between tests to avoid rate limiting
-            if test_func != tests[-1][1]:  # Don't sleep after last test
+            # Add delay between tests to avoid rate limiting (except for last test)
+            if i < len(tests) - 1:
                 time.sleep(2)
                 
         except Exception as e:

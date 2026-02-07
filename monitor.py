@@ -12,6 +12,7 @@ Handles:
 
 import requests
 import time
+import random
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger
@@ -121,7 +122,8 @@ class PolymarketMonitor:
                 data_agg_config = config.get('data_aggregator', {})
                 combined_config = {**apis_config, **data_agg_config}
                 self.data_aggregator = FreeDataAggregator(combined_config)
-                # Log success using print since logger doesn't have log_info
+                # Note: Using print since logger doesn't have log_info method
+                # In production, consider adding log_info to Logger class
                 print("✓ Free data sources initialized (Binance, CoinGecko, Polymarket Subgraph)")
             except Exception as e:
                 self.logger.log_warning(f"Failed to initialize free data sources: {e}")
@@ -277,18 +279,22 @@ class PolymarketMonitor:
                         # Get crypto price and simulate prediction market format
                         price = self.data_aggregator.get_crypto_price(symbol.upper())
                         if price:
-                            # For demo purposes, convert crypto price to simulated market odds
-                            # This is just for the paper trading demo
-                            import random
-                            yes_price = round(random.uniform(0.40, 0.60), 3)
-                            no_price = round(random.uniform(0.40, 0.60), 3)
+                            # For paper trading demo purposes, convert crypto price to simulated market odds
+                            # In production, this would use actual prediction market data
+                            # Generate deterministic but varied odds based on market_id
+                            hash_val = sum(ord(c) for c in market_id) % 100
+                            yes_price = round(0.40 + (hash_val / 100) * 0.20, 3)  # Range: 0.40-0.60
+                            no_price = round(1.0 - yes_price, 3)
+                            
+                            self.logger.log_warning(f"Using simulated market odds for {market_id} (demo mode)")
                             
                             return {
                                 'yes': yes_price,
                                 'no': no_price,
                                 'market_id': market_id,
                                 'timestamp': datetime.now().isoformat(),
-                                'crypto_price': price  # Include actual crypto price
+                                'crypto_price': price,  # Include actual crypto price
+                                'demo_mode': True  # Flag to indicate this is simulated data
                             }
                     except Exception as e:
                         self.logger.log_warning(f"Failed to fetch crypto data: {e}")
@@ -302,14 +308,12 @@ class PolymarketMonitor:
             # Add delay between requests
             time.sleep(self.request_delay)
             
-            # For this implementation, we'll simulate market prices
-            # In production, you would fetch from the actual Polymarket API
-            # This is a paper trading bot, so simulated data is acceptable
-            
-            # Simulate prices (this would be replaced with actual API call)
-            import random
-            yes_price = round(random.uniform(0.40, 0.60), 3)
-            no_price = round(random.uniform(0.40, 0.60), 3)
+            # For paper trading demo, simulate market prices
+            # In production, this would fetch from actual Polymarket API
+            # Generate deterministic but varied odds based on market_id
+            hash_val = sum(ord(c) for c in market_id) % 100
+            yes_price = round(0.40 + (hash_val / 100) * 0.20, 3)  # Range: 0.40-0.60
+            no_price = round(1.0 - yes_price, 3)
             
             self.rate_limiter.record_request()
             
@@ -317,7 +321,8 @@ class PolymarketMonitor:
                 'yes': yes_price,
                 'no': no_price,
                 'market_id': market_id,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'demo_mode': True  # Flag to indicate this is simulated data
             }
             
         except Exception as e:
