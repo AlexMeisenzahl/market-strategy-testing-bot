@@ -78,9 +78,29 @@ min_profit_margin: 0.02   # Minimum 2% profit to attempt trade
 
 ## 🎮 How to Run the Bot
 
-### Start the Bot
+### Quick Start (Recommended)
 
-Run this command in your terminal:
+The easiest way to start the bot with the dashboard:
+
+```bash
+python start.py
+```
+
+Or:
+
+```bash
+python3 start.py
+```
+
+This script will:
+- ✅ Check if all dependencies are installed
+- ✅ Install missing dependencies automatically
+- ✅ Start the bot with web dashboard
+- ✅ Open your browser to http://localhost:5000
+
+### Manual Start
+
+Alternatively, run the bot directly:
 
 ```bash
 python bot.py
