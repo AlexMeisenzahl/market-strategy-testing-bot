@@ -124,6 +124,10 @@ class Logger:
         """Log a critical error message"""
         self.log_error(message, level="CRITICAL")
     
+    def log_info(self, message: str) -> None:
+        """Log an informational message"""
+        self.log_error(message, level="INFO")
+    
     def log_connection(self, status: str, response_time_ms: Optional[int] = None,
                       message: str = "") -> None:
         """

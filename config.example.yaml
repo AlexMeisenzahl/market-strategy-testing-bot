@@ -2,7 +2,8 @@
 # Paper Trading Mode - NO REAL MONEY
 #
 # This is a comprehensive configuration file that includes:
-# - Live Polymarket API integration
+# - Free data sources (Binance, CoinGecko, Polymarket Subgraph)
+# - Optional Live Polymarket API integration
 # - Enhanced notification system
 # - Market filtering options
 # - Rate limiting and safety features
@@ -16,6 +17,19 @@ paper_trading: true
 
 # Kill switch: Set to true to immediately stop all trading
 kill_switch: false
+
+# ============================================================================
+# DATA SOURCES (FREE APIS)
+# ============================================================================
+data_sources:
+  crypto_prices:
+    primary: binance          # Free, 1200 req/min
+    fallback: coingecko      # Free, 50 req/min
+    use_websocket: true      # Real-time price streams
+  
+  polymarket:
+    method: subgraph         # Default: Free GraphQL (unlimited)
+    cache_ttl_seconds: 60
 
 # ============================================================================
 # TRADING PARAMETERS
@@ -34,14 +48,14 @@ max_trades_per_hour: 5
 max_trades_per_day: 50
 
 # ============================================================================
-# POLYMARKET API CONFIGURATION
+# POLYMARKET API CONFIGURATION (OPTIONAL ENHANCEMENT)
 # ============================================================================
 
 polymarket:
   api:
-    # Enable/disable live API integration
-    # Set to false to use demo/simulated data only
-    enabled: true
+    # Enable Live API (optional - requires network access)
+    # If disabled, uses FREE Subgraph instead (no API keys needed)
+    enabled: false           # Set to true for Live CLOB API with Subgraph fallback
     
     # API base URL (do not change unless using a different endpoint)
     base_url: "https://clob.polymarket.com"
