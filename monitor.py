@@ -10,9 +10,9 @@ Handles:
 - Integration with free data sources (Binance, CoinGecko, Polymarket Subgraph)
 """
 
+import random
 import requests
 import time
-import random
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger

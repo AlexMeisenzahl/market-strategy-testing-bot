@@ -121,7 +121,7 @@ def test_cache_functionality():
     try:
         from apis.data_aggregator import FreeDataAggregator
         
-        config = {'cache_ttl_seconds': 10}
+        config = {'cache_ttl_seconds': 2}  # Use short TTL for testing
         aggregator = FreeDataAggregator(config)
         
         # Test cache key generation
@@ -138,7 +138,15 @@ def test_cache_functionality():
         assert cached['price'] == 50000.0, "❌ Cached data doesn't match!"
         print("✓ Cache set/get working correctly")
         
+        # Test cache expiration
+        import time
+        time.sleep(2.5)  # Wait for cache to expire
+        expired = aggregator._get_cached('test_key')
+        assert expired is None, "❌ Cache should have expired!"
+        print("✓ Cache expiration working correctly")
+        
         # Test cache stats
+        aggregator._set_cache('test_key2', test_data)
         stats = aggregator.get_cache_stats()
         assert stats is not None, "❌ Failed to get cache stats!"
         assert 'total_entries' in stats, "❌ Cache stats missing total_entries!"

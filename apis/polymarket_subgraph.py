@@ -12,14 +12,11 @@ from typing import Dict, Optional, List
 class PolymarketSubgraph:
     """GraphQL client for Polymarket Subgraph on The Graph"""
     
-    # Primary subgraph endpoint
+    # Primary subgraph endpoint (free, no authentication required)
     SUBGRAPH_URL = "https://api.thegraph.com/subgraphs/name/polymarket/polymarket"
     
-    # Alternative endpoints for fallback
-    ALTERNATIVE_URLS = [
-        "https://gateway.thegraph.com/api/[api-key]/subgraphs/id/polymarket",
-        # Note: The Graph's decentralized network doesn't require API keys for public subgraphs
-    ]
+    # Note: The Graph's decentralized network provides free public access
+    # No alternative endpoints are needed for the free tier
     
     def __init__(self, query_timeout_seconds: int = 10):
         """
