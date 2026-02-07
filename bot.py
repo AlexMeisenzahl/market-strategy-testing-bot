@@ -342,8 +342,8 @@ class ArbitrageBot:
             # Get filter settings
             max_markets = markets_config.get('max_markets', 50)
             min_liquidity = markets_config.get('min_liquidity', 1000)
-            categories = markets_config.get('categories', [])
-            exclude_keywords = markets_config.get('exclude_keywords', ['test', 'demo'])
+            categories = [cat.lower() for cat in markets_config.get('categories', [])]  # Normalize once
+            exclude_keywords = [kw.lower() for kw in markets_config.get('exclude_keywords', ['test', 'demo'])]
             
             for market in all_markets:
                 # Skip if market doesn't have required fields
@@ -364,14 +364,15 @@ class ArbitrageBot:
                 if volume < min_liquidity:
                     continue
                 
-                # Filter by category if specified
+                # Filter by category if specified (case-insensitive exact match)
                 if categories and category:
-                    if not any(cat.lower() in str(category).lower() for cat in categories):
+                    if category.lower() not in categories:
                         continue
                 
                 # Filter by exclude keywords
+                question_lower = question.lower()
                 if exclude_keywords:
-                    if any(keyword.lower() in question.lower() for keyword in exclude_keywords):
+                    if any(keyword in question_lower for keyword in exclude_keywords):
                         continue
                 
                 # Add to filtered list

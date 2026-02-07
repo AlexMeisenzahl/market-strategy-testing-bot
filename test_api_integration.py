@@ -17,6 +17,17 @@ def test_api_connectivity():
     """Test basic API connectivity"""
     print("\n=== Testing API Connectivity ===")
     
+    # Ensure config file exists
+    import os
+    if not os.path.exists('config.yaml'):
+        print("⚠ config.yaml not found, creating from example...")
+        import shutil
+        if os.path.exists('config.example.yaml'):
+            shutil.copy('config.example.yaml', 'config.yaml')
+        else:
+            print("✗ config.example.yaml not found")
+            return False
+    
     with open('config.yaml') as f:
         config = yaml.safe_load(f)
     
@@ -111,8 +122,9 @@ def test_bot_market_fetching():
     for market in demo_markets[:3]:
         print(f"    - {market['question']}")
     
-    # Test live markets (if enabled)
-    if bot.config.get('polymarket', {}).get('use_live_data', True):
+    # Test live markets (explicitly set mode to avoid default behavior issue)
+    use_live = config.get('polymarket', {}).get('use_live_data', False)
+    if use_live:
         print("\nTesting live markets:")
         try:
             live_markets = bot._fetch_live_markets()
@@ -123,6 +135,8 @@ def test_bot_market_fetching():
         except Exception as e:
             print(f"  ⚠ Error fetching live markets: {str(e)}")
             return False
+    else:
+        print("\nLive data disabled in config, skipping live market test")
     
     return True
 

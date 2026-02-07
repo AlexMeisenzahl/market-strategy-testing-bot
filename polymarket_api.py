@@ -52,7 +52,7 @@ class PolymarketAPI:
         self.cache = {}
         
         # Request settings
-        self.timeout = config.get('api_timeout_seconds', 10)
+        self.timeout = polymarket_config.get('timeout_seconds', config.get('api_timeout_seconds', 10))
         self.max_retries = config.get('max_retries', 3)
         self.backoff_factor = 2
         

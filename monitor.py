@@ -250,10 +250,11 @@ class PolymarketMonitor:
                 return None
             
             # Convert bid/ask to yes/no format
-            # In Polymarket, the bid is the highest price someone is willing to pay (YES)
-            # and ask is the lowest price someone is willing to sell (NO complement)
-            yes_price = prices.get('bid', 0.5)
-            no_price = 1.0 - prices.get('ask', 0.5)
+            # In Polymarket, bid is the highest buy price and ask is the lowest sell price
+            # For a YES token: bid = highest price someone will pay, ask = lowest price someone will sell
+            # The complement gives us NO prices: NO bid ≈ 1 - YES ask, NO ask ≈ 1 - YES bid
+            yes_price = prices.get('mid', (prices.get('bid', 0.5) + prices.get('ask', 0.5)) / 2)
+            no_price = 1.0 - yes_price
             
             return {
                 'yes': round(yes_price, 3),
