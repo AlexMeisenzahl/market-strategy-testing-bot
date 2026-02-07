@@ -1,18 +1,24 @@
 """
-Notifier Module - Multi-channel notification system
+Notifier Module - Enhanced multi-channel notification system
 
 Sends alerts through multiple channels:
 - Desktop notifications (via plyer)
-- SMS alerts (simulated for paper trading)
-- Push notifications (simulated for paper trading)
+- Email alerts
+- Telegram push notifications
 - Sound alerts
 
-Priority-based routing ensures critical alerts use all channels.
+Features:
+- Granular event-type controls per channel
+- Rate limiting to prevent spam
+- Quiet hours support
+- Priority-based routing
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from logger import get_logger
+from notification_rate_limiter import NotificationRateLimiter
+from quiet_hours import QuietHours
 import platform
 
 
@@ -37,29 +43,74 @@ class Notifier:
         # Load notification settings
         notif_config = config.get('notifications', {})
         
-        self.desktop_enabled = notif_config.get('desktop_enabled', 
-                                               config.get('desktop_notifications', False))
-        self.sms_enabled = notif_config.get('sms_enabled', False)
-        self.push_enabled = notif_config.get('push_enabled', False)
-        self.sound_enabled = notif_config.get('sound_enabled', 
-                                              config.get('sound_alerts', False))
+        # Desktop notifications
+        desktop_config = notif_config.get('desktop', {})
+        self.desktop_enabled = desktop_config.get('enabled',
+                                                 config.get('desktop_notifications', False))
+        self.desktop_event_types = desktop_config.get('event_types', {
+            'trade': True,
+            'opportunity': True,
+            'error': True,
+            'summary': True,
+            'status_change': True
+        })
         
-        # Phone number for SMS (if configured)
-        self.sms_phone = notif_config.get('sms_phone', '')
-    
-        # Telegram settings (for push notifications)
-        telegram_config = config.get('telegram', {})
-        self.telegram_token = telegram_config.get('bot_token', '')
-        self.telegram_chat_id = telegram_config.get('chat_id', '')
-
-        # Email settings (for SMS notifications) 
+        # Email notifications
+        email_notif_config = notif_config.get('email', {})
         email_config = config.get('email', {})
+        self.email_enabled = email_config.get('enabled', False)
+        self.email_event_types = email_notif_config.get('event_types', {
+            'trade': True,
+            'opportunity': False,  # Too frequent for email
+            'error': True,
+            'summary': True,
+            'status_change': True
+        })
         self.email_from = email_config.get('from_email', '')
         self.email_to = email_config.get('to_email', '')
         self.smtp_server = email_config.get('smtp_server', '')
         self.smtp_port = email_config.get('smtp_port', 587)
-        self.email_password = email_config.get('password', '')    
-        self.email_enabled = email_config.get('enabled', False)
+        self.email_password = email_config.get('password', '')
+        
+        # Telegram notifications
+        telegram_notif_config = notif_config.get('telegram', {})
+        telegram_config = config.get('telegram', {})
+        self.telegram_enabled = telegram_config.get('enabled', False)
+        self.telegram_event_types = telegram_notif_config.get('event_types', {
+            'trade': True,
+            'opportunity': True,
+            'error': True,
+            'summary': True,
+            'status_change': True
+        })
+        self.telegram_token = telegram_config.get('bot_token', '')
+        self.telegram_chat_id = telegram_config.get('chat_id', '')
+        
+        # Sound alerts
+        self.sound_enabled = config.get('sound_alerts', False)
+        
+        # Initialize rate limiter
+        rate_limit_config = notif_config.get('rate_limiting', {})
+        if rate_limit_config.get('enabled', True):
+            self.rate_limiter = NotificationRateLimiter(
+                max_per_minute=rate_limit_config.get('max_per_minute', 5),
+                max_per_hour=rate_limit_config.get('max_per_hour', 20),
+                cooldown_seconds=rate_limit_config.get('cooldown_seconds', 30)
+            )
+        else:
+            self.rate_limiter = None
+        
+        # Initialize quiet hours
+        quiet_hours_config = notif_config.get('quiet_hours', {})
+        self.quiet_hours = QuietHours(
+            enabled=quiet_hours_config.get('enabled', False),
+            start_time=quiet_hours_config.get('start_time', '23:00'),
+            end_time=quiet_hours_config.get('end_time', '07:00'),
+            timezone=quiet_hours_config.get('timezone', 'UTC')
+        )
+        
+        # Notification triggers
+        self.triggers = config.get('notification_triggers', {})
 
         # Notification history
         self.notification_count = 0
@@ -79,40 +130,97 @@ class Notifier:
         
         self.logger.log_warning(
             f"Notifier initialized - "
-            f"Desktop: {self.desktop_enabled}, SMS: {self.sms_enabled}, "
-            f"Push: {self.push_enabled}, Sound: {self.sound_enabled}"
+            f"Desktop: {self.desktop_enabled}, Email: {self.email_enabled}, "
+            f"Telegram: {self.telegram_enabled}, Sound: {self.sound_enabled}"
         )
     
-    def notify(self, title: str, message: str, priority: str = "INFO") -> None:
+    
+    def should_send(self, event_type: str, channel: str) -> bool:
         """
-        Send notification through appropriate channels based on priority
+        Check if notification should be sent based on config and rate limits
+        
+        Args:
+            event_type: Type of event (trade, opportunity, error, summary, status_change)
+            channel: Notification channel (desktop, email, telegram)
+            
+        Returns:
+            True if notification should be sent, False otherwise
+        """
+        # Check if channel is enabled
+        if channel == 'desktop' and not self.desktop_enabled:
+            return False
+        elif channel == 'email' and not self.email_enabled:
+            return False
+        elif channel == 'telegram' and not self.telegram_enabled:
+            return False
+        
+        # Check if event type is enabled for this channel
+        if channel == 'desktop':
+            if not self.desktop_event_types.get(event_type, True):
+                return False
+        elif channel == 'email':
+            if not self.email_event_types.get(event_type, True):
+                return False
+        elif channel == 'telegram':
+            if not self.telegram_event_types.get(event_type, True):
+                return False
+        
+        # Check rate limits
+        if self.rate_limiter and not self.rate_limiter.allow():
+            self.logger.log_warning(
+                f"Notification rate limited: {event_type} on {channel}"
+            )
+            return False
+        
+        # Check quiet hours
+        if self.quiet_hours.is_quiet_time():
+            self.logger.log_warning(
+                f"Notification suppressed (quiet hours): {event_type} on {channel}"
+            )
+            return False
+        
+        return True
+    
+    def notify(self, title: str, message: str, priority: str = "INFO", event_type: str = "status_change") -> None:
+        """
+        Send notification through appropriate channels based on priority and event type
         
         Args:
             title: Notification title
             message: Notification message
             priority: Priority level (CRITICAL, WARNING, INFO)
+            event_type: Type of event (trade, opportunity, error, summary, status_change)
         """
-        self.notification_count += 1
-        self.last_notification = datetime.now()
-        
-        # Determine which channels to use
-        channels = self.determine_priority(priority)
-        
         # Log the notification
         self.logger.log_warning(f"[{priority}] {title}: {message}")
         
-        # Send through each channel
-        if 'desktop' in channels:
-            self.send_desktop_notification(title, message)
+        # Determine which channels to use based on priority (legacy logic)
+        channels = self.determine_priority(priority)
         
-        if 'sms' in channels:
-            self.send_sms(f"{title}: {message}")
+        # Check each channel and send if allowed
+        sent_any = False
         
-        if 'push' in channels:
-            self.send_push(title, message)
+        if 'desktop' in channels and self.should_send(event_type, 'desktop'):
+            if self.send_desktop_notification(title, message):
+                sent_any = True
+        
+        if 'email' in channels and self.should_send(event_type, 'email'):
+            if self.send_email(f"{title}: {message}"):
+                sent_any = True
+        
+        if 'telegram' in channels and self.should_send(event_type, 'telegram'):
+            if self.send_push(title, message):
+                sent_any = True
         
         if 'sound' in channels:
             self.play_alert_sound(priority)
+        
+        # Record notification if any channel succeeded
+        if sent_any:
+            self.notification_count += 1
+            self.last_notification = datetime.now()
+            if self.rate_limiter:
+                self.rate_limiter.record()
     
     def determine_priority(self, event: str) -> list:
         """
@@ -128,10 +236,10 @@ class Notifier:
         
         if event == "CRITICAL":
             # Critical: Use all available channels
-            if self.sms_enabled:
-                channels.append('sms')
-            if self.push_enabled:
-                channels.append('push')
+            if self.email_enabled:
+                channels.append('email')
+            if self.telegram_enabled:
+                channels.append('telegram')
             if self.desktop_enabled:
                 channels.append('desktop')
             if self.sound_enabled:
@@ -192,7 +300,7 @@ class Notifier:
                 self.logger.log_error("Desktop notification failed")
                 return False
 
-    def send_sms(self, message: str) -> bool:
+    def send_email(self, message: str) -> bool:
         """
         Send email notification
         
@@ -242,7 +350,7 @@ class Notifier:
         Returns:
             True if successful
         """
-        if not self.push_enabled:
+        if not self.telegram_enabled:
             return False
         
         # Send to Telegram
@@ -321,7 +429,16 @@ class Notifier:
         title = "Arbitrage Opportunity Found"
         message = f"{market}: {profit_pct:.2f}% profit potential"
         
-        self.notify(title, message, priority="CRITICAL")
+        # Check for high-value opportunity trigger
+        trigger_config = self.triggers.get('high_value_opportunity', {})
+        if trigger_config.get('enabled', True):
+            min_profit = trigger_config.get('min_profit_percent', 5.0)
+            if profit_pct >= min_profit:
+                # High value opportunity - use configured channels
+                self.notify(title, message, priority="CRITICAL", event_type="opportunity")
+                return
+        
+        self.notify(title, message, priority="CRITICAL", event_type="opportunity")
     
     def alert_trade_executed(self, market: str, profit_usd: float) -> None:
         """
@@ -334,7 +451,7 @@ class Notifier:
         title = "Trade Executed"
         message = f"{market}: ${profit_usd:.2f} profit expected"
         
-        self.notify(title, message, priority="CRITICAL")
+        self.notify(title, message, priority="CRITICAL", event_type="trade")
     
     def alert_circuit_breaker(self, reason: str) -> None:
         """
@@ -346,7 +463,7 @@ class Notifier:
         title = "⚠️ CIRCUIT BREAKER TRIGGERED"
         message = f"Trading paused: {reason}"
         
-        self.notify(title, message, priority="CRITICAL")
+        self.notify(title, message, priority="CRITICAL", event_type="status_change")
     
     def alert_connection_issue(self, message: str) -> None:
         """
@@ -357,7 +474,12 @@ class Notifier:
         """
         title = "Connection Issue"
         
-        self.notify(title, message, priority="WARNING")
+        # Check for API connection loss trigger
+        trigger_config = self.triggers.get('api_connection_loss', {})
+        if trigger_config.get('enabled', True):
+            self.notify(title, message, priority="WARNING", event_type="error")
+        else:
+            self.notify(title, message, priority="WARNING", event_type="status_change")
     
     def alert_error(self, error_type: str, details: str) -> None:
         """
@@ -369,7 +491,7 @@ class Notifier:
         """
         title = f"Error: {error_type}"
         
-        self.notify(title, details, priority="WARNING")
+        self.notify(title, details, priority="WARNING", event_type="error")
     
     def alert_profit_milestone(self, total_profit: float, milestone: float) -> None:
         """
@@ -382,7 +504,12 @@ class Notifier:
         title = "🎉 Profit Milestone Reached!"
         message = f"Total profit: ${total_profit:.2f} (milestone: ${milestone:.2f})"
         
-        self.notify(title, message, priority="INFO")
+        # Check for daily profit milestone trigger
+        trigger_config = self.triggers.get('daily_profit_milestone', {})
+        if trigger_config.get('enabled', True):
+            self.notify(title, message, priority="INFO", event_type="summary")
+        else:
+            self.notify(title, message, priority="INFO", event_type="status_change")
     
     def alert_loss_threshold(self, total_loss: float, threshold: float) -> None:
         """
@@ -395,7 +522,7 @@ class Notifier:
         title = "⚠️ Loss Threshold Exceeded"
         message = f"Total loss: ${total_loss:.2f} (threshold: ${threshold:.2f})"
         
-        self.notify(title, message, priority="CRITICAL")
+        self.notify(title, message, priority="CRITICAL", event_type="error")
     
     def test_notifications(self) -> Dict[str, bool]:
         """
@@ -413,17 +540,17 @@ class Notifier:
                 "This is a test of the desktop notification system"
             )
         
-        # Test SMS
-        if self.sms_enabled:
-            results['sms'] = self.send_sms(
-                "Test SMS: Arbitrage bot notification system test"
+        # Test email
+        if self.email_enabled:
+            results['email'] = self.send_email(
+                "Test Email: Arbitrage bot notification system test"
             )
         
-        # Test push
-        if self.push_enabled:
-            results['push'] = self.send_push(
+        # Test telegram
+        if self.telegram_enabled:
+            results['telegram'] = self.send_push(
                 "Test Push",
-                "This is a test of the push notification system"
+                "This is a test of the Telegram notification system"
             )
         
         # Test sound
@@ -441,14 +568,23 @@ class Notifier:
         Returns:
             Dictionary with notification stats
         """
-        return {
+        stats = {
             'total_notifications': self.notification_count,
             'last_notification': self.last_notification.isoformat() if self.last_notification else None,
             'channels_enabled': {
                 'desktop': self.desktop_enabled,
-                'sms': self.sms_enabled,
-                'push': self.push_enabled,
+                'email': self.email_enabled,
+                'telegram': self.telegram_enabled,
                 'sound': self.sound_enabled
             },
             'plyer_available': self.plyer_available
         }
+        
+        # Add rate limiter stats if enabled
+        if self.rate_limiter:
+            stats['rate_limiter'] = self.rate_limiter.get_stats()
+        
+        # Add quiet hours status
+        stats['quiet_hours'] = self.quiet_hours.get_status()
+        
+        return stats
