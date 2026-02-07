@@ -1,6 +1,12 @@
-# Polymarket Arbitrage Bot Configuration (EXAMPLE)
-# Copy this file to config.yaml and customize your settings
-# Paper Trading Edition - NO REAL MONEY
+# Polymarket Arbitrage Bot Configuration
+# Paper Trading Mode - NO REAL MONEY
+#
+# This is a comprehensive configuration file that includes:
+# - Free data sources (Binance, CoinGecko, Polymarket Subgraph)
+# - Optional Live Polymarket API integration
+# - Enhanced notification system
+# - Market filtering options
+# - Rate limiting and safety features
 
 # ============================================================================
 # SAFETY SETTINGS (DO NOT CHANGE UNLESS YOU KNOW WHAT YOU'RE DOING)
@@ -13,40 +19,43 @@ paper_trading: true
 kill_switch: false
 
 # ============================================================================
-# FREE DATA SOURCES (No API Keys Required!)
+# DATA SOURCES (FREE APIS)
 # ============================================================================
-
 data_sources:
-  # Crypto price sources (FREE - no API keys needed)
   crypto_prices:
-    primary: binance       # Free, 1200 req/min + WebSocket
-    fallback: coingecko    # Free, 50 req/min
-    use_websocket: true    # Enable real-time price streams
-    
-  # Polymarket data sources (FREE GraphQL)
+    primary: binance          # Free, 1200 req/min
+    fallback: coingecko      # Free, 50 req/min
+    use_websocket: true      # Real-time price streams
+  
   polymarket:
-    method: subgraph       # Free GraphQL API via The Graph
-    url: "https://api.thegraph.com/subgraphs/name/tokenunion/polymarket"
-    cache_ttl_seconds: 60  # Cache duration
-    use_alternative: false # Switch to Polymarket's own subgraph if true
+    method: subgraph         # Default: Free GraphQL (unlimited)
+    cache_ttl_seconds: 60
 
 # ============================================================================
-# POLYMARKET API CONFIGURATION (OPTIONAL - Enhanced Live Market Data)
+# TRADING PARAMETERS
+# ============================================================================
+
+# Maximum amount to trade per opportunity (in USD, paper money)
+max_trade_size: 10
+
+# Minimum profit margin required (0.02 = 2%)
+min_profit_margin: 0.02
+
+# Maximum trades per hour (rate limiting)
+max_trades_per_hour: 5
+
+# Maximum daily trades
+max_trades_per_day: 50
+
+# ============================================================================
+# POLYMARKET API CONFIGURATION (OPTIONAL ENHANCEMENT)
 # ============================================================================
 
 polymarket:
   api:
-    # Enable/disable live API integration
-    # FREE MODE (Recommended): Set to false to use FREE Subgraph only
-    #   - No API keys required
-    #   - Uses The Graph's free GraphQL API for market data
-    #   - Uses Binance/CoinGecko for crypto prices (also free)
-    # 
-    # ENHANCED MODE: Set to true to use live CLOB API with Subgraph as fallback
-    #   - Provides more real-time data and lower latency
-    #   - Still uses free sources as backup
-    #   - No API keys needed, but subject to Polymarket's rate limits
-    enabled: false
+    # Enable Live API (optional - requires network access)
+    # If disabled, uses FREE Subgraph instead (no API keys needed)
+    enabled: false           # Set to true for Live CLOB API with Subgraph fallback
     
     # API base URL (do not change unless using a different endpoint)
     base_url: "https://clob.polymarket.com"
@@ -71,7 +80,7 @@ polymarket:
     # Categories to filter by (empty array = all categories)
     # Options: 'crypto', 'politics', 'sports', 'entertainment', 'science', 'business'
     categories: []
-
+    
 # ============================================================================
 # MARKET SELECTION
 # ============================================================================
@@ -82,29 +91,19 @@ polymarket:
 markets_to_watch: []
 
 # ============================================================================
-# TRADING PARAMETERS
+# API SETTINGS
 # ============================================================================
 
-# Maximum amount to trade per opportunity (in USD, paper money)
-max_trade_size: 10
+# API request timeout in seconds
+api_timeout_seconds: 5
 
-# Minimum profit margin required (0.02 = 2%)
-min_profit_margin: 0.02
-
-# Maximum trades per hour (rate limiting)
-max_trades_per_hour: 5
-
-# Maximum daily trades
-max_trades_per_day: 50
-
-# ====================================
-# API SETTINGS
-# ====================================
-api_timeout_seconds: 10
+# Maximum retry attempts for API requests
 max_retries: 3
+
+# Delay between API requests (seconds)
 request_delay_seconds: 0.5
 
-# Rate limiting (for legacy CLOB API if still used)
+# Rate limit settings
 rate_limit_max: 100
 rate_limit_warning_threshold: 0.80
 rate_limit_pause_threshold: 0.95
@@ -112,99 +111,14 @@ rate_limit_pause_threshold: 0.95
 # Auto-pause trading on connection loss
 auto_pause_on_connection_loss: true
 
-# ====================================
-# TRADING PARAMETERS (Detailed)
-# ====================================
-trading:
-  # Minimum profit margin to execute trade (3% = 0.03)
-  min_profit_margin: 0.03
-  
-  # Maximum position size (in USD)
-  max_position_size: 100
-  
-  # Check interval (seconds)
-  check_interval: 30
-  
-  # Slippage tolerance
-  slippage_tolerance: 0.02
-
-# ====================================
-# PORTFOLIO SETTINGS
-# ====================================
-portfolio:
-  starting_balance: 1000  # Paper money
-  max_position_allocation: 0.1  # 10% per trade
-
-# ====================================
-# POSITION SIZING (Risk Management)
-# ====================================
-position_sizing:
-  base_allocation_pct: 0.05      # 5% base allocation
-  max_allocation_pct: 0.10       # 10% maximum
-  min_position_size: 1.0         # $1 minimum
-  
-  multipliers:
-    profit_margin:
-      excellent: 1.5    # >10% profit
-      good: 1.2         # 5-10% profit
-      normal: 1.0       # 3-5% profit
-      poor: 0.7         # <3% profit
-    
-    win_rate:
-      hot_streak: 1.3   # >70% win rate
-      normal: 1.0       # 50-70%
-      cold_streak: 0.6  # <50%
-    
-    liquidity:
-      high: 1.0         # >$10k volume
-      medium: 0.85      # $1k-10k
-      low: 0.6          # <$1k
-    
-    volatility:
-      low: 1.1          # Stable markets
-      normal: 1.0       # Average
-      high: 0.7         # Volatile
-
-# ============================================================================
-# RISK MANAGEMENT
-# ============================================================================
-
-risk_management:
-  # Drawdown protection
-  max_drawdown_pct: 0.20        # 20% max drawdown
-  daily_loss_limit_pct: 0.05    # 5% daily loss limit
-  
-  # Stop loss
-  stop_loss_pct: 0.10           # 10% stop loss
-  
-  # Cool down periods
-  loss_streak_cooldown: 3       # Trades to skip after losing streak
-  daily_trade_limit: 20         # Max trades per day
-
-# Stop trading if daily loss exceeds this amount (USD)
-max_daily_loss: 100
-
-# Stop trading if total loss exceeds this amount (USD)
-max_total_loss: 500
-
-# Circuit breaker: Pause trading after X consecutive losses
-circuit_breaker_losses: 3
-
-# Cool-down period after circuit breaker (seconds)
-circuit_breaker_cooldown: 300
-
 # ============================================================================
 # NOTIFICATIONS
 # ============================================================================
 
 notifications:
-  enabled: true
-  
   # Desktop notifications
   desktop:
     enabled: true
-    on_trade: true
-    on_error: true
     event_types:
       trade: true              # Notify on trade execution
       opportunity: true        # Notify on arbitrage opportunity found
@@ -215,11 +129,6 @@ notifications:
   # Email notifications
   email:
     enabled: false
-    # smtp_server: "smtp.gmail.com"
-    # smtp_port: 587
-    # username: ""
-    # password: ""
-    # to_email: ""
     event_types:
       trade: true
       opportunity: false      # Too frequent for email
@@ -230,8 +139,6 @@ notifications:
   # Telegram notifications
   telegram:
     enabled: false
-    # bot_token: ""
-    # chat_id: ""
     event_types:
       trade: true
       opportunity: true
@@ -301,15 +208,24 @@ email:
   password: ""               # Email app password (not your regular password)
 
 # ============================================================================
-# LOGGING
+# RISK MANAGEMENT
 # ============================================================================
 
-logging:
-  level: INFO
-  log_to_file: true
-  log_file: "bot.log"
-  max_log_size_mb: 10
-  backup_count: 5
+# Stop trading if daily loss exceeds this amount (USD)
+max_daily_loss: 100
+
+# Stop trading if total loss exceeds this amount (USD)
+max_total_loss: 500
+
+# Circuit breaker: Pause trading after X consecutive losses
+circuit_breaker_losses: 3
+
+# Cool-down period after circuit breaker (seconds)
+circuit_breaker_cooldown: 300
+
+# ============================================================================
+# LOGGING
+# ============================================================================
 
 # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
 log_level: INFO
@@ -322,34 +238,12 @@ log_retention_days: 30
 # ============================================================================
 
 dashboard:
-  enabled: true
-  host: "0.0.0.0"
+  # Web dashboard port
   port: 5000
+  
+  # Enable debug mode (for development only)
   debug: false
-  auto_refresh_seconds: 5
   
   # Pagination settings
   trades_per_page: 25
   opportunities_per_page: 50
-
-# ============================================================================
-# ADVANCED SETTINGS
-# ============================================================================
-
-advanced:
-  # Price source settings (for free API aggregator)
-  price_aggregator:
-    outlier_threshold: 0.05     # 5% deviation threshold
-    min_sources: 1              # Minimum sources for consensus
-  
-  # WebSocket settings (for Binance real-time streams)
-  websocket:
-    auto_reconnect: true
-    reconnect_delay: 5
-    ping_interval: 30
-  
-  # GraphQL settings (for Polymarket Subgraph)
-  graphql:
-    batch_size: 10
-    timeout: 10
-    retry_on_error: true
