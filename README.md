@@ -1,8 +1,29 @@
 # Polymarket Arbitrage Bot - Paper Trading Edition
 
-A complete, production-ready arbitrage bot for Polymarket with **professional web dashboard** and comprehensive safety features. **PAPER TRADING ONLY - NO REAL MONEY IS USED.**
+A complete, production-ready arbitrage bot for Polymarket with **live API integration**, **professional web dashboard**, and comprehensive safety features. **PAPER TRADING ONLY - NO REAL MONEY IS USED.**
 
-## 📊 NEW: Professional Web Dashboard
+## 🚀 NEW: Live Polymarket API Integration
+
+**The bot now connects to the real Polymarket API** for live market data and prices!
+
+### Live API Features:
+- 🔴 **Live Market Data** - Fetches real-time YES/NO prices from Polymarket
+- 📊 **Active Markets Discovery** - Automatically finds and filters active markets
+- 🎯 **Smart Filtering** - Filter by liquidity, volume, keywords, and categories
+- 🛡️ **Graceful Fallback** - Continues with simulated data if API is unavailable
+- ⚡ **Rate Limiting** - Respects API limits with exponential backoff
+- 🔄 **Auto-Retry** - Automatically retries failed requests
+
+👉 **[See API Integration Guide](API_INTEGRATION.md)**
+
+### Enhanced Notification System:
+- 📱 **Granular Controls** - Configure notifications per event type and channel
+- ⏰ **Quiet Hours** - Set hours when notifications are suppressed
+- 🚦 **Rate Limiting** - Prevent notification spam with smart rate limiting
+- 📧 **Multiple Channels** - Desktop, Email, and Telegram notifications
+- 🎯 **Smart Triggers** - Configurable triggers for high-value opportunities
+
+## 📊 Professional Web Dashboard
 
 **Access a beautiful, modern web interface** to monitor and control your trading bot!
 
@@ -13,6 +34,8 @@ A complete, production-ready arbitrage bot for Polymarket with **professional we
 - 🔔 **Notification Center** - Configure email, desktop, and Telegram alerts
 - 🎛️ **Bot Control** - Start, stop, and monitor your bot from the web
 - 🎨 **Professional Design** - Dark theme, responsive, smooth animations
+- 📥 **CSV Export** - Export trade history for external analysis
+- 📈 **Advanced Analytics** - Opportunity trends, profit distribution, and more
 
 ### Quick Start Dashboard:
 
@@ -46,7 +69,7 @@ This bot watches Polymarket prediction markets and looks for arbitrage opportuni
 - One will pay out: $1.00
 - Your profit: $0.03 (3% return)
 
-This bot finds these opportunities automatically and simulates trades (paper trading) so you can learn how arbitrage works without risking any money.
+This bot finds these opportunities automatically and can now use **real live data from Polymarket** while still simulating trades (paper trading) so you can learn how arbitrage works without risking any money.
 
 ## ⚠️ IMPORTANT SAFETY WARNINGS
 
@@ -96,16 +119,62 @@ Or if you're using Python 3:
 pip3 install -r requirements.txt
 ```
 
-### Step 3: Verify Configuration
+### Step 3: Configure the Bot
+
+Copy the example configuration and customize it:
+
+```bash
+cp config.example.yaml config.yaml
+```
 
 Open `config.yaml` in a text editor and verify these settings:
 
 ```yaml
-paper_trading: true        # ✓ Should be true
+# Safety settings (DO NOT CHANGE)
+paper_trading: true        # ✓ Must be true
 kill_switch: false         # ✓ Should be false to run
+
+# Trading parameters
 max_trade_size: 10        # Max $ per trade (paper money)
 min_profit_margin: 0.02   # Minimum 2% profit to attempt trade
+
+# Live API settings (NEW!)
+polymarket:
+  api:
+    enabled: true          # Set to true for live data
+    timeout: 10
+    retry_attempts: 3
+  
+  market_filters:
+    min_liquidity: 1000   # Filter by liquidity
+    min_volume_24h: 5000  # Filter by volume
+
+# Optional: Filter by specific markets
+markets_to_watch: []      # Leave empty for all markets
+# Or specify keywords: ['Bitcoin', 'Ethereum', 'Election']
+
+# Notifications (NEW!)
+notifications:
+  desktop:
+    enabled: true
+    event_types:
+      trade: true
+      opportunity: true
+      error: true
+  
+  rate_limiting:
+    enabled: true
+    max_per_hour: 20
+  
+  quiet_hours:
+    enabled: false
+    start_time: "23:00"
+    end_time: "07:00"
 ```
+
+See [config.example.yaml](config.example.yaml) for all available options.
+
+👉 **[Full API Integration Guide](API_INTEGRATION.md)**
 
 **DO NOT change `paper_trading` to false!**
 
@@ -318,6 +387,139 @@ rate_limit_pause_threshold: 0.95      # Pause at 95%
 **A:** 
 - **Paper trading**: Simulated, no real money, safe to learn
 - **Real trading**: Uses real money, requires authentication, has risk
+
+## 🌐 Live Market Data Integration
+
+### Overview
+
+The bot now supports **live, real-time data from the Polymarket API**! This allows you to test strategies against actual market conditions while remaining in safe paper trading mode.
+
+### Features
+
+- **Real Market Data**: Fetches live markets from Polymarket
+- **Actual Prices**: Uses real bid/ask spreads from the order book
+- **Smart Caching**: Reduces API calls with 15-second cache
+- **Rate Limiting**: Respects API limits (60 requests/minute)
+- **Market Filtering**: Focus on specific categories and liquidity levels
+- **Fallback Mode**: Automatically uses simulated data if API fails
+
+### Configuration
+
+Edit `config.yaml` (or `config.example.yaml`) to configure live data:
+
+```yaml
+polymarket:
+  use_live_data: true              # Enable live data (set false for testing)
+  api_base_url: "https://gamma-api.polymarket.com"
+  clob_api_url: "https://clob.polymarket.com"
+  rate_limit_per_minute: 60        # Max API requests per minute
+  cache_duration_seconds: 15       # Cache market data for this long
+  
+  markets:
+    max_markets: 50                # Maximum markets to monitor
+    min_liquidity: 1000            # Minimum $ liquidity
+    categories:                    # Categories to include (empty = all)
+      - "Crypto"
+      - "Politics"
+      - "Sports"
+      - "Business"
+    exclude_keywords:              # Skip markets with these keywords
+      - "test"
+      - "demo"
+```
+
+### How It Works
+
+1. **Market Fetching**: Bot fetches active markets from Polymarket's Gamma API
+2. **Filtering**: Applies category, liquidity, and keyword filters
+3. **Price Updates**: Gets real-time bid/ask prices from CLOB API
+4. **Opportunity Detection**: Finds arbitrage opportunities in real markets
+5. **Paper Trading**: Simulates trades without risking real money
+
+### API Endpoints Used
+
+The bot uses these **public Polymarket APIs** (no authentication required):
+
+- **Markets**: `https://gamma-api.polymarket.com/markets`
+  - Returns list of active prediction markets
+  
+- **Events**: `https://gamma-api.polymarket.com/events`
+  - Returns market metadata and details
+  
+- **Prices**: `https://clob.polymarket.com/price`
+  - Returns current bid/ask prices from order book
+
+### Rate Limits & Best Practices
+
+**Rate Limits:**
+- Default: 60 requests per minute
+- Bot automatically tracks and respects limits
+- Implements exponential backoff on errors
+
+**Best Practices:**
+1. Use caching (enabled by default)
+2. Don't set cache duration too low (< 10 seconds)
+3. Limit `max_markets` to reasonable number (50-100)
+4. Monitor rate limit warnings in dashboard
+
+### Troubleshooting API Issues
+
+**Problem: "Failed to fetch live markets"**
+- **Solution**: Check internet connection, API may be temporarily down
+- **Fallback**: Bot automatically uses simulated data
+
+**Problem: "Rate limited"**
+- **Solution**: Increase `cache_duration_seconds` in config
+- **Solution**: Decrease `max_markets` to reduce API calls
+- **Fallback**: Bot waits for rate limit to reset
+
+**Problem: API returns empty data**
+- **Cause**: No active markets match your filters
+- **Solution**: Broaden category filters or reduce `min_liquidity`
+
+**Problem: Connection timeout**
+- **Cause**: Slow network or API latency
+- **Solution**: Increase `api_timeout_seconds` in config
+
+### Testing Live Data
+
+To verify live data is working:
+
+1. Start bot with `use_live_data: true`
+2. Check dashboard for real market names (not "BTC-above-100k")
+3. Verify prices change over time (not static)
+4. Check logs for "Fetching markets from" messages
+
+### Switching Between Live and Simulated Data
+
+**Use Live Data** (recommended):
+```yaml
+polymarket:
+  use_live_data: true
+```
+
+**Use Simulated Data** (for testing):
+```yaml
+polymarket:
+  use_live_data: false
+```
+
+Simulated mode is useful for:
+- Testing bot logic without API calls
+- Development and debugging
+- When API is down or unavailable
+
+### Security Notes
+
+- ✅ **No authentication required** for public data
+- ✅ **Read-only access** - bot only fetches data
+- ✅ **No wallet needed** - paper trading only
+- ✅ **No API keys** - public endpoints are free
+- ✅ **Privacy preserved** - no personal data sent
+
+**Important**: Even with live data, **paper trading remains enabled**. Real money is never at risk.
+
+---
 
 ## 📚 Learning Resources
 

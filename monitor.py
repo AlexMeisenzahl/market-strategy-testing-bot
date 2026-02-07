@@ -17,6 +17,12 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger
 
+# Import Polymarket API client (from main branch)
+try:
+    from polymarket_api import PolymarketAPI
+except ImportError:
+    PolymarketAPI = None  # Will be disabled if not available
+
 # Import free API clients
 from apis.binance_client import BinanceClient
 from apis.coingecko_client import CoinGeckoClient
@@ -108,6 +114,21 @@ class PolymarketMonitor:
         use_alt = polymarket_config.get('use_alternative', False)
         self.market_client = PolymarketSubgraph(logger=self.logger, use_alternative=use_alt)
         
+        # Also initialize the Polymarket CLOB API client (from main branch)
+        # This provides live market data as an alternative to Subgraph
+        polymarket_api_config = config.get('polymarket', {}).get('api', {})
+        if PolymarketAPI is not None:
+            self.api = PolymarketAPI(
+                timeout=polymarket_api_config.get('timeout', 10),
+                retry_attempts=polymarket_api_config.get('retry_attempts', 3)
+            )
+            self.live_api_enabled = polymarket_api_config.get('enabled', False)  # Disabled by default
+        else:
+            self.api = None
+            self.live_api_enabled = False
+            if polymarket_api_config.get('enabled', False):
+                self.logger.log_warning("Polymarket API requested but not available (polymarket_api.py not found)")
+        
         # Cache settings
         self.cache_ttl = polymarket_config.get('cache_ttl_seconds', 60)
         self.market_cache = {}
@@ -134,7 +155,10 @@ class PolymarketMonitor:
         self.pause_threshold = config.get('rate_limit_pause_threshold', 0.95)
         
         # Log successful initialization
-        self.logger.log_info("Monitor initialized with FREE data sources (Binance + Subgraph)")
+        api_sources = "FREE data sources (Binance + Subgraph)"
+        if self.live_api_enabled:
+            api_sources += " + Live Polymarket API"
+        self.logger.log_info(f"Monitor initialized with {api_sources}")
     
     def check_connection_health(self) -> bool:
         """
@@ -214,7 +238,8 @@ class PolymarketMonitor:
     
     def get_active_markets(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Fetch list of active markets from Polymarket Subgraph (FREE)
+        Fetch list of active markets from Polymarket
+        Supports both FREE Subgraph (GraphQL) and Live CLOB API
         
         Args:
             limit: Maximum number of markets to return
@@ -222,8 +247,18 @@ class PolymarketMonitor:
         Returns:
             List of active market dictionaries
         """
+        # Try live API first if enabled
+        if self.live_api_enabled and self.api:
+            try:
+                markets = self.api.get_markets(active=True, limit=100)
+                if markets:
+                    self.logger.log_info(f"Fetched {len(markets)} active markets from Live API")
+                    return markets[:limit]
+            except Exception as e:
+                self.logger.log_warning(f"Live API failed, falling back to Subgraph: {str(e)}")
+        
+        # Use FREE Polymarket Subgraph (GraphQL) as fallback or primary
         try:
-            # Use FREE Polymarket Subgraph (GraphQL)
             markets = self.market_client.query_markets(
                 active=True,
                 first=limit
@@ -245,12 +280,13 @@ class PolymarketMonitor:
                 return []
                 
         except Exception as e:
-            self.logger.log_error(f"Error fetching markets from Subgraph: {str(e)}")
+            self.logger.log_error(f"Error fetching markets: {str(e)}")
             return []
     
     def get_market_prices(self, market_id: str) -> Optional[Dict[str, float]]:
         """
-        Fetch YES and NO prices for a specific market using FREE Subgraph
+        Fetch YES and NO prices for a specific market
+        Supports both Live API and FREE Subgraph with intelligent fallback
         
         Args:
             market_id: Market identifier
@@ -258,6 +294,21 @@ class PolymarketMonitor:
         Returns:
             Dictionary with 'yes' and 'no' prices, or None on error
         """
+        # Try live API first if enabled
+        if self.live_api_enabled and self.api:
+            try:
+                prices = self.api.get_market_prices(market_id)
+                if prices:
+                    return {
+                        'yes': prices.get('yes', 0.5),
+                        'no': prices.get('no', 0.5),
+                        'market_id': market_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+            except Exception as e:
+                self.logger.log_warning(f"Live API failed for {market_id}, trying Subgraph: {str(e)}")
+        
+        # Use FREE Subgraph or as fallback
         try:
             # Check cache first
             if market_id in self.market_cache:

@@ -2,25 +2,77 @@
 # Copy this file to config.yaml and customize your settings
 # Paper Trading Edition - NO REAL MONEY
 
-# ====================================
-# SAFETY: PAPER TRADING MODE
-# ====================================
-paper_trading: true  # NEVER change this without understanding consequences
+# ============================================================================
+# SAFETY SETTINGS (DO NOT CHANGE UNLESS YOU KNOW WHAT YOU'RE DOING)
+# ============================================================================
 
-# ====================================
-# FREE DATA SOURCES (No API Keys!)
-# ====================================
+# Paper trading: MUST be true for safety
+paper_trading: true
+
+# Kill switch: Set to true to immediately stop all trading
+kill_switch: false
+
+# ============================================================================
+# FREE DATA SOURCES (No API Keys Required!)
+# ============================================================================
+
 data_sources:
+  # Crypto price sources (FREE - no API keys needed)
   crypto_prices:
-    primary: binance       # Free, 1200 req/min
+    primary: binance       # Free, 1200 req/min + WebSocket
     fallback: coingecko    # Free, 50 req/min
-    use_websocket: true    # Real-time price streams
+    use_websocket: true    # Enable real-time price streams
     
+  # Polymarket data sources (FREE GraphQL)
   polymarket:
-    method: subgraph       # Free GraphQL API (The Graph)
+    method: subgraph       # Free GraphQL API via The Graph
     url: "https://api.thegraph.com/subgraphs/name/tokenunion/polymarket"
-    cache_ttl_seconds: 60
+    cache_ttl_seconds: 60  # Cache duration
     use_alternative: false # Switch to Polymarket's own subgraph if true
+
+# ============================================================================
+# POLYMARKET API CONFIGURATION (OPTIONAL - Live Market Data)
+# ============================================================================
+
+polymarket:
+  api:
+    # Enable/disable live API integration
+    # Set to false to use FREE Subgraph only (recommended for most users)
+    # Set to true to use live CLOB API with Subgraph as fallback
+    enabled: false
+    
+    # API base URL (do not change unless using a different endpoint)
+    base_url: "https://clob.polymarket.com"
+    
+    # Rate limiting (requests per minute)
+    rate_limit: 60
+    
+    # Request timeout in seconds
+    timeout: 10
+    
+    # Number of retry attempts on failure
+    retry_attempts: 3
+  
+  # Market filtering options
+  market_filters:
+    # Minimum liquidity in USD
+    min_liquidity: 1000
+    
+    # Minimum 24h volume in USD
+    min_volume_24h: 5000
+    
+    # Categories to filter by (empty array = all categories)
+    # Options: 'crypto', 'politics', 'sports', 'entertainment', 'science', 'business'
+    categories: []
+
+# ============================================================================
+# MARKET SELECTION
+# ============================================================================
+
+# Specific markets to watch (optional keywords to filter markets)
+# If empty, bot will scan all active markets matching the filters above
+# Examples: ["Bitcoin", "Ethereum", "Trump", "Election"]
+markets_to_watch: []
 
 # ====================================
 # API SETTINGS
@@ -108,11 +160,19 @@ risk_management:
 notifications:
   enabled: true
   
+  # Desktop notifications
   desktop:
     enabled: true
     on_trade: true
     on_error: true
+    event_types:
+      trade: true              # Notify on trade execution
+      opportunity: true        # Notify on arbitrage opportunity found
+      error: true             # Notify on errors
+      summary: true           # Notify on daily/hourly summaries
+      status_change: true     # Notify on bot status changes
   
+  # Email notifications
   email:
     enabled: false
     # smtp_server: "smtp.gmail.com"
@@ -120,11 +180,63 @@ notifications:
     # username: ""
     # password: ""
     # to_email: ""
+    event_types:
+      trade: true
+      opportunity: false      # Too frequent for email
+      error: true
+      summary: true
+      status_change: true
   
+  # Telegram notifications
   telegram:
     enabled: false
     # bot_token: ""
     # chat_id: ""
+    event_types:
+      trade: true
+      opportunity: true
+      error: true
+      summary: true
+      status_change: true
+  
+  # Rate limiting for notifications (prevent spam)
+  rate_limiting:
+    enabled: true
+    max_per_hour: 20         # Maximum notifications per hour
+    max_per_minute: 5        # Maximum notifications per minute
+    cooldown_seconds: 30     # Cooldown after reaching limit
+  
+  # Quiet hours (optional - notifications paused during these hours)
+  quiet_hours:
+    enabled: false
+    start_time: "23:00"      # 11:00 PM
+    end_time: "07:00"        # 7:00 AM
+    timezone: "America/New_York"
+
+# Legacy notification settings (for backward compatibility)
+desktop_notifications: true
+sound_alerts: false
+
+# ====================================
+# NOTIFICATION TRIGGERS
+# ====================================
+notification_triggers:
+  # High-value opportunity alert
+  high_value_opportunity:
+    enabled: true
+    min_profit_percent: 5.0  # Alert on opportunities with >5% profit
+    channels: ['desktop']    # Can include: desktop, email, telegram
+  
+  # API connection loss alert
+  api_connection_loss:
+    enabled: true
+    channels: ['desktop']
+  
+  # Daily profit milestone alert
+  daily_profit_milestone:
+    enabled: true
+    threshold_percent: 10    # Alert when daily profit exceeds 10%
+    channels: ['desktop']
 
 # ====================================
 # LOGGING
@@ -150,20 +262,39 @@ dashboard:
 # ADVANCED SETTINGS
 # ====================================
 advanced:
-  # Price source settings
+  # Price source settings (for free API aggregator)
   price_aggregator:
     outlier_threshold: 0.05     # 5% deviation threshold
     min_sources: 1              # Minimum sources for consensus
   
-  # WebSocket settings
+  # WebSocket settings (for Binance real-time streams)
   websocket:
     auto_reconnect: true
     reconnect_delay: 5
     ping_interval: 30
   
-  # GraphQL settings
+  # GraphQL settings (for Polymarket Subgraph)
   graphql:
     batch_size: 10
     timeout: 10
     retry_on_error: true
+
+# ============================================================================
+# TELEGRAM CONFIGURATION (Optional)
+# ============================================================================
+telegram:
+  enabled: false
+  bot_token: ""              # Your Telegram bot token
+  chat_id: ""                # Your Telegram chat ID
+
+# ============================================================================
+# EMAIL CONFIGURATION (Optional)
+# ============================================================================
+email:
+  enabled: false
+  from_email: ""             # Sender email address
+  to_email: ""               # Recipient email address
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  password: ""               # Email app password (not your regular password)
 
