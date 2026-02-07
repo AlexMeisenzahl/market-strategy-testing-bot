@@ -49,7 +49,9 @@ def test_client_initialization():
         
         polymarket = PolymarketSubgraph()
         assert polymarket is not None, "❌ PolymarketSubgraph initialization failed!"
-        assert "thegraph.com" in polymarket.SUBGRAPH_URL, "❌ Wrong Polymarket Subgraph URL!"
+        # Check that the URL is exactly what we expect for the free public endpoint
+        expected_url = "https://api.thegraph.com/subgraphs/name/polymarket/polymarket"
+        assert polymarket.SUBGRAPH_URL == expected_url, f"❌ Wrong Polymarket Subgraph URL! Expected: {expected_url}"
         print("✓ PolymarketSubgraph initialized with correct URL")
         
         aggregator = FreeDataAggregator()
