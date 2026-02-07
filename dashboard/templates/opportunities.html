@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opportunities - Market Strategy Testing Bot</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'profit': '#10b981',
+                        'loss': '#ef4444',
+                        'dark-bg': '#0f172a',
+                        'dark-card': '#1e293b',
+                        'dark-border': '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-white min-h-screen">
+    <!-- Header -->
+    <div class="border-b border-dark-border bg-dark-card">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-3xl text-blue-500 mr-3"></i>
+                    <h1 class="text-2xl font-bold">Market Strategy Bot - Opportunities</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition">
+                        <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold mb-2">Trading Opportunities</h2>
+            <p class="text-gray-400">Real-time detected trading opportunities across all strategies</p>
+        </div>
+
+        <!-- Filters -->
+        <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Strategy</label>
+                    <select id="filter-strategy" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                        <option value="">All Strategies</option>
+                        <option value="RSI Scalp">RSI Scalp</option>
+                        <option value="Momentum">Momentum</option>
+                        <option value="MACD Trend">MACD Trend</option>
+                        <option value="Arbitrage">Arbitrage</option>
+                        <option value="Mean Reversion">Mean Reversion</option>
+                        <option value="Breakout">Breakout</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Symbol</label>
+                    <input type="text" id="filter-symbol" placeholder="e.g., AAPL" 
+                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Status</label>
+                    <select id="filter-status" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="executed">Executed</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button onclick="applyFilters()" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                        <i class="fas fa-filter mr-2"></i>Apply Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opportunities Table -->
+        <div class="card bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-800">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Timestamp</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Symbol</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Strategy</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Signal</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Confidence</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Price</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="opportunities-table-body" class="divide-y divide-gray-700">
+                        <!-- Opportunities will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-6 py-4 bg-gray-800 text-sm text-gray-400" id="opportunities-count">
+                Loading opportunities...
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="hidden fixed bottom-4 right-4 bg-dark-card border border-dark-border rounded-lg shadow-lg p-4 flex items-center z-50">
+        <i id="toast-icon" class="fas fa-info-circle text-blue-500 text-xl mr-3"></i>
+        <span id="toast-message" class="text-sm"></span>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/utils.js"></script>
+    <script>
+        const API_BASE = window.location.origin;
+        let currentOpportunities = [];
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadOpportunities();
+            
+            // Auto-refresh every 5 seconds
+            setInterval(loadOpportunities, 5000);
+        });
+
+        // Load opportunities from API
+        async function loadOpportunities() {
+            try {
+                const strategy = document.getElementById('filter-strategy')?.value || '';
+                const symbol = document.getElementById('filter-symbol')?.value || '';
+                const status = document.getElementById('filter-status')?.value || '';
+                
+                const params = new URLSearchParams();
+                if (strategy) params.append('strategy', strategy);
+                if (symbol) params.append('symbol', symbol);
+                if (status) params.append('status', status);
+                
+                const response = await fetch(`${API_BASE}/api/opportunities?${params.toString()}`);
+                const opportunities = await response.json();
+                
+                currentOpportunities = opportunities;
+                renderOpportunities(opportunities);
+            } catch (error) {
+                console.error('Error loading opportunities:', error);
+                showToast('Error loading opportunities', 'error');
+            }
+        }
+
+        // Render opportunities table
+        function renderOpportunities(opportunities) {
+            const tbody = document.getElementById('opportunities-table-body');
+            tbody.innerHTML = '';
+            
+            if (!opportunities || opportunities.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-6 py-8 text-center text-gray-400">
+                            <i class="fas fa-search text-3xl mb-2"></i>
+                            <p>No opportunities found</p>
+                        </td>
+                    </tr>
+                `;
+                document.getElementById('opportunities-count').textContent = 'No opportunities';
+                return;
+            }
+            
+            opportunities.forEach(opp => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-800 transition cursor-pointer';
+                row.onclick = () => viewOpportunityDetails(opp);
+                
+                // Format timestamp
+                const timestamp = new Date(opp.timestamp).toLocaleString();
+                
+                // Status badge
+                let statusBadge = '';
+                if (opp.status === 'executed') {
+                    statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-green-900/20 text-green-400">Executed</span>';
+                } else if (opp.status === 'pending') {
+                    statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-yellow-900/20 text-yellow-400">Pending</span>';
+                } else {
+                    statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-red-900/20 text-red-400">Rejected</span>';
+                }
+                
+                // Confidence color
+                const confidence = parseFloat(opp.confidence) || 0;
+                let confidenceColor = 'text-gray-400';
+                if (confidence >= 85) confidenceColor = 'text-green-400';
+                else if (confidence >= 70) confidenceColor = 'text-yellow-400';
+                else confidenceColor = 'text-red-400';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-400">${timestamp}</td>
+                    <td class="px-6 py-4 text-sm font-medium">${opp.symbol}</td>
+                    <td class="px-6 py-4 text-sm">${opp.strategy}</td>
+                    <td class="px-6 py-4 text-sm">
+                        <span class="px-2 py-1 text-xs font-semibold rounded ${opp.signal === 'BUY' ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}">
+                            ${opp.signal}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium ${confidenceColor}">${confidence}%</td>
+                    <td class="px-6 py-4 text-sm">$${parseFloat(opp.price).toFixed(2)}</td>
+                    <td class="px-6 py-4 text-sm">${statusBadge}</td>
+                    <td class="px-6 py-4 text-sm">
+                        <button onclick="event.stopPropagation(); viewOpportunityDetails(${JSON.stringify(opp).replace(/"/g, '&quot;')})" 
+                                class="text-blue-400 hover:text-blue-300">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('opportunities-count').textContent = 
+                `Showing ${opportunities.length} opportunit${opportunities.length === 1 ? 'y' : 'ies'}`;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            loadOpportunities();
+            showToast('Filters applied', 'success');
+        }
+
+        // View opportunity details
+        function viewOpportunityDetails(opp) {
+            alert(`Opportunity Details:\n\nSymbol: ${opp.symbol}\nStrategy: ${opp.strategy}\nSignal: ${opp.signal}\nConfidence: ${opp.confidence}%\nPrice: $${opp.price}\nStatus: ${opp.status}\nNotes: ${opp.notes || 'N/A'}`);
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const messageEl = document.getElementById('toast-message');
+            
+            if (type === 'success') {
+                icon.className = 'fas fa-check-circle text-green-500 text-xl mr-3';
+            } else if (type === 'error') {
+                icon.className = 'fas fa-exclamation-circle text-red-500 text-xl mr-3';
+            } else {
+                icon.className = 'fas fa-info-circle text-blue-500 text-xl mr-3';
+            }
+            
+            messageEl.textContent = message;
+            toast.classList.remove('hidden');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

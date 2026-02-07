@@ -20,8 +20,8 @@ const API_BASE = window.location.origin;
 // Initialize API client
 const apiClient = new APIClient(API_BASE);
 
-// Auto-refresh interval (30 seconds instead of 10)
-const REFRESH_INTERVAL = 30000;
+// Auto-refresh interval (5 seconds for real-time updates)
+const REFRESH_INTERVAL = 5000;
 
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -106,7 +106,7 @@ function handleAutoRefreshToggle(event) {
     
     if (autoRefreshEnabled) {
         startAutoRefresh();
-        showToast('Auto-refresh enabled (30s interval)', 'success');
+        showToast('Auto-refresh enabled (5s interval)', 'success');
     } else {
         stopAutoRefresh();
         showToast('Auto-refresh disabled', 'info');
@@ -473,20 +473,37 @@ async function loadBotStatus() {
         const statusPing = document.getElementById('status-ping');
         
         if (data.running) {
-            statusText.textContent = 'Running';
+            statusText.textContent = data.status_emoji + ' Running';
             statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-green-500';
             statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75';
+            
+            // Add PID and uptime if available
+            if (data.pid) {
+                statusText.textContent += ` (PID: ${data.pid})`;
+            }
+        } else if (data.status_text === 'Error') {
+            statusText.textContent = data.status_emoji + ' Error';
+            statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-yellow-500';
+            statusPing.className = 'hidden';
         } else {
-            statusText.textContent = 'Stopped';
+            statusText.textContent = data.status_emoji + ' Stopped';
             statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-red-500';
             statusPing.className = 'hidden';
         }
         
         // Update control page
-        document.getElementById('control-status').textContent = data.running ? 'Running' : 'Stopped';
+        document.getElementById('control-status').textContent = data.status_text || (data.running ? 'Running' : 'Stopped');
         document.getElementById('bot-mode').textContent = data.mode === 'paper' ? 'Paper Trading' : 'Live Trading';
-        document.getElementById('connected-symbols').textContent = data.connected_symbols;
-        document.getElementById('active-strategies-count').textContent = data.active_strategies;
+        document.getElementById('connected-symbols').textContent = data.connected_symbols || 0;
+        document.getElementById('active-strategies-count').textContent = data.active_strategies || 0;
+        
+        // Show uptime if available
+        if (data.uptime && data.uptime > 0) {
+            const hours = Math.floor(data.uptime / 3600);
+            const minutes = Math.floor((data.uptime % 3600) / 60);
+            const uptimeText = `${hours}h ${minutes}m`;
+            // You could display this in the UI if there's a place for it
+        }
         
     } catch (error) {
         console.error('Error loading bot status:', error);

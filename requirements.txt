@@ -17,6 +17,7 @@ pandas>=2.0.0           # Data analysis for backtesting
 flask>=3.0.0            # Web framework for dashboard
 flask-cors>=4.0.0       # CORS support for API
 werkzeug>=3.0.0        # WSGI utilities
+psutil>=5.9.0           # Process monitoring for bot status
 
 # Free API data sources (no API keys required)
 websocket-client>=1.6.4  # WebSocket for real-time Binance price streams

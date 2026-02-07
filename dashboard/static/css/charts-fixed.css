@@ -1,0 +1,56 @@
+/**
+ * Chart Container Fixed Sizing
+ * 
+ * Prevents charts from expanding beyond their containers
+ * and causing page overflow issues.
+ */
+
+/* Chart containers must have fixed height */
+.chart-container {
+    height: 400px !important;
+    max-height: 400px !important;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+
+/* Canvas elements inside containers should respect parent size */
+.chart-container canvas {
+    max-height: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    width: 100% !important;
+}
+
+/* Responsive chart sizes for different screen sizes */
+@media (max-width: 768px) {
+    .chart-container {
+        height: 300px !important;
+        max-height: 300px !important;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .chart-container {
+        height: 350px !important;
+        max-height: 350px !important;
+    }
+}
+
+@media (min-width: 1025px) {
+    .chart-container {
+        height: 400px !important;
+        max-height: 400px !important;
+    }
+}
+
+/* Ensure Chart.js maintains aspect ratio properly */
+canvas {
+    display: block;
+    box-sizing: border-box;
+}
+
+/* Fix for chart wrapper divs */
+.card canvas {
+    max-height: 350px !important;
+}
