@@ -1,3 +1,92 @@
-# Replace with: bot_token: "YOUR_BOT_TOKEN_HERE"
-#               password: "YOUR_APP_PASSWORD_HERE"
+# Polymarket Arbitrage Bot Configuration
+# Paper Trading Only - NO REAL MONEY
+
+# ===== SAFETY SETTINGS =====
+# CRITICAL: DO NOT CHANGE THESE!
+paper_trading: true          # Must ALWAYS be true - NO REAL TRADING
+kill_switch: false           # Emergency stop - set to true to stop bot
+
+# ===== TRADING PARAMETERS =====
+max_trade_size: 10           # Maximum $ to trade per opportunity (paper money)
+min_profit_margin: 0.02      # Minimum profit margin (2%)
+max_trades_per_hour: 10      # Max trades per hour (rate limiting)
+
+# ===== FREE DATA SOURCES (No API Keys Required) =====
+
+# Binance WebSocket & REST API (FREE - 1200 req/min)
+binance:
+  enable_websocket: true      # Use WebSocket for real-time prices
+  symbols:                    # Crypto symbols to track
+    - BTC
+    - ETH
+    - BNB
+    - SOL
+  rest_fallback: true         # Use REST API if WebSocket fails
+
+# CoinGecko API (FREE - 50 req/min, no key)
+coingecko:
+  enabled: true               # Use as fallback for crypto prices
+  cache_duration: 60          # Cache prices for 60 seconds
+
+# Polymarket Subgraph (UNLIMITED - via The Graph)
+polymarket:
+  use_subgraph: true          # Use The Graph subgraph (unlimited)
+  use_api_fallback: true      # Fallback to Polymarket API if subgraph fails
+  
+# Price Aggregator Settings
+price_aggregator:
+  enable_websocket: true      # Enable WebSocket for real-time updates
+  primary_source: binance     # Primary source: binance or coingecko
+  fallback_enabled: true      # Enable automatic fallbacks
+
+# ===== API SETTINGS =====
+# Legacy Polymarket API (now uses free sources above)
+rate_limit_max: 100                    # Max requests per minute
+rate_limit_warning_threshold: 0.80     # Warning at 80% usage
+rate_limit_pause_threshold: 0.95       # Pause at 95% usage
+api_timeout_seconds: 5                 # API request timeout
+max_retries: 3                         # Max retry attempts
+request_delay_seconds: 0.5             # Delay between requests
+
+# ===== MONITORING =====
+connection_check_interval: 10          # Seconds between health checks
+auto_pause_on_connection_loss: true    # Auto-pause if connection lost
+
+# ===== MARKETS TO WATCH =====
+markets_to_watch:
+  - BTC-above-100k
+  - ETH-above-4k
+  - Presidential-Election-2024
+
+# ===== NOTIFICATIONS =====
+alert_on_opportunities: true           # Alert when opportunity found
+alert_on_trades: true                  # Alert when trade executed
+
+# Desktop notifications
+desktop_notifications:
+  enabled: false
+
+# Email notifications (optional)
+email_notifications:
+  enabled: false
+  smtp_server: ""
+  smtp_port: 587
+  sender_email: ""
+  sender_password: ""
+  recipient_email: ""
+
+# Telegram notifications (optional)
+telegram_notifications:
+  enabled: false
+  bot_token: ""
+  chat_id: ""
+
+# ===== LOGGING =====
+log_level: INFO                        # DEBUG, INFO, WARNING, ERROR
+log_to_file: true                      # Save logs to files
+log_directory: logs                    # Log file directory
+
+# ===== DASHBOARD =====
+dashboard_refresh_interval: 1          # Seconds between dashboard updates
+dashboard_history_size: 20             # Number of activities to keep
 
