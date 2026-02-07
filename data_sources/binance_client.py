@@ -36,6 +36,7 @@ class BinanceClient:
         self.price_cache = {}
         self.callbacks = {}
         self.ws_tasks = []
+        self.websocket_started = False
         
     def get_current_price(self, symbol: str = 'BTCUSDT') -> Optional[float]:
         """
