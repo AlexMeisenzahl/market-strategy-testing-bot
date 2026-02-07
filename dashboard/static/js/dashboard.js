@@ -20,8 +20,8 @@ const API_BASE = window.location.origin;
 // Initialize API client
 const apiClient = new APIClient(API_BASE);
 
-// Auto-refresh interval (30 seconds instead of 10)
-const REFRESH_INTERVAL = 30000;
+// Auto-refresh interval (5 seconds for real-time updates)
+const REFRESH_INTERVAL = 5000;
 
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -106,7 +106,7 @@ function handleAutoRefreshToggle(event) {
     
     if (autoRefreshEnabled) {
         startAutoRefresh();
-        showToast('Auto-refresh enabled (30s interval)', 'success');
+        showToast('Auto-refresh enabled (5s interval)', 'success');
     } else {
         stopAutoRefresh();
         showToast('Auto-refresh disabled', 'info');
@@ -473,23 +473,60 @@ async function loadBotStatus() {
         const statusPing = document.getElementById('status-ping');
         
         if (data.running) {
-            statusText.textContent = 'Running';
+            statusText.textContent = data.status_emoji + ' Running';
             statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-green-500';
             statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75';
+            
+            // Add PID and uptime if available
+            if (data.pid) {
+                statusText.textContent += ` (PID: ${data.pid})`;
+            }
+            
+            // Update data source to Live when bot is running
+            updateDataSourceIndicator('live', data.mode || 'paper');
+        } else if (data.status_text === 'Error') {
+            statusText.textContent = data.status_emoji + ' Error';
+            statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-yellow-500';
+            statusPing.className = 'hidden';
+            
+            // Use historical data when there's an error
+            updateDataSourceIndicator('historical');
         } else {
-            statusText.textContent = 'Stopped';
+            statusText.textContent = data.status_emoji + ' Stopped';
             statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-red-500';
             statusPing.className = 'hidden';
+            
+            // Use historical data when bot is stopped
+            updateDataSourceIndicator('historical');
         }
         
         // Update control page
-        document.getElementById('control-status').textContent = data.running ? 'Running' : 'Stopped';
+        document.getElementById('control-status').textContent = data.status_text || (data.running ? 'Running' : 'Stopped');
         document.getElementById('bot-mode').textContent = data.mode === 'paper' ? 'Paper Trading' : 'Live Trading';
-        document.getElementById('connected-symbols').textContent = data.connected_symbols;
-        document.getElementById('active-strategies-count').textContent = data.active_strategies;
+        document.getElementById('connected-symbols').textContent = data.connected_symbols || 0;
+        document.getElementById('active-strategies-count').textContent = data.active_strategies || 0;
         
     } catch (error) {
         console.error('Error loading bot status:', error);
+        // Default to historical data on error
+        updateDataSourceIndicator('historical');
+    }
+}
+
+// Update data source indicator
+function updateDataSourceIndicator(source, tradingMode = null) {
+    const indicator = document.getElementById('data-source-indicator');
+    const text = document.getElementById('data-source-text');
+    
+    if (!indicator || !text) return;
+    
+    if (source === 'live') {
+        indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400';
+        const modeText = tradingMode === 'paper' ? 'Paper' : 'Live';
+        text.innerHTML = `🟢 Live APIs (${modeText})`;
+    } else {
+        indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-900/20 text-blue-400';
+        text.innerHTML = '📊 Historical Data';
     }
 }
 

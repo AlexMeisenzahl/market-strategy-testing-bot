@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 import json
+import psutil  # For process monitoring
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -54,6 +55,12 @@ bot_status = {
 def index():
     """Render main dashboard page"""
     return render_template('index.html')
+
+
+@app.route('/opportunities')
+def opportunities_page():
+    """Render opportunities page"""
+    return render_template('opportunities.html')
 
 
 @app.route('/health')
@@ -459,10 +466,49 @@ def get_notification_history():
 def get_bot_status():
     """Get current bot status"""
     try:
+        # Check if bot.py process is actually running
+        bot_running = False
+        bot_pid = None
+        bot_uptime = 0
+        
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'create_time']):
+            try:
+                cmdline = proc.info.get('cmdline', [])
+                if cmdline and any('bot.py' in str(cmd) for cmd in cmdline):
+                    bot_running = True
+                    bot_pid = proc.info['pid']
+                    # Calculate uptime in seconds
+                    bot_uptime = int((datetime.now().timestamp() - proc.info['create_time']))
+                    break
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        # Update global status
+        bot_status['running'] = bot_running
+        bot_status['pid'] = bot_pid
+        bot_status['uptime'] = bot_uptime
+        
+        # Add status emoji
+        if bot_running:
+            bot_status['status_emoji'] = '🟢'
+            bot_status['status_text'] = 'Running'
+        elif bot_status.get('paused', False):
+            bot_status['status_emoji'] = '🟡'
+            bot_status['status_text'] = 'Paused'
+        else:
+            bot_status['status_emoji'] = '🔴'
+            bot_status['status_text'] = 'Stopped'
+        
         return jsonify(bot_status)
     except Exception as e:
         logger.log_error(f"Error getting bot status: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        # Return default status on error
+        return jsonify({
+            'running': False,
+            'status_emoji': '🟡',
+            'status_text': 'Error',
+            'error': str(e)
+        }), 200  # Return 200 even on error to avoid breaking frontend
 
 
 @app.route('/api/bot/start', methods=['POST'])
