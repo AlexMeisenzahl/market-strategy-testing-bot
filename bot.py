@@ -237,8 +237,8 @@ class ArbitrageBot:
                     self.add_alert("🚨 Connection lost - trading paused")
                     return
             
-            # Get active markets (for demo, use predefined markets)
-            markets_to_scan = self._get_demo_markets()
+            # Get active markets (use live API if enabled, otherwise demo)
+            markets_to_scan = self._get_live_markets()
             
             # Fetch prices for each market
             prices_dict = {}
@@ -310,6 +310,84 @@ class ArbitrageBot:
                 })
         
         return demo_markets
+    
+    def _get_live_markets(self) -> list:
+        """Fetch active markets from Polymarket API"""
+        try:
+            # Check if live API is enabled
+            polymarket_config = self.config.get('polymarket', {}).get('api', {})
+            if not polymarket_config.get('enabled', True):
+                self.logger.log_warning("Live API disabled, using demo markets")
+                return self._get_demo_markets()
+            
+            # Get active markets from API
+            markets = self.monitor.api.get_markets(active=True, limit=100)
+            
+            if not markets:
+                self.logger.log_warning("No markets returned from API, using demo markets")
+                return self._get_demo_markets()
+            
+            # Get filtering configuration
+            market_filters = self.config.get('polymarket', {}).get('market_filters', {})
+            min_liquidity = market_filters.get('min_liquidity', 1000)
+            min_volume = market_filters.get('min_volume_24h', 5000)
+            categories = market_filters.get('categories', [])
+            
+            # Get configured keywords for filtering
+            configured_keywords = self.config.get('markets_to_watch', [])
+            
+            # Filter markets
+            filtered = []
+            for market in markets:
+                # Skip if below liquidity threshold
+                if market.get('liquidity', 0) < min_liquidity:
+                    continue
+                
+                # Skip if below volume threshold
+                if market.get('volume', 0) < min_volume:
+                    continue
+                
+                # If keywords configured, filter by keywords
+                if configured_keywords:
+                    question = market.get('question', '').lower()
+                    if not any(keyword.lower() in question for keyword in configured_keywords):
+                        continue
+                
+                # If categories configured, filter by category
+                if categories:
+                    market_category = market.get('category', '').lower()
+                    if market_category not in [c.lower() for c in categories]:
+                        continue
+                
+                # Add market with standardized format
+                filtered.append({
+                    'id': market.get('condition_id', market.get('id', '')),
+                    'question': market.get('question', 'Unknown Market'),
+                    'liquidity': market.get('liquidity', 0),
+                    'volume': market.get('volume', 0),
+                    'end_date': market.get('end_date_iso', '')
+                })
+            
+            # Sort by volume (highest first) and limit to top 20
+            filtered.sort(key=lambda m: m.get('volume', 0), reverse=True)
+            filtered = filtered[:20]
+            
+            if not filtered:
+                self.logger.log_warning(
+                    "No markets passed filters, using demo markets"
+                )
+                return self._get_demo_markets()
+            
+            self.logger.log_info(
+                f"Fetched {len(filtered)} live markets from Polymarket API"
+            )
+            
+            return filtered
+            
+        except Exception as e:
+            self.logger.log_error(f"Failed to fetch live markets: {str(e)}")
+            self.logger.log_warning("Falling back to demo markets")
+            return self._get_demo_markets()
     
     def run(self) -> None:
         """Main bot loop with live dashboard"""

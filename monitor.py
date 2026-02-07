@@ -14,6 +14,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger
+from polymarket_api import PolymarketAPI
 
 
 class RateLimiter:
@@ -84,6 +85,16 @@ class PolymarketMonitor:
         """
         self.config = config
         self.logger = get_logger()
+        
+        # Initialize Polymarket API client
+        polymarket_config = config.get('polymarket', {}).get('api', {})
+        self.api = PolymarketAPI(
+            timeout=polymarket_config.get('timeout', 10),
+            retry_attempts=polymarket_config.get('retry_attempts', 3)
+        )
+        
+        # Check if live API is enabled
+        self.live_api_enabled = polymarket_config.get('enabled', True)
         
         # Initialize rate limiter
         self.rate_limiter = RateLimiter(
@@ -241,11 +252,27 @@ class PolymarketMonitor:
             # Add delay between requests
             time.sleep(self.request_delay)
             
-            # For this implementation, we'll simulate market prices
-            # In production, you would fetch from the actual Polymarket API
-            # This is a paper trading bot, so simulated data is acceptable
+            if self.live_api_enabled:
+                # Use LIVE Polymarket API
+                prices = self.api.get_market_prices(market_id)
+                
+                self.rate_limiter.record_request()
+                
+                if prices:
+                    return {
+                        'yes': prices.get('yes', 0.5),
+                        'no': prices.get('no', 0.5),
+                        'market_id': market_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                else:
+                    # Fallback to simulated if API fails
+                    self.logger.log_warning(
+                        f"Live API failed for {market_id}, using fallback data"
+                    )
             
-            # Simulate prices (this would be replaced with actual API call)
+            # Fallback: Simulate prices (for when API is disabled or fails)
+            # This ensures paper trading can continue even if API is unavailable
             import random
             yes_price = round(random.uniform(0.40, 0.60), 3)
             no_price = round(random.uniform(0.40, 0.60), 3)
