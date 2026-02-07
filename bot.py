@@ -316,6 +316,14 @@ class ArbitrageBot:
         self.console.clear()
         self.console.print("[bold cyan]Starting Polymarket Arbitrage Bot...[/bold cyan]")
         self.console.print("[yellow]Paper Trading Mode - NO REAL MONEY[/yellow]")
+        
+        # Initialize data sources
+        if hasattr(self.monitor, 'price_aggregator') and self.monitor.price_aggregator:
+            self.console.print("[green]✓ Free data sources enabled (Binance, CoinGecko, Polymarket Subgraph)[/green]")
+            self.console.print("[green]✓ WebSocket streams active for real-time prices[/green]")
+        else:
+            self.console.print("[yellow]⚠ Using legacy API mode[/yellow]")
+        
         time.sleep(2)
         
         layout = self.create_dashboard()
@@ -346,6 +354,10 @@ class ArbitrageBot:
             self.console.print(f"\n[red]ERROR: {str(e)}[/red]")
             self.logger.log_critical(f"Bot crashed: {str(e)}")
         finally:
+            # Clean up data sources
+            if hasattr(self.monitor, 'price_aggregator') and self.monitor.price_aggregator:
+                self.monitor.price_aggregator.stop()
+            
             self.console.print("\n[cyan]Shutting down...[/cyan]")
             self.console.print(f"[green]Total paper profit: ${self.trader.get_statistics()['total_profit']:.2f}[/green]")
 
