@@ -103,6 +103,14 @@ Or if using Python 3:
 python3 dashboard/app.py
 ```
 
+**For Development** (enables debug mode and auto-reload):
+
+```bash
+FLASK_DEBUG=true python3 dashboard/app.py
+```
+
+⚠️ **Never run with debug mode in production!** Debug mode can expose sensitive information and allow arbitrary code execution.
+
 2. **Access the Dashboard**
 
 Open your web browser and navigate to:
