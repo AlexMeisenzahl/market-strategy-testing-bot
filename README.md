@@ -16,6 +16,13 @@ A complete, production-ready arbitrage bot for Polymarket with **professional we
 
 ### Quick Start Dashboard:
 
+**Option 1: Quick Start Script (Recommended)**
+```bash
+# Automated setup and launch
+python3 start_dashboard.py
+```
+
+**Option 2: Manual Start**
 ```bash
 # Start the web dashboard
 python3 dashboard/app.py
