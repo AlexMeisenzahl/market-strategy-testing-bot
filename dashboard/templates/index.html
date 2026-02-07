@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Strategy Testing Bot - Dashboard</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'profit': '#10b981',
+                        'loss': '#ef4444',
+                        'dark-bg': '#0f172a',
+                        'dark-card': '#1e293b',
+                        'dark-border': '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .profit-gradient {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .loss-gradient {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-gray-100">
+    
+    <!-- Navigation -->
+    <nav class="bg-dark-card border-b border-dark-border sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-2xl text-blue-500 mr-3"></i>
+                    <h1 class="text-xl font-bold">Market Strategy Bot</h1>
+                </div>
+                
+                <div class="flex items-center space-x-6">
+                    <button onclick="showPage('overview', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-home mr-2"></i>Overview
+                    </button>
+                    <button onclick="showPage('trades', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-exchange-alt mr-2"></i>Trades
+                    </button>
+                    <button onclick="showPage('opportunities', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-lightbulb mr-2"></i>Opportunities
+                    </button>
+                    <button onclick="showPage('settings', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-cog mr-2"></i>Settings
+                    </button>
+                    <button onclick="showPage('control', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-play-circle mr-2"></i>Control
+                    </button>
+                    
+                    <!-- Bot Status Indicator -->
+                    <div class="flex items-center">
+                        <span class="relative flex h-3 w-3 mr-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" id="status-ping"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500" id="status-dot"></span>
+                        </span>
+                        <span class="text-sm text-gray-400" id="bot-status-text">Running</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Overview Page -->
+        <div id="page-overview" class="page-content">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold mb-2">Dashboard Overview</h2>
+                <p class="text-gray-400">Real-time performance metrics and analytics</p>
+            </div>
+            
+            <!-- Key Metrics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total P&L Card -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-gray-400 text-sm">Total P&L</span>
+                        <i class="fas fa-dollar-sign text-blue-500"></i>
+                    </div>
+                    <div class="text-3xl font-bold mb-1" id="total-pnl">$0.00</div>
+                    <div class="flex items-center text-sm">
+                        <span id="pnl-change" class="text-profit">+0%</span>
+                        <span class="text-gray-500 ml-2">vs yesterday</span>
+                    </div>
+                </div>
+                
+                <!-- Win Rate Card -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-gray-400 text-sm">Win Rate</span>
+                        <i class="fas fa-percentage text-green-500"></i>
+                    </div>
+                    <div class="text-3xl font-bold mb-1" id="win-rate">0%</div>
+                    <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                        <div id="win-rate-bar" class="bg-profit h-2 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Active Trades Card -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-gray-400 text-sm">Active Trades</span>
+                        <i class="fas fa-chart-line text-yellow-500"></i>
+                    </div>
+                    <div class="text-3xl font-bold mb-1" id="active-trades">0</div>
+                    <div class="text-sm text-gray-500">Currently open</div>
+                </div>
+                
+                <!-- Total Trades Card -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-gray-400 text-sm">Total Trades</span>
+                        <i class="fas fa-list text-purple-500"></i>
+                    </div>
+                    <div class="text-3xl font-bold mb-1" id="total-trades">0</div>
+                    <div class="text-sm text-gray-500">All time</div>
+                </div>
+            </div>
+            
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Cumulative P&L Chart -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Cumulative P&L</h3>
+                        <div class="flex space-x-2">
+                            <button onclick="updateCumulativePNL('1W', event)" class="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">1W</button>
+                            <button onclick="updateCumulativePNL('1M', event)" class="px-3 py-1 text-xs rounded bg-blue-600">1M</button>
+                            <button onclick="updateCumulativePNL('3M', event)" class="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">3M</button>
+                            <button onclick="updateCumulativePNL('ALL', event)" class="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">ALL</button>
+                        </div>
+                    </div>
+                    <canvas id="cumulative-pnl-chart" height="250"></canvas>
+                </div>
+                
+                <!-- Daily P&L Chart -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h3 class="text-lg font-semibold mb-4">Daily P&L</h3>
+                    <canvas id="daily-pnl-chart" height="250"></canvas>
+                </div>
+            </div>
+            
+            <!-- Strategy Performance & Recent Activity -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Strategy Performance -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h3 class="text-lg font-semibold mb-4">Strategy Performance</h3>
+                    <canvas id="strategy-performance-chart" height="250"></canvas>
+                </div>
+                
+                <!-- Recent Activity -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+                    <div id="recent-activity" class="space-y-3 max-h-80 overflow-y-auto">
+                        <!-- Activity items will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Trades Page -->
+        <div id="page-trades" class="page-content hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold mb-2">Trading History</h2>
+                <p class="text-gray-400">View and analyze all your trades</p>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Date Range</label>
+                        <select class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm" id="trade-date-filter">
+                            <option value="all">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Symbol</label>
+                        <select class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm" id="trade-symbol-filter">
+                            <option value="">All Symbols</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Strategy</label>
+                        <select class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm" id="trade-strategy-filter">
+                            <option value="">All Strategies</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Outcome</label>
+                        <select class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm" id="trade-outcome-filter">
+                            <option value="">All</option>
+                            <option value="win">Wins</option>
+                            <option value="loss">Losses</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-between items-center">
+                    <button onclick="applyTradeFilters()" class="btn-primary px-6 py-2 rounded-lg text-sm font-medium">
+                        Apply Filters
+                    </button>
+                    <button onclick="exportTrades()" class="px-6 py-2 rounded-lg text-sm font-medium bg-gray-700 hover:bg-gray-600">
+                        <i class="fas fa-download mr-2"></i>Export CSV
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Trades Table -->
+            <div class="card bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-800 border-b border-gray-700">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Symbol</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Strategy</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Entry</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Exit</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Duration</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trades-table-body" class="divide-y divide-gray-700">
+                            <!-- Trades will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="bg-gray-800 px-6 py-4 flex justify-between items-center">
+                    <div class="text-sm text-gray-400" id="trades-count">Showing 0 trades</div>
+                    <div class="flex space-x-2" id="trades-pagination">
+                        <!-- Pagination buttons will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Opportunities Page -->
+        <div id="page-opportunities" class="page-content hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold mb-2">Opportunities</h2>
+                <p class="text-gray-400">Track detected opportunities and conversion rates</p>
+            </div>
+            
+            <div class="text-center py-20">
+                <i class="fas fa-lightbulb text-6xl text-gray-600 mb-4"></i>
+                <p class="text-xl text-gray-400">Opportunities tracking coming soon</p>
+            </div>
+        </div>
+        
+        <!-- Settings Page -->
+        <div id="page-settings" class="page-content hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold mb-2">Settings</h2>
+                <p class="text-gray-400">Configure notifications, strategies, and preferences</p>
+            </div>
+            
+            <!-- Settings Tabs -->
+            <div class="mb-6">
+                <div class="flex space-x-4 border-b border-dark-border">
+                    <button onclick="showSettingsTab('notifications', event)" class="settings-tab px-4 py-2 font-medium border-b-2 border-blue-500 text-blue-500">
+                        <i class="fas fa-bell mr-2"></i>Notifications
+                    </button>
+                    <button onclick="showSettingsTab('strategies', event)" class="settings-tab px-4 py-2 font-medium text-gray-400 hover:text-white">
+                        <i class="fas fa-chess mr-2"></i>Strategies
+                    </button>
+                    <button onclick="showSettingsTab('display', event)" class="settings-tab px-4 py-2 font-medium text-gray-400 hover:text-white">
+                        <i class="fas fa-palette mr-2"></i>Display
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Notifications Settings -->
+            <div id="settings-notifications" class="settings-content">
+                <!-- Email Notifications -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold flex items-center">
+                                <i class="fas fa-envelope text-blue-500 mr-3"></i>
+                                Email Notifications
+                            </h3>
+                            <p class="text-sm text-gray-400 mt-1">Receive trading alerts via email</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="email-enabled" class="sr-only peer" onchange="toggleEmailSettings()">
+                            <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div id="email-settings" class="space-y-4 hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">From Email</label>
+                                <input type="email" id="email-from" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2" placeholder="your@email.com">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">To Email</label>
+                                <input type="email" id="email-to" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2" placeholder="alerts@email.com">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">SMTP Server</label>
+                                <input type="text" id="email-smtp" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2" placeholder="smtp.gmail.com">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">SMTP Port</label>
+                                <input type="number" id="email-port" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2" placeholder="587">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-400 mb-2">Password</label>
+                                <input type="password" id="email-password" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2" placeholder="••••••••">
+                            </div>
+                        </div>
+                        
+                        <div class="flex space-x-4">
+                            <button onclick="testEmailNotification()" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-700 hover:bg-gray-600">
+                                <i class="fas fa-paper-plane mr-2"></i>Send Test Email
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Desktop Notifications -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold flex items-center">
+                                <i class="fas fa-desktop text-green-500 mr-3"></i>
+                                Desktop Notifications
+                            </h3>
+                            <p class="text-sm text-gray-400 mt-1">Show notifications on your desktop</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="desktop-enabled" class="sr-only peer" checked>
+                            <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                    
+                    <button onclick="testDesktopNotification()" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-700 hover:bg-gray-600">
+                        <i class="fas fa-bell mr-2"></i>Send Test Notification
+                    </button>
+                </div>
+                
+                <!-- Telegram Notifications -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold flex items-center">
+                                <i class="fab fa-telegram text-cyan-500 mr-3"></i>
+                                Telegram Notifications
+                            </h3>
+                            <p class="text-sm text-gray-400 mt-1">Receive alerts via Telegram</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="telegram-enabled" class="sr-only peer" onchange="toggleTelegramSettings()">
+                            <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div id="telegram-settings" class="space-y-4 hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">Bot Token</label>
+                                <input type="text" id="telegram-token" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2" placeholder="123456:ABC-DEF...">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">Chat ID</label>
+                                <input type="text" id="telegram-chat-id" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2" placeholder="123456789">
+                            </div>
+                        </div>
+                        
+                        <button onclick="testTelegramNotification()" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-700 hover:bg-gray-600">
+                            <i class="fab fa-telegram mr-2"></i>Send Test Message
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Save Button -->
+                <div class="flex justify-end">
+                    <button onclick="saveNotificationSettings()" class="btn-primary px-8 py-3 rounded-lg font-medium">
+                        <i class="fas fa-save mr-2"></i>Save All Settings
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Strategies Settings -->
+            <div id="settings-strategies" class="settings-content hidden">
+                <div class="text-center py-20">
+                    <i class="fas fa-chess text-6xl text-gray-600 mb-4"></i>
+                    <p class="text-xl text-gray-400">Strategy configuration coming soon</p>
+                </div>
+            </div>
+            
+            <!-- Display Settings -->
+            <div id="settings-display" class="settings-content hidden">
+                <div class="text-center py-20">
+                    <i class="fas fa-palette text-6xl text-gray-600 mb-4"></i>
+                    <p class="text-xl text-gray-400">Display preferences coming soon</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Control Page -->
+        <div id="page-control" class="page-content hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold mb-2">Bot Control</h2>
+                <p class="text-gray-400">Start, stop, and monitor your trading bot</p>
+            </div>
+            
+            <!-- Control Panel -->
+            <div class="card bg-dark-card rounded-xl p-8 border border-dark-border mb-6 text-center">
+                <div class="mb-6">
+                    <div class="inline-block p-4 bg-gray-800 rounded-full mb-4">
+                        <i class="fas fa-robot text-6xl text-blue-500"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">Bot Status: <span id="control-status">Stopped</span></h3>
+                    <p class="text-gray-400">Uptime: <span id="bot-uptime">0h 0m</span></p>
+                </div>
+                
+                <div class="flex justify-center space-x-4">
+                    <button onclick="startBot()" class="px-8 py-4 rounded-lg font-medium bg-green-600 hover:bg-green-700 transition">
+                        <i class="fas fa-play mr-2"></i>Start Bot
+                    </button>
+                    <button onclick="stopBot()" class="px-8 py-4 rounded-lg font-medium bg-red-600 hover:bg-red-700 transition">
+                        <i class="fas fa-stop mr-2"></i>Stop Bot
+                    </button>
+                    <button onclick="restartBot()" class="px-8 py-4 rounded-lg font-medium bg-yellow-600 hover:bg-yellow-700 transition">
+                        <i class="fas fa-redo mr-2"></i>Restart Bot
+                    </button>
+                </div>
+            </div>
+            
+            <!-- System Info -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h4 class="text-sm text-gray-400 mb-2">Mode</h4>
+                    <p class="text-xl font-semibold" id="bot-mode">Paper Trading</p>
+                </div>
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h4 class="text-sm text-gray-400 mb-2">Connected Symbols</h4>
+                    <p class="text-xl font-semibold" id="connected-symbols">0</p>
+                </div>
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h4 class="text-sm text-gray-400 mb-2">Active Strategies</h4>
+                    <p class="text-xl font-semibold" id="active-strategies-count">0</p>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 hidden">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-4 max-w-sm">
+            <div class="flex items-center">
+                <i id="toast-icon" class="fas fa-check-circle text-green-500 text-xl mr-3"></i>
+                <p id="toast-message" class="text-sm"></p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

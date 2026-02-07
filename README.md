@@ -1,6 +1,39 @@
 # Polymarket Arbitrage Bot - Paper Trading Edition
 
-A complete, production-ready arbitrage bot for Polymarket with real-time dashboard and comprehensive safety features. **PAPER TRADING ONLY - NO REAL MONEY IS USED.**
+A complete, production-ready arbitrage bot for Polymarket with **professional web dashboard** and comprehensive safety features. **PAPER TRADING ONLY - NO REAL MONEY IS USED.**
+
+## 📊 NEW: Professional Web Dashboard
+
+**Access a beautiful, modern web interface** to monitor and control your trading bot!
+
+### Dashboard Features:
+- 📈 **Real-time Performance Metrics** - Total P&L, Win Rate, Active Trades
+- 📊 **Interactive Charts** - Cumulative P&L, Daily P&L, Strategy Performance
+- 💼 **Trading History** - Browse and filter all your trades
+- 🔔 **Notification Center** - Configure email, desktop, and Telegram alerts
+- 🎛️ **Bot Control** - Start, stop, and monitor your bot from the web
+- 🎨 **Professional Design** - Dark theme, responsive, smooth animations
+
+### Quick Start Dashboard:
+
+**Option 1: Quick Start Script (Recommended)**
+```bash
+# Automated setup and launch
+python3 start_dashboard.py
+```
+
+**Option 2: Manual Start**
+```bash
+# Start the web dashboard
+python3 dashboard/app.py
+
+# Open in your browser
+http://localhost:5000
+```
+
+👉 **[See Full Dashboard Documentation](dashboard/README.md)**
+
+---
 
 ## 🎯 What This Bot Does (In Plain English)
 

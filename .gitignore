@@ -28,3 +28,9 @@ Thumbs.db
 *.tmp
 *.bak
 config.yaml
+
+# Dashboard specific
+config_backups/
+*.log
+.flask_session/
+
