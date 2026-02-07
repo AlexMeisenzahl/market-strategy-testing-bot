@@ -89,9 +89,10 @@ class ArbitrageBot:
             Layout(name="header", size=3),
             Layout(name="status", size=3),
             Layout(name="connection", size=5),
+            Layout(name="data_sources", size=7),  # NEW: Data sources status
             Layout(name="rate_limit", size=5),
             Layout(name="trading", size=5),
-            Layout(name="activity", size=12),
+            Layout(name="activity", size=10),
             Layout(name="alerts", size=5),
             Layout(name="footer", size=3)
         )
@@ -134,6 +135,32 @@ class ArbitrageBot:
         conn_table.add_row("Last Check:", f"{seconds_since_check} seconds ago")
         
         layout["connection"].update(Panel(conn_table, title="CONNECTION", box=box.ROUNDED))
+        
+        # Data sources status (NEW)
+        try:
+            ds_status = self.monitor.get_data_source_status()
+            ds_table = Table(show_header=False, box=None, padding=(0, 2))
+            ds_table.add_column("Label", style="cyan")
+            ds_table.add_column("Value")
+            
+            # Binance status
+            binance_connected = ds_status.get('binance', {}).get('connected', False)
+            binance_text = "✓ Connected" if binance_connected else "✗ Disconnected"
+            binance_style = "green" if binance_connected else "red"
+            ds_table.add_row("Binance:", Text(binance_text, style=binance_style))
+            
+            # CoinGecko status
+            cg_used = ds_status.get('coingecko', {}).get('rate_limit_used', 0)
+            cg_max = ds_status.get('coingecko', {}).get('rate_limit_max', 50)
+            ds_table.add_row("CoinGecko:", f"{cg_used}/{cg_max} req/min")
+            
+            # Aggregator success rate
+            agg_success = ds_status.get('aggregator', {}).get('success_rate', 0)
+            ds_table.add_row("Success Rate:", f"{agg_success:.1f}%")
+            
+            layout["data_sources"].update(Panel(ds_table, title="FREE DATA SOURCES", box=box.ROUNDED))
+        except Exception as e:
+            layout["data_sources"].update(Panel("Error loading data sources", title="DATA SOURCES", box=box.ROUNDED))
         
         # Rate limit status
         rate_status = self.monitor.get_rate_limit_status()
@@ -347,6 +374,14 @@ class ArbitrageBot:
             self.logger.log_critical(f"Bot crashed: {str(e)}")
         finally:
             self.console.print("\n[cyan]Shutting down...[/cyan]")
+            
+            # Shutdown data source connections
+            try:
+                self.monitor.shutdown()
+                self.console.print("[green]✓ Data sources closed[/green]")
+            except Exception as e:
+                self.console.print(f"[yellow]Warning: Error closing data sources: {e}[/yellow]")
+            
             self.console.print(f"[green]Total paper profit: ${self.trader.get_statistics()['total_profit']:.2f}[/green]")
 
 

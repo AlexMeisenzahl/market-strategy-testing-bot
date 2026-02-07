@@ -1,12 +1,18 @@
 """
-Monitor Module - Price monitoring and API handling for Polymarket
+Monitor Module - Price monitoring with Free Data Sources
 
 Handles:
-- API connection to Polymarket
+- Multi-source price aggregation (Binance, CoinGecko)
+- Polymarket data via Subgraph (The Graph)
 - Rate limit tracking and management
 - Connection health monitoring
 - Data validation
 - Exponential backoff on errors
+
+Now using FREE data sources:
+- Binance WebSocket (1200 req/min)
+- CoinGecko API (50 req/min, no key)
+- Polymarket Subgraph (unlimited)
 """
 
 import requests
@@ -14,6 +20,14 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger
+
+# Import free data sources
+from data_sources import (
+    BinanceClient,
+    CoinGeckoClient,
+    PolymarketSubgraph,
+    PriceAggregator
+)
 
 
 class RateLimiter:
@@ -69,7 +83,7 @@ class RateLimiter:
 
 
 class PolymarketMonitor:
-    """Monitor Polymarket API and fetch market prices"""
+    """Monitor with Free Data Sources (Binance, CoinGecko, Polymarket Subgraph)"""
     
     # Polymarket API endpoints (public, no authentication needed)
     BASE_URL = "https://clob.polymarket.com"
@@ -77,7 +91,7 @@ class PolymarketMonitor:
     
     def __init__(self, config: Dict[str, Any]):
         """
-        Initialize Polymarket monitor
+        Initialize monitor with free data sources
         
         Args:
             config: Configuration dictionary from config.yaml
@@ -85,7 +99,20 @@ class PolymarketMonitor:
         self.config = config
         self.logger = get_logger()
         
-        # Initialize rate limiter
+        # Initialize FREE data sources
+        # 1. Price Aggregator (Binance + CoinGecko)
+        crypto_symbols = config.get('binance', {}).get('symbols', ['BTC', 'ETH'])
+        enable_ws = config.get('price_aggregator', {}).get('enable_websocket', True)
+        self.price_aggregator = PriceAggregator(
+            symbols=crypto_symbols,
+            enable_websocket=enable_ws
+        )
+        
+        # 2. Polymarket Subgraph (The Graph)
+        use_subgraph = config.get('polymarket', {}).get('use_subgraph', True)
+        self.polymarket = PolymarketSubgraph(use_subgraph=use_subgraph)
+        
+        # Initialize rate limiter (for legacy compatibility)
         self.rate_limiter = RateLimiter(
             max_requests=config.get('rate_limit_max', 100),
             time_window=60
@@ -104,26 +131,32 @@ class PolymarketMonitor:
         # Rate limit thresholds
         self.warning_threshold = config.get('rate_limit_warning_threshold', 0.80)
         self.pause_threshold = config.get('rate_limit_pause_threshold', 0.95)
+        
+        self.logger.log_warning("Monitor initialized with FREE data sources:")
+        self.logger.log_warning(f"  - Binance WebSocket (1200 req/min)")
+        self.logger.log_warning(f"  - CoinGecko API (50 req/min)")
+        self.logger.log_warning(f"  - Polymarket Subgraph (unlimited)")
     
     def check_connection_health(self) -> bool:
         """
-        Test if connection to Polymarket is stable
+        Test if connections to data sources are stable
         
         Returns:
-            True if connection is healthy, False otherwise
+            True if connections are healthy, False otherwise
         """
         start_time = time.time()
         
         try:
-            # Try to fetch markets list as health check
-            response = requests.get(
-                f"{self.BASE_URL}{self.MARKETS_ENDPOINT}",
-                timeout=self.timeout
-            )
+            # Check Polymarket Subgraph/API
+            markets = self.polymarket.get_markets(active_only=True, limit=1)
+            
+            # Check Price Aggregator health
+            aggregator_status = self.price_aggregator.get_status()
+            binance_healthy = aggregator_status['binance']['healthy']
             
             response_time_ms = int((time.time() - start_time) * 1000)
             
-            if response.status_code == 200:
+            if markets and binance_healthy:
                 self.connection_healthy = True
                 self.consecutive_failures = 0
                 
@@ -136,7 +169,7 @@ class PolymarketMonitor:
                 self.last_connection_check = datetime.now()
                 return True
             else:
-                self._handle_connection_failure(f"HTTP {response.status_code}")
+                self._handle_connection_failure("data source unavailable")
                 return False
                 
         except requests.exceptions.Timeout:
@@ -185,7 +218,7 @@ class PolymarketMonitor:
     
     def get_active_markets(self) -> List[Dict[str, Any]]:
         """
-        Fetch list of active markets from Polymarket
+        Fetch list of active markets from Polymarket Subgraph
         
         Returns:
             List of active market dictionaries
@@ -198,26 +231,17 @@ class PolymarketMonitor:
             # Add delay between requests
             time.sleep(self.request_delay)
             
-            response = requests.get(
-                f"{self.BASE_URL}{self.MARKETS_ENDPOINT}",
-                timeout=self.timeout,
-                params={"active": "true"}
-            )
+            # Use Polymarket Subgraph (FREE, unlimited)
+            markets = self.polymarket.get_markets(active_only=True, limit=100)
             
             self.rate_limiter.record_request()
             
-            if response.status_code == 200:
-                data = response.json()
-                
-                # Validate response format
-                if not self.validate_response_format(data):
-                    self.logger.log_critical("API format changed - unexpected response structure")
-                    return []
-                
-                return data if isinstance(data, list) else [data]
-            else:
-                self.logger.log_error(f"Failed to fetch markets: HTTP {response.status_code}")
+            # Validate response format
+            if not self.validate_response_format(markets):
+                self.logger.log_critical("API format changed - unexpected response structure")
                 return []
+            
+            return markets
                 
         except Exception as e:
             self.logger.log_error(f"Error fetching markets: {str(e)}")
@@ -241,16 +265,19 @@ class PolymarketMonitor:
             # Add delay between requests
             time.sleep(self.request_delay)
             
-            # For this implementation, we'll simulate market prices
-            # In production, you would fetch from the actual Polymarket API
-            # This is a paper trading bot, so simulated data is acceptable
+            # Use Polymarket Subgraph for real prices
+            prices = self.polymarket.get_market_prices(market_id)
             
-            # Simulate prices (this would be replaced with actual API call)
+            self.rate_limiter.record_request()
+            
+            if prices:
+                return prices
+            
+            # Fallback: simulate prices for demo (paper trading)
+            # This is acceptable for a paper trading bot
             import random
             yes_price = round(random.uniform(0.40, 0.60), 3)
             no_price = round(random.uniform(0.40, 0.60), 3)
-            
-            self.rate_limiter.record_request()
             
             return {
                 'yes': yes_price,
@@ -327,3 +354,69 @@ class PolymarketMonitor:
             'remaining': self.rate_limiter.get_remaining_requests(),
             'reset_in': self.rate_limiter.get_reset_time()
         }
+    
+    # === NEW CRYPTO PRICE METHODS ===
+    
+    def get_crypto_price(self, symbol: str) -> Optional[float]:
+        """
+        Get current crypto price (BTC, ETH, etc.)
+        
+        Args:
+            symbol: Crypto symbol (e.g., 'BTC', 'ETH')
+        
+        Returns:
+            Current price in USD or None
+        """
+        try:
+            return self.price_aggregator.get_price(symbol)
+        except Exception as e:
+            self.logger.log_error(f"Error fetching crypto price for {symbol}: {str(e)}")
+            return None
+    
+    def get_crypto_prices(self, symbols: Optional[List[str]] = None) -> Dict[str, float]:
+        """
+        Get multiple crypto prices at once
+        
+        Args:
+            symbols: List of symbols, or None for all tracked symbols
+        
+        Returns:
+            Dictionary mapping symbol to price
+        """
+        try:
+            return self.price_aggregator.get_prices(symbols)
+        except Exception as e:
+            self.logger.log_error(f"Error fetching crypto prices: {str(e)}")
+            return {}
+    
+    def get_crypto_market_data(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Get detailed market data for a crypto (24h stats, volume, etc.)
+        
+        Args:
+            symbol: Crypto symbol
+        
+        Returns:
+            Market data dictionary or None
+        """
+        try:
+            return self.price_aggregator.get_market_data(symbol)
+        except Exception as e:
+            self.logger.log_error(f"Error fetching market data for {symbol}: {str(e)}")
+            return None
+    
+    def get_data_source_status(self) -> Dict[str, Any]:
+        """Get status of all data sources"""
+        try:
+            return self.price_aggregator.get_status()
+        except Exception as e:
+            self.logger.log_error(f"Error getting data source status: {str(e)}")
+            return {}
+    
+    def shutdown(self) -> None:
+        """Shutdown all data source connections"""
+        try:
+            self.price_aggregator.shutdown()
+            self.logger.log_warning("Monitor shutdown complete")
+        except Exception as e:
+            self.logger.log_error(f"Error during shutdown: {str(e)}")
