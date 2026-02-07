@@ -2,7 +2,9 @@
 Monitor Module - Price monitoring and API handling for Polymarket
 
 Handles:
-- API connection to Polymarket
+- API connection to Polymarket via FREE data sources
+- Binance for crypto prices (no API key required)
+- Polymarket Subgraph for market data (GraphQL, free)
 - Rate limit tracking and management
 - Connection health monitoring
 - Data validation
@@ -14,6 +16,12 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger
+
+# Import free API clients
+from apis.binance_client import BinanceClient
+from apis.coingecko_client import CoinGeckoClient
+from apis.polymarket_subgraph import PolymarketSubgraph
+from apis.price_aggregator import PriceAggregator
 
 
 class RateLimiter:
@@ -77,7 +85,7 @@ class PolymarketMonitor:
     
     def __init__(self, config: Dict[str, Any]):
         """
-        Initialize Polymarket monitor
+        Initialize Polymarket monitor with FREE data sources
         
         Args:
             config: Configuration dictionary from config.yaml
@@ -85,7 +93,27 @@ class PolymarketMonitor:
         self.config = config
         self.logger = get_logger()
         
-        # Initialize rate limiter
+        # Initialize FREE API clients (no API keys needed!)
+        data_sources = config.get('data_sources', {})
+        
+        # Crypto price sources
+        crypto_config = data_sources.get('crypto_prices', {})
+        self.use_websocket = crypto_config.get('use_websocket', True)
+        
+        # Initialize price aggregator (combines Binance + CoinGecko)
+        self.price_aggregator = PriceAggregator(logger=self.logger)
+        
+        # Initialize Polymarket Subgraph client (free GraphQL)
+        polymarket_config = data_sources.get('polymarket', {})
+        use_alt = polymarket_config.get('use_alternative', False)
+        self.market_client = PolymarketSubgraph(logger=self.logger, use_alternative=use_alt)
+        
+        # Cache settings
+        self.cache_ttl = polymarket_config.get('cache_ttl_seconds', 60)
+        self.market_cache = {}
+        self.cache_timestamps = {}
+        
+        # Initialize legacy rate limiter (backward compatibility)
         self.rate_limiter = RateLimiter(
             max_requests=config.get('rate_limit_max', 100),
             time_window=60
@@ -104,10 +132,14 @@ class PolymarketMonitor:
         # Rate limit thresholds
         self.warning_threshold = config.get('rate_limit_warning_threshold', 0.80)
         self.pause_threshold = config.get('rate_limit_pause_threshold', 0.95)
+        
+        # Log successful initialization
+        self.logger.log_info("Monitor initialized with FREE data sources (Binance + Subgraph)")
     
     def check_connection_health(self) -> bool:
         """
-        Test if connection to Polymarket is stable
+        Test if connection to data sources is stable
+        Uses FREE APIs: Binance + Polymarket Subgraph
         
         Returns:
             True if connection is healthy, False otherwise
@@ -115,15 +147,18 @@ class PolymarketMonitor:
         start_time = time.time()
         
         try:
-            # Try to fetch markets list as health check
-            response = requests.get(
-                f"{self.BASE_URL}{self.MARKETS_ENDPOINT}",
-                timeout=self.timeout
-            )
+            # Check price aggregator health (Binance + CoinGecko)
+            price_health = self.price_aggregator.health_check()
+            
+            # Check Polymarket Subgraph health
+            market_health = self.market_client.health_check()
             
             response_time_ms = int((time.time() - start_time) * 1000)
             
-            if response.status_code == 200:
+            # Consider healthy if at least one source works
+            is_healthy = any(price_health.values()) or market_health
+            
+            if is_healthy:
                 self.connection_healthy = True
                 self.consecutive_failures = 0
                 
@@ -136,15 +171,9 @@ class PolymarketMonitor:
                 self.last_connection_check = datetime.now()
                 return True
             else:
-                self._handle_connection_failure(f"HTTP {response.status_code}")
+                self._handle_connection_failure("all sources unavailable")
                 return False
                 
-        except requests.exceptions.Timeout:
-            self._handle_connection_failure("timeout")
-            return False
-        except requests.exceptions.ConnectionError:
-            self._handle_connection_failure("connection error")
-            return False
         except Exception as e:
             self._handle_connection_failure(f"unexpected error: {str(e)}")
             return False
@@ -183,49 +212,45 @@ class PolymarketMonitor:
         
         return False
     
-    def get_active_markets(self) -> List[Dict[str, Any]]:
+    def get_active_markets(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Fetch list of active markets from Polymarket
+        Fetch list of active markets from Polymarket Subgraph (FREE)
+        
+        Args:
+            limit: Maximum number of markets to return
         
         Returns:
             List of active market dictionaries
         """
-        # Check rate limit
-        if not self._check_rate_limit():
-            return []
-        
         try:
-            # Add delay between requests
-            time.sleep(self.request_delay)
-            
-            response = requests.get(
-                f"{self.BASE_URL}{self.MARKETS_ENDPOINT}",
-                timeout=self.timeout,
-                params={"active": "true"}
+            # Use FREE Polymarket Subgraph (GraphQL)
+            markets = self.market_client.query_markets(
+                active=True,
+                first=limit
             )
             
-            self.rate_limiter.record_request()
-            
-            if response.status_code == 200:
-                data = response.json()
+            if markets:
+                self.logger.log_info(f"Fetched {len(markets)} active markets from Subgraph")
                 
-                # Validate response format
-                if not self.validate_response_format(data):
-                    self.logger.log_critical("API format changed - unexpected response structure")
-                    return []
+                # Update cache
+                for market in markets:
+                    market_id = market.get('id')
+                    if market_id:
+                        self.market_cache[market_id] = market
+                        self.cache_timestamps[market_id] = datetime.now()
                 
-                return data if isinstance(data, list) else [data]
+                return markets
             else:
-                self.logger.log_error(f"Failed to fetch markets: HTTP {response.status_code}")
+                self.logger.log_warning("No markets returned from Subgraph")
                 return []
                 
         except Exception as e:
-            self.logger.log_error(f"Error fetching markets: {str(e)}")
+            self.logger.log_error(f"Error fetching markets from Subgraph: {str(e)}")
             return []
     
     def get_market_prices(self, market_id: str) -> Optional[Dict[str, float]]:
         """
-        Fetch YES and NO prices for a specific market
+        Fetch YES and NO prices for a specific market using FREE Subgraph
         
         Args:
             market_id: Market identifier
@@ -233,35 +258,97 @@ class PolymarketMonitor:
         Returns:
             Dictionary with 'yes' and 'no' prices, or None on error
         """
-        # Check rate limit
-        if not self._check_rate_limit():
-            return None
-        
         try:
-            # Add delay between requests
-            time.sleep(self.request_delay)
+            # Check cache first
+            if market_id in self.market_cache:
+                cache_age = (datetime.now() - self.cache_timestamps.get(market_id, datetime.now())).total_seconds()
+                
+                if cache_age < self.cache_ttl:
+                    # Use cached data
+                    market = self.market_cache[market_id]
+                    return self._parse_market_prices(market, market_id)
             
-            # For this implementation, we'll simulate market prices
-            # In production, you would fetch from the actual Polymarket API
-            # This is a paper trading bot, so simulated data is acceptable
+            # Fetch from FREE Polymarket Subgraph
+            prices = self.market_client.get_market_prices(market_id)
             
-            # Simulate prices (this would be replaced with actual API call)
-            import random
-            yes_price = round(random.uniform(0.40, 0.60), 3)
-            no_price = round(random.uniform(0.40, 0.60), 3)
-            
-            self.rate_limiter.record_request()
-            
-            return {
-                'yes': yes_price,
-                'no': no_price,
-                'market_id': market_id,
-                'timestamp': datetime.now().isoformat()
-            }
+            if prices:
+                # Update cache
+                self.market_cache[market_id] = prices
+                self.cache_timestamps[market_id] = datetime.now()
+                
+                return prices
+            else:
+                self.logger.log_warning(f"No price data for market {market_id}")
+                return None
             
         except Exception as e:
             self.logger.log_error(f"Error fetching prices for {market_id}: {str(e)}")
             return None
+    
+    def _parse_market_prices(self, market: Dict, market_id: str) -> Optional[Dict[str, float]]:
+        """Parse prices from cached market data"""
+        try:
+            outcome_prices = market.get('outcomePrices', [])
+            
+            if len(outcome_prices) >= 2:
+                return {
+                    'yes': float(outcome_prices[0]),
+                    'no': float(outcome_prices[1]),
+                    'market_id': market_id,
+                    'question': market.get('question', ''),
+                    'timestamp': datetime.now().isoformat()
+                }
+            return None
+        except:
+            return None
+    
+    def get_crypto_price(self, symbol: str) -> Optional[Dict]:
+        """
+        Get crypto price using FREE price aggregator (Binance + CoinGecko)
+        
+        Args:
+            symbol: Crypto symbol (e.g., 'BTC', 'ETH')
+            
+        Returns:
+            Price data with consensus from multiple sources
+        """
+        try:
+            price_data = self.price_aggregator.get_best_price(symbol)
+            
+            if price_data:
+                self.logger.log_info(
+                    f"Crypto price: {symbol} = ${price_data['price']:,.2f} "
+                    f"(sources: {', '.join(price_data['sources'])})"
+                )
+            
+            return price_data
+            
+        except Exception as e:
+            self.logger.log_error(f"Error fetching crypto price for {symbol}: {str(e)}")
+            return None
+    
+    def search_markets_by_topic(self, topic: str, limit: int = 20) -> List[Dict]:
+        """
+        Search prediction markets by topic using FREE Subgraph
+        
+        Args:
+            topic: Topic keyword (e.g., "Bitcoin", "Election")
+            limit: Maximum results
+            
+        Returns:
+            List of matching markets
+        """
+        try:
+            markets = self.market_client.search_markets_by_topic(topic, limit)
+            
+            if markets:
+                self.logger.log_info(f"Found {len(markets)} markets for topic: {topic}")
+            
+            return markets
+            
+        except Exception as e:
+            self.logger.log_error(f"Error searching markets for topic {topic}: {str(e)}")
+            return []
     
     def _check_rate_limit(self) -> bool:
         """
