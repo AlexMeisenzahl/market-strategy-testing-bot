@@ -46,7 +46,21 @@ class Notifier:
         
         # Phone number for SMS (if configured)
         self.sms_phone = notif_config.get('sms_phone', '')
-        
+    
+        # Telegram settings (for push notifications)
+        telegram_config = config.get('telegram', {})
+        self.telegram_token = telegram_config.get('bot_token', '')
+        self.telegram_chat_id = telegram_config.get('chat_id', '')
+
+        # Email settings (for SMS notifications) 
+        email_config = config.get('email', {})
+        self.email_from = email_config.get('from_email', '')
+        self.email_to = email_config.get('to_email', '')
+        self.smtp_server = email_config.get('smtp_server', '')
+        self.smtp_port = email_config.get('smtp_port', 587)
+        self.email_password = email_config.get('password', '')    
+        self.email_enabled = email_config.get('enabled', False)
+
         # Notification history
         self.notification_count = 0
         self.last_notification = None
@@ -157,82 +171,101 @@ class Notifier:
             return True
         
         try:
+            # Try plyer first
             self.plyer_notification.notify(
                 title=title,
                 message=message,
-                app_name="Arbitrage Bot",
-                timeout=10  # Show for 10 seconds
+                app_name="Market Strategy Testing Bot",
+                timeout=10
             )
             return True
-            
-        except Exception as e:
-            self.logger.log_error(f"Desktop notification failed: {str(e)}")
-            return False
-    
+        except:
+            # Fallback to osascript for macOS
+            try:
+                import subprocess
+                subprocess.run([
+                    'osascript', '-e',
+                    f'display notification "{message}" with title "{title}"'
+                ])
+                return True
+            except:
+                self.logger.log_error("Desktop notification failed")
+                return False
+
     def send_sms(self, message: str) -> bool:
         """
-        Send SMS notification (simulated for paper trading)
+        Send email notification
         
         Args:
-            message: SMS message
-            
+            message: Email message
+        
         Returns:
             True if successful
         """
-        if not self.sms_enabled:
+        if not self.email_enabled:
             return False
         
-        # For paper trading, we simulate SMS
-        # In production, this would use Twilio or similar service
-        
-        self.logger.log_warning(
-            f"[SIMULATED SMS to {self.sms_phone}] {message}"
-        )
-        
-        # Log to special SMS log file
+        # Send via email
         try:
-            from pathlib import Path
-            sms_log = Path("logs") / "sms_notifications.log"
-            with open(sms_log, 'a') as f:
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"[{timestamp}] To: {self.sms_phone} - {message}\n")
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            
+            msg = MIMEMultipart()
+            msg['From'] = self.email_from
+            msg['To'] = self.email_to
+            msg['Subject'] = "🚨 Market Strategy Bot Alert"
+            
+            msg.attach(MIMEText(message, 'plain'))
+            
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.starttls()
+            server.login(self.email_from, self.email_password)
+            server.send_message(msg)
+            server.quit()
+            
+            self.logger.log_warning(f"[EMAIL SENT] {message}")
+            return True
+            
         except Exception as e:
-            self.logger.log_error(f"SMS logging failed: {str(e)}")
-        
-        return True
+            self.logger.log_error(f"Email error: {str(e)}")
+            return False
     
     def send_push(self, title: str, message: str) -> bool:
         """
-        Send push notification (simulated for paper trading)
+        Send push notification via Telegram
         
         Args:
             title: Notification title
             message: Notification message
-            
+        
         Returns:
             True if successful
         """
         if not self.push_enabled:
             return False
         
-        # For paper trading, we simulate push notifications
-        # In production, this would use Firebase, Pushover, etc.
-        
-        self.logger.log_warning(
-            f"[SIMULATED PUSH] {title}: {message}"
-        )
-        
-        # Log to special push log file
+        # Send to Telegram
         try:
-            from pathlib import Path
-            push_log = Path("logs") / "push_notifications.log"
-            with open(push_log, 'a') as f:
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                f.write(f"[{timestamp}] {title}: {message}\n")
+            import requests
+            url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
+            payload = {
+                'chat_id': self.telegram_chat_id,
+                'text': f"🚨 *{title}*\n\n{message}",
+                'parse_mode': 'Markdown'
+            }
+            response = requests.post(url, json=payload, timeout=10)
+            
+            if response.status_code == 200:
+                self.logger.log_warning(f"[TELEGRAM SENT] {title}: {message}")
+                return True
+            else:
+                self.logger.log_error(f"Telegram failed: {response.text}")
+                return False
+                
         except Exception as e:
-            self.logger.log_error(f"Push logging failed: {str(e)}")
-        
-        return True
+            self.logger.log_error(f"Telegram error: {str(e)}")
+            return False
     
     def play_alert_sound(self, priority: str = "INFO") -> bool:
         """
@@ -288,7 +321,7 @@ class Notifier:
         title = "Arbitrage Opportunity Found"
         message = f"{market}: {profit_pct:.2f}% profit potential"
         
-        self.notify(title, message, priority="INFO")
+        self.notify(title, message, priority="CRITICAL")
     
     def alert_trade_executed(self, market: str, profit_usd: float) -> None:
         """
@@ -301,7 +334,7 @@ class Notifier:
         title = "Trade Executed"
         message = f"{market}: ${profit_usd:.2f} profit expected"
         
-        self.notify(title, message, priority="INFO")
+        self.notify(title, message, priority="CRITICAL")
     
     def alert_circuit_breaker(self, reason: str) -> None:
         """

@@ -1,6 +1,6 @@
 # === TRADING CONTROLS ===
-max_trade_size: 10                    # Maximum $ per trade
-min_profit_margin: 0.02               # Minimum 2% profit to attempt trade
+max_trade_size: 20                    # Maximum $ per trade
+min_profit_margin: 0.025               # Minimum 2.5% profit to attempt trade
 max_trades_per_hour: 10               # Rate limit for trading frequency
 
 # === SAFETY CONTROLS ===
@@ -12,6 +12,8 @@ market: "polymarket"                  # Which platform to use
 markets_to_watch:                     # Specific markets (empty = watch all active)
   - "BTC"
   - "ETH"
+  - "XRP"
+  - "SOL"
 
 # === API & CONNECTION ===
 api_timeout_seconds: 5                # How long to wait for responses
@@ -25,11 +27,32 @@ rate_limit_pause_threshold: 0.95     # Pause at 95%
 request_delay_seconds: 0.5           # Minimum delay between requests
 
 # === NOTIFICATIONS ===
-desktop_notifications: false         # Enable OS notifications
-sound_alerts: false                 # Enable sound on critical errors
+notifications:
+  desktop_enabled: true
+  push_enabled: true        # Telegram
+  sms_enabled: true         # Email
+  sound_enabled: true
+
+desktop_notifications: true         # Enable OS notifications
+sound_alerts: true                 # Enable sound on critical errors
 alert_on_opportunities: true        # Show when arbitrage found
 
 # === AUTO-SAFETY FEATURES ===
 auto_rate_limit_management: true     # Automatically manage request rate
 auto_pause_on_connection_loss: true  # Stop trading if connection unstable
 auto_pause_on_api_error: true       # Stop if API format changes
+
+# === TELEGRAM NOTIFICATIONS ===
+telegram:
+  enabled: false                     # Email notifications disabled
+  bot_token: "8501660927:AAEGnKM6xqTzLwzqXjrWm2wfSCZmBUPXgLg"      # Add your bot token
+  chat_id: "8592269121"              # Your chat ID
+
+# === EMAIL NOTIFICATIONS ===
+email:
+  enabled: false                     # Email notifications disabled
+  from_email: "alexmeis999@gmail.com"
+  to_email: "alexmeis999@gmail.com"
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  password: "ujwb edpu zpxm njmy"                        # Add app password later
