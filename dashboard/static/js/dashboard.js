@@ -481,14 +481,23 @@ async function loadBotStatus() {
             if (data.pid) {
                 statusText.textContent += ` (PID: ${data.pid})`;
             }
+            
+            // Update data source to Live when bot is running
+            updateDataSourceIndicator('live', data.mode || 'paper');
         } else if (data.status_text === 'Error') {
             statusText.textContent = data.status_emoji + ' Error';
             statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-yellow-500';
             statusPing.className = 'hidden';
+            
+            // Use historical data when there's an error
+            updateDataSourceIndicator('historical');
         } else {
             statusText.textContent = data.status_emoji + ' Stopped';
             statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-red-500';
             statusPing.className = 'hidden';
+            
+            // Use historical data when bot is stopped
+            updateDataSourceIndicator('historical');
         }
         
         // Update control page
@@ -507,6 +516,25 @@ async function loadBotStatus() {
         
     } catch (error) {
         console.error('Error loading bot status:', error);
+        // Default to historical data on error
+        updateDataSourceIndicator('historical');
+    }
+}
+
+// Update data source indicator
+function updateDataSourceIndicator(source, tradingMode = null) {
+    const indicator = document.getElementById('data-source-indicator');
+    const text = document.getElementById('data-source-text');
+    
+    if (!indicator || !text) return;
+    
+    if (source === 'live') {
+        indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400';
+        const modeText = tradingMode === 'paper' ? 'Paper' : 'Live';
+        text.innerHTML = `🟢 Live APIs (${modeText})`;
+    } else {
+        indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-900/20 text-blue-400';
+        text.innerHTML = '📊 Historical Data';
     }
 }
 
