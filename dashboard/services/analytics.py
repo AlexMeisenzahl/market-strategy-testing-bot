@@ -181,8 +181,10 @@ class AnalyticsService:
         
         # Get today's opportunities
         today = datetime.now().date()
-        today_opps = [o for o in opportunities 
-                     if datetime.fromisoformat(o['timestamp']).date() == today]
+        today_opps = []
+        if opportunities:
+            today_opps = [o for o in opportunities 
+                         if datetime.fromisoformat(o['timestamp']).date() == today]
         
         # Find best performing strategy
         strategy_pnl = {}

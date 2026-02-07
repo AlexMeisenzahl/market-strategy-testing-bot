@@ -3,6 +3,7 @@ Data Parser Service
 
 Parses trading logs, opportunities, and other data files
 to provide structured data for the dashboard.
+Reads from actual CSV files with fallback to sample data.
 """
 
 import csv
@@ -26,9 +27,140 @@ class DataParser:
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(exist_ok=True)
         
-        # Sample data for testing (will be replaced with actual log parsing)
+        # File paths
+        self.trades_csv = self.logs_dir / 'trades.csv'
+        self.opportunities_csv = self.logs_dir / 'opportunities.csv'
+        
+        # Cache for parsed data
+        self._trades_cache = None
+        self._opportunities_cache = None
+        self._cache_timestamp = None
+        self._cache_ttl = 5  # Cache TTL in seconds
+        
+        # Sample data for testing (used as fallback)
         self._sample_trades = self._generate_sample_trades()
         self._sample_opportunities = self._generate_sample_opportunities()
+    
+    def _read_trades_from_csv(self) -> List[Dict[str, Any]]:
+        """
+        Read trades from CSV file
+        
+        Returns:
+            List of trade dictionaries
+        """
+        trades = []
+        
+        if not self.trades_csv.exists():
+            return None  # Return None to indicate file doesn't exist
+        
+        try:
+            with open(self.trades_csv, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        # Parse the trade data
+                        trade = {
+                            'id': int(row.get('id', 0)),
+                            'symbol': row.get('symbol', ''),
+                            'strategy': row.get('strategy', ''),
+                            'entry_time': row.get('entry_time', ''),
+                            'exit_time': row.get('exit_time', ''),
+                            'duration_minutes': int(float(row.get('duration_minutes', 0))),
+                            'entry_price': float(row.get('entry_price', 0)),
+                            'exit_price': float(row.get('exit_price', 0)),
+                            'pnl_usd': float(row.get('pnl_usd', 0)),
+                            'pnl_pct': float(row.get('pnl_pct', 0)),
+                            'status': row.get('status', 'closed'),
+                            'outcome': 'win' if float(row.get('pnl_usd', 0)) > 0 else 'loss' if float(row.get('pnl_usd', 0)) < 0 else 'breakeven'
+                        }
+                        trades.append(trade)
+                    except (ValueError, KeyError) as e:
+                        print(f"Warning: Skipping malformed trade row: {e}")
+                        continue
+        except Exception as e:
+            print(f"Error reading trades CSV: {e}")
+            return None
+        
+        return trades
+    
+    def _read_opportunities_from_csv(self) -> List[Dict[str, Any]]:
+        """
+        Read opportunities from CSV file
+        
+        Returns:
+            List of opportunity dictionaries
+        """
+        opportunities = []
+        
+        if not self.opportunities_csv.exists():
+            return None  # Return None to indicate file doesn't exist
+        
+        try:
+            with open(self.opportunities_csv, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    try:
+                        # Parse the opportunity data
+                        opportunity = {
+                            'id': int(row.get('id', 0)),
+                            'timestamp': row.get('timestamp', ''),
+                            'symbol': row.get('symbol', ''),
+                            'strategy': row.get('strategy', ''),
+                            'signal_type': row.get('signal_type', 'BUY'),
+                            'confidence': float(row.get('confidence', 0)),
+                            'action_taken': row.get('action_taken', 'false').lower() == 'true',
+                            'outcome': row.get('outcome', None),
+                            'pnl_usd': float(row.get('pnl_usd', 0)) if row.get('pnl_usd') else None
+                        }
+                        opportunities.append(opportunity)
+                    except (ValueError, KeyError) as e:
+                        print(f"Warning: Skipping malformed opportunity row: {e}")
+                        continue
+        except Exception as e:
+            print(f"Error reading opportunities CSV: {e}")
+            return None
+        
+        return opportunities
+    
+    def _should_refresh_cache(self) -> bool:
+        """Check if cache should be refreshed"""
+        if self._cache_timestamp is None:
+            return True
+        
+        elapsed = (datetime.now() - self._cache_timestamp).total_seconds()
+        return elapsed > self._cache_ttl
+    
+    def _get_trades_with_cache(self) -> List[Dict[str, Any]]:
+        """Get trades with caching"""
+        if self._should_refresh_cache():
+            # Try to read from CSV
+            csv_trades = self._read_trades_from_csv()
+            
+            if csv_trades is not None and len(csv_trades) > 0:
+                self._trades_cache = csv_trades
+            else:
+                # Fall back to sample data
+                self._trades_cache = self._sample_trades
+            
+            self._cache_timestamp = datetime.now()
+        
+        return self._trades_cache
+    
+    def _get_opportunities_with_cache(self) -> List[Dict[str, Any]]:
+        """Get opportunities with caching"""
+        if self._should_refresh_cache():
+            # Try to read from CSV
+            csv_opportunities = self._read_opportunities_from_csv()
+            
+            if csv_opportunities is not None and len(csv_opportunities) > 0:
+                self._opportunities_cache = csv_opportunities
+            else:
+                # Fall back to sample data
+                self._opportunities_cache = self._sample_opportunities
+            
+            self._cache_timestamp = datetime.now()
+        
+        return self._opportunities_cache
     
     def _generate_sample_trades(self) -> List[Dict[str, Any]]:
         """Generate sample trades for testing"""
@@ -122,8 +254,11 @@ class DataParser:
         Returns:
             Dictionary with trades data and metadata
         """
+        # Get trades from cache (which will read from CSV or use sample data)
+        all_trades = self._get_trades_with_cache()
+        
         # Filter trades
-        filtered_trades = self._sample_trades.copy()
+        filtered_trades = all_trades.copy()
         
         if start_date:
             start = datetime.fromisoformat(start_date)
@@ -194,7 +329,10 @@ class DataParser:
         Returns:
             Dictionary with opportunities data
         """
-        filtered_opps = self._sample_opportunities.copy()
+        # Get opportunities from cache (which will read from CSV or use sample data)
+        all_opportunities = self._get_opportunities_with_cache()
+        
+        filtered_opps = all_opportunities.copy()
         
         if start_date:
             start = datetime.fromisoformat(start_date)
@@ -233,8 +371,8 @@ class DataParser:
     
     def get_all_trades(self) -> List[Dict[str, Any]]:
         """Get all trades without filtering"""
-        return self._sample_trades
+        return self._get_trades_with_cache()
     
     def get_all_opportunities(self) -> List[Dict[str, Any]]:
         """Get all opportunities without filtering"""
-        return self._sample_opportunities
+        return self._get_opportunities_with_cache()
