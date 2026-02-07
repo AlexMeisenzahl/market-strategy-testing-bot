@@ -92,9 +92,63 @@ Or on some systems:
 python3 bot.py
 ```
 
-### You Should See
+### Web Dashboard
 
-A live dashboard that looks like this:
+When you start the bot, a **professional web dashboard** will automatically open in your browser at `http://localhost:5000`. The web dashboard provides:
+
+#### 📊 Features
+- **Real-time Monitoring**: Live updates of bot status, trades, and opportunities
+- **Control Panel**: Start, pause, stop, and restart the bot with one click
+- **Interactive Charts**: Visualize P&L over time and strategy performance
+- **Trade History**: Complete log of all executed trades with filtering
+- **Live Opportunities**: Real-time feed of arbitrage opportunities
+- **Configuration**: Adjust settings without editing files
+- **Notification Settings**: Toggle desktop, email, and Telegram notifications
+- **Mobile Responsive**: Works perfectly on phones, tablets, and desktops
+
+#### 🖼️ Dashboard Screenshots
+
+**Overview Tab - Desktop:**
+![Dashboard Overview](https://github.com/user-attachments/assets/4a03d4e7-108e-4595-99e3-8d6033da44f2)
+
+**Settings Tab:**
+![Dashboard Settings](https://github.com/user-attachments/assets/ac9d28c7-4421-43ba-a439-b0c5c7164ca5)
+
+**Mobile View:**
+![Dashboard Mobile](https://github.com/user-attachments/assets/2958bdb2-3033-42ec-9a20-f0a817634a48)
+
+#### 🎛️ Dashboard Controls
+
+- **▶️ Start/Resume**: Start or resume bot trading
+- **⏸️ Pause**: Pause trading (keeps monitoring)
+- **⏹️ Stop**: Stop the bot completely
+- **🔄 Restart**: Restart with current configuration
+- **🔄 Refresh Data**: Force refresh all data
+
+#### 📋 Dashboard Tabs
+
+1. **Overview**: Key metrics, strategy performance, recent alerts
+2. **Charts**: P&L over time, strategy comparison charts
+3. **Trades**: Complete trade history with search and export
+4. **Opportunities**: Live feed of detected arbitrage opportunities
+5. **Settings**: Configure notifications and trading parameters
+6. **Logs**: System information and activity logs
+
+#### ⚙️ Dashboard Configuration
+
+Edit `config.yaml` to customize dashboard settings:
+
+```yaml
+dashboard:
+  enabled: true              # Enable/disable web dashboard
+  port: 5000                # Dashboard port
+  host: "localhost"          # Dashboard host
+  auto_open_browser: true   # Auto-open browser on start
+```
+
+### Terminal Dashboard
+
+You will also see a terminal dashboard that looks like this:
 
 ```
 ╔════════════════════════════════════════════════════════════════╗
@@ -254,6 +308,73 @@ rate_limit_pause_threshold: 0.95      # Pause at 95%
 - Lower `min_profit_margin` in config.yaml to find more (but smaller) opportunities
 - Add more markets to `markets_to_watch` in config.yaml
 
+### Dashboard Not Loading
+
+**Problem**: Web dashboard won't open
+**Solution**:
+1. Check if Flask is installed: `pip install flask flask-cors`
+2. Verify port 5000 is not in use by another application
+3. Try manually opening: http://localhost:5000
+4. Check `logs/errors.log` for Flask-related errors
+
+## 🔌 API Endpoints Reference
+
+The dashboard provides a RESTful API for programmatic access:
+
+### Control Endpoints
+
+```
+POST /api/start       # Start/resume the bot
+POST /api/pause       # Pause trading
+POST /api/stop        # Stop the bot
+POST /api/restart     # Restart with current config
+```
+
+### Data Endpoints
+
+```
+GET /api/status           # Get bot status and uptime
+GET /api/metrics          # Get performance metrics
+GET /api/strategies       # Get strategy performance data
+GET /api/trades           # Get trade history (paginated)
+GET /api/opportunities    # Get recent opportunities
+GET /api/alerts          # Get recent alerts
+GET /api/config          # Get current configuration
+```
+
+### Configuration Endpoints
+
+```
+POST /api/config/update          # Update configuration
+POST /api/notifications/toggle   # Toggle notification settings
+```
+
+### Real-time Updates
+
+```
+GET /api/stream    # Server-Sent Events for real-time updates
+```
+
+### Chart Data
+
+```
+GET /api/chart/pnl          # P&L over time data
+GET /api/chart/strategies   # Strategy comparison data
+```
+
+**Example API Usage:**
+
+```bash
+# Get current bot status
+curl http://localhost:5000/api/status
+
+# Pause the bot
+curl -X POST http://localhost:5000/api/pause
+
+# Get metrics
+curl http://localhost:5000/api/metrics
+```
+
 ## ❓ Frequently Asked Questions
 
 ### Q: Is this bot safe?
@@ -321,19 +442,29 @@ If you want to explore real trading (advanced users only):
 
 ```
 arbitrage-bot/
-├── config.yaml          # User configuration
-├── bot.py              # Main entry point with dashboard
-├── monitor.py          # Price monitoring and API handling
-├── detector.py         # Arbitrage opportunity detection
-├── paper_trader.py     # Paper trading simulator
-├── logger.py           # Logging system
-├── requirements.txt    # Python dependencies
-├── README.md           # This file
-└── logs/              # Auto-created log directory
-    ├── trades.csv
-    ├── opportunities.csv
-    ├── errors.log
-    └── connection.log
+├── config.yaml              # User configuration
+├── bot.py                   # Main entry point with dashboard
+├── dashboard_server.py      # Flask web dashboard server
+├── monitor.py               # Price monitoring and API handling
+├── detector.py              # Arbitrage opportunity detection
+├── paper_trader.py          # Paper trading simulator
+├── logger.py                # Logging system
+├── requirements.txt         # Python dependencies
+├── README.md                # This file
+├── templates/               # HTML templates for dashboard
+│   └── dashboard.html       # Main dashboard template
+├── static/                  # Static assets for dashboard
+│   ├── css/
+│   │   └── dashboard.css    # Dashboard styles
+│   └── js/
+│       ├── main.js          # Core dashboard JavaScript
+│       ├── charts.js        # Chart rendering
+│       └── controls.js      # Bot control functions
+└── logs/                    # Auto-created log directory
+    ├── trades.csv           # Trade history
+    ├── opportunities.csv    # Opportunity log
+    ├── errors.log           # Error messages
+    └── connection.log       # Connection monitoring
 ```
 
 ## 🤝 Support
