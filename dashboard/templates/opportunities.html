@@ -101,7 +101,7 @@
                     </select>
                 </div>
                 <div class="flex items-end">
-                    <button onclick="applyFilters()" 
+                    <button id="apply-filters-btn" 
                             class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition">
                         <i class="fas fa-filter mr-2"></i>Apply Filters
                     </button>
@@ -154,6 +154,12 @@
             
             // Auto-refresh every 5 seconds
             setInterval(loadOpportunities, 5000);
+            
+            // Add event listener for Apply Filters button
+            const applyFiltersBtn = document.getElementById('apply-filters-btn');
+            if (applyFiltersBtn) {
+                applyFiltersBtn.addEventListener('click', applyFilters);
+            }
         });
 
         // Load opportunities from API

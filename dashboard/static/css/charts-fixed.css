@@ -49,8 +49,3 @@ canvas {
     display: block;
     box-sizing: border-box;
 }
-
-/* Fix for chart wrapper divs */
-.card canvas {
-    max-height: 350px !important;
-}
