@@ -2,11 +2,12 @@
 Monitor Module - Price monitoring and API handling for Polymarket
 
 Handles:
-- API connection to Polymarket
+- API connection to Polymarket (Live API + Free Subgraph)
+- Free crypto price APIs (Binance + CoinGecko)
 - Rate limit tracking and management
 - Connection health monitoring
 - Data validation
-- Exponential backoff on errors
+- Intelligent fallback between data sources
 """
 
 import requests
@@ -14,7 +15,16 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger
-from polymarket_api import PolymarketAPI
+
+# Import free API clients (from PR #8)
+from apis.price_aggregator import PriceAggregator
+from apis.polymarket_subgraph import PolymarketSubgraph
+
+# Import Live API client (from PR #6) - optional
+try:
+    from polymarket_api import PolymarketAPI
+except ImportError:
+    PolymarketAPI = None  # Will be disabled if not available
 
 
 class RateLimiter:
@@ -78,7 +88,7 @@ class PolymarketMonitor:
     
     def __init__(self, config: Dict[str, Any]):
         """
-        Initialize Polymarket monitor
+        Initialize Polymarket monitor with intelligent data source fallback
         
         Args:
             config: Configuration dictionary from config.yaml
@@ -86,15 +96,21 @@ class PolymarketMonitor:
         self.config = config
         self.logger = get_logger()
         
-        # Initialize Polymarket API client
-        polymarket_config = config.get('polymarket', {}).get('api', {})
-        self.api = PolymarketAPI(
-            timeout=polymarket_config.get('timeout', 10),
-            retry_attempts=polymarket_config.get('retry_attempts', 3)
-        )
+        # Initialize free API clients (from PR #8)
+        self.price_aggregator = PriceAggregator(config)
+        self.subgraph_client = PolymarketSubgraph()
         
-        # Check if live API is enabled
-        self.live_api_enabled = polymarket_config.get('enabled', True)
+        # Initialize Live API client (from PR #6) - OPTIONAL
+        polymarket_config = config.get('polymarket', {}).get('api', {})
+        self.live_api_enabled = polymarket_config.get('enabled', False)
+        
+        if self.live_api_enabled and PolymarketAPI:
+            self.api = PolymarketAPI(
+                timeout=polymarket_config.get('timeout', 10),
+                retry_attempts=polymarket_config.get('retry_attempts', 3)
+            )
+        else:
+            self.api = None
         
         # Initialize rate limiter
         self.rate_limiter = RateLimiter(
@@ -215,7 +231,9 @@ class PolymarketMonitor:
     
     def get_market_prices(self, market_id: str) -> Optional[Dict[str, float]]:
         """
-        Fetch YES and NO prices for a specific market
+        Fetch YES and NO prices for a specific market with intelligent fallback:
+        1. Try Live API (if enabled)
+        2. Fallback to Subgraph (always available)
         
         Args:
             market_id: Market identifier
@@ -223,11 +241,34 @@ class PolymarketMonitor:
         Returns:
             Dictionary with 'yes' and 'no' prices, or None on error
         """
-        # Use live data if enabled
+        # Try Live API first if enabled
         if self.live_api_enabled and self.api:
-            return self._get_live_market_prices(market_id)
-        else:
-            return self._get_simulated_market_prices(market_id)
+            try:
+                prices = self.api.get_market_prices(market_id)
+                if prices:
+                    return {
+                        'yes': prices.get('yes', 0.5),
+                        'no': prices.get('no', 0.5),
+                        'market_id': market_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+            except Exception as e:
+                self.logger.log_warning(f"Live API failed, falling back to Subgraph: {e}")
+        
+        # Fallback to free Subgraph
+        return self.subgraph_client.get_market_prices(market_id)
+    
+    def get_crypto_price(self, symbol: str) -> Optional[Dict]:
+        """
+        Get crypto price using free aggregator (Binance + CoinGecko)
+        
+        Args:
+            symbol: Cryptocurrency symbol (e.g., 'BTC', 'ETH')
+            
+        Returns:
+            Dictionary with price information and sources, or None on error
+        """
+        return self.price_aggregator.get_price(symbol)
     
     def _get_live_market_prices(self, market_id: str) -> Optional[Dict[str, float]]:
         """
