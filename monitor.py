@@ -2,11 +2,12 @@
 Monitor Module - Price monitoring and API handling for Polymarket
 
 Handles:
-- API connection to Polymarket
+- API connection to Polymarket via free data sources
 - Rate limit tracking and management
 - Connection health monitoring
 - Data validation
 - Exponential backoff on errors
+- Integration with Binance, CoinGecko, and Polymarket Subgraph
 """
 
 import requests
@@ -14,6 +15,15 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger
+
+# Import new data sources
+try:
+    from data_sources.price_aggregator import PriceAggregator
+    from data_sources.polymarket_subgraph import PolymarketSubgraph
+    DATA_SOURCES_AVAILABLE = True
+except ImportError:
+    DATA_SOURCES_AVAILABLE = False
+    print("Warning: New data sources not available, using legacy API")
 
 
 class RateLimiter:
@@ -84,6 +94,30 @@ class PolymarketMonitor:
         """
         self.config = config
         self.logger = get_logger()
+        
+        # Initialize new data sources if available
+        if DATA_SOURCES_AVAILABLE:
+            data_sources_config = config.get('data_sources', {})
+            
+            # Initialize price aggregator for crypto prices
+            price_agg_config = config.get('price_aggregator', {})
+            self.price_aggregator = PriceAggregator(
+                enable_websocket=price_agg_config.get('enable_websocket', True)
+            )
+            
+            # Initialize Polymarket Subgraph client
+            self.subgraph = PolymarketSubgraph()
+            
+            # Start WebSocket streams if enabled
+            if data_sources_config.get('binance', {}).get('websocket', True):
+                symbols = data_sources_config.get('binance', {}).get('symbols', ['BTCUSDT', 'ETHUSDT'])
+                self.price_aggregator.start_websocket_streams(symbols)
+            
+            self.use_new_sources = True
+        else:
+            self.price_aggregator = None
+            self.subgraph = None
+            self.use_new_sources = False
         
         # Initialize rate limiter
         self.rate_limiter = RateLimiter(
@@ -190,6 +224,21 @@ class PolymarketMonitor:
         Returns:
             List of active market dictionaries
         """
+        # Try new data sources first
+        if self.use_new_sources and self.subgraph:
+            try:
+                markets = self.subgraph.query_markets(
+                    filters={'active': True},
+                    limit=self.config.get('data_sources', {})
+                        .get('polymarket_subgraph', {})
+                        .get('max_markets_per_query', 100)
+                )
+                if markets:
+                    return markets
+            except Exception as e:
+                self.logger.log_warning(f"Subgraph query failed, falling back to legacy API: {e}")
+        
+        # Fallback to legacy API
         # Check rate limit
         if not self._check_rate_limit():
             return []
@@ -233,6 +282,21 @@ class PolymarketMonitor:
         Returns:
             Dictionary with 'yes' and 'no' prices, or None on error
         """
+        # Try new data sources first
+        if self.use_new_sources and self.subgraph:
+            try:
+                prices = self.subgraph.get_market_prices(market_id)
+                if prices:
+                    return {
+                        'yes': prices.get('yes_price', 0.5),
+                        'no': prices.get('no_price', 0.5),
+                        'market_id': market_id,
+                        'timestamp': prices.get('last_updated', datetime.now().isoformat())
+                    }
+            except Exception as e:
+                self.logger.log_warning(f"Subgraph price fetch failed, falling back: {e}")
+        
+        # Fallback to legacy API/simulation
         # Check rate limit
         if not self._check_rate_limit():
             return None
@@ -262,6 +326,42 @@ class PolymarketMonitor:
         except Exception as e:
             self.logger.log_error(f"Error fetching prices for {market_id}: {str(e)}")
             return None
+    
+    def get_crypto_price(self, symbol: str = 'BTCUSDT') -> Optional[float]:
+        """
+        Get cryptocurrency price from aggregated sources
+        
+        Args:
+            symbol: Trading pair symbol (e.g., 'BTCUSDT')
+            
+        Returns:
+            Current price, or None on error
+        """
+        if self.use_new_sources and self.price_aggregator:
+            try:
+                return self.price_aggregator.get_best_price(symbol)
+            except Exception as e:
+                self.logger.log_error(f"Error fetching crypto price for {symbol}: {e}")
+        
+        return None
+    
+    def get_crypto_prices_batch(self, symbols: List[str]) -> Dict[str, float]:
+        """
+        Get cryptocurrency prices for multiple symbols
+        
+        Args:
+            symbols: List of trading pair symbols
+            
+        Returns:
+            Dictionary mapping symbols to prices
+        """
+        if self.use_new_sources and self.price_aggregator:
+            try:
+                return self.price_aggregator.get_prices_batch(symbols)
+            except Exception as e:
+                self.logger.log_error(f"Error fetching batch crypto prices: {e}")
+        
+        return {}
     
     def _check_rate_limit(self) -> bool:
         """
