@@ -121,7 +121,8 @@ class PolymarketMonitor:
                 data_agg_config = config.get('data_aggregator', {})
                 combined_config = {**apis_config, **data_agg_config}
                 self.data_aggregator = FreeDataAggregator(combined_config)
-                self.logger.log_info("Free data sources initialized (Binance, CoinGecko, Polymarket Subgraph)")
+                # Log success using print since logger doesn't have log_info
+                print("✓ Free data sources initialized (Binance, CoinGecko, Polymarket Subgraph)")
             except Exception as e:
                 self.logger.log_warning(f"Failed to initialize free data sources: {e}")
                 self.data_aggregator = None
