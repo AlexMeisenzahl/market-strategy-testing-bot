@@ -31,14 +31,21 @@ data_sources:
     use_alternative: false # Switch to Polymarket's own subgraph if true
 
 # ============================================================================
-# POLYMARKET API CONFIGURATION (OPTIONAL - Live Market Data)
+# POLYMARKET API CONFIGURATION (OPTIONAL - Enhanced Live Market Data)
 # ============================================================================
 
 polymarket:
   api:
     # Enable/disable live API integration
-    # Set to false to use FREE Subgraph only (recommended for most users)
-    # Set to true to use live CLOB API with Subgraph as fallback
+    # FREE MODE (Recommended): Set to false to use FREE Subgraph only
+    #   - No API keys required
+    #   - Uses The Graph's free GraphQL API for market data
+    #   - Uses Binance/CoinGecko for crypto prices (also free)
+    # 
+    # ENHANCED MODE: Set to true to use live CLOB API with Subgraph as fallback
+    #   - Provides more real-time data and lower latency
+    #   - Still uses free sources as backup
+    #   - No API keys needed, but subject to Polymarket's rate limits
     enabled: false
     
     # API base URL (do not change unless using a different endpoint)
@@ -74,6 +81,22 @@ polymarket:
 # Examples: ["Bitcoin", "Ethereum", "Trump", "Election"]
 markets_to_watch: []
 
+# ============================================================================
+# TRADING PARAMETERS
+# ============================================================================
+
+# Maximum amount to trade per opportunity (in USD, paper money)
+max_trade_size: 10
+
+# Minimum profit margin required (0.02 = 2%)
+min_profit_margin: 0.02
+
+# Maximum trades per hour (rate limiting)
+max_trades_per_hour: 5
+
+# Maximum daily trades
+max_trades_per_day: 50
+
 # ====================================
 # API SETTINGS
 # ====================================
@@ -86,8 +109,11 @@ rate_limit_max: 100
 rate_limit_warning_threshold: 0.80
 rate_limit_pause_threshold: 0.95
 
+# Auto-pause trading on connection loss
+auto_pause_on_connection_loss: true
+
 # ====================================
-# TRADING PARAMETERS
+# TRADING PARAMETERS (Detailed)
 # ====================================
 trading:
   # Minimum profit margin to execute trade (3% = 0.03)
@@ -139,9 +165,10 @@ position_sizing:
       normal: 1.0       # Average
       high: 0.7         # Volatile
 
-# ====================================
+# ============================================================================
 # RISK MANAGEMENT
-# ====================================
+# ============================================================================
+
 risk_management:
   # Drawdown protection
   max_drawdown_pct: 0.20        # 20% max drawdown
@@ -154,9 +181,22 @@ risk_management:
   loss_streak_cooldown: 3       # Trades to skip after losing streak
   daily_trade_limit: 20         # Max trades per day
 
-# ====================================
+# Stop trading if daily loss exceeds this amount (USD)
+max_daily_loss: 100
+
+# Stop trading if total loss exceeds this amount (USD)
+max_total_loss: 500
+
+# Circuit breaker: Pause trading after X consecutive losses
+circuit_breaker_losses: 3
+
+# Cool-down period after circuit breaker (seconds)
+circuit_breaker_cooldown: 300
+
+# ============================================================================
 # NOTIFICATIONS
-# ====================================
+# ============================================================================
+
 notifications:
   enabled: true
   
@@ -217,9 +257,10 @@ notifications:
 desktop_notifications: true
 sound_alerts: false
 
-# ====================================
+# ============================================================================
 # NOTIFICATION TRIGGERS
-# ====================================
+# ============================================================================
+
 notification_triggers:
   # High-value opportunity alert
   high_value_opportunity:
@@ -238,9 +279,31 @@ notification_triggers:
     threshold_percent: 10    # Alert when daily profit exceeds 10%
     channels: ['desktop']
 
-# ====================================
+# ============================================================================
+# TELEGRAM CONFIGURATION (Optional)
+# ============================================================================
+
+telegram:
+  enabled: false
+  bot_token: ""              # Your Telegram bot token
+  chat_id: ""                # Your Telegram chat ID
+
+# ============================================================================
+# EMAIL CONFIGURATION (Optional)
+# ============================================================================
+
+email:
+  enabled: false
+  from_email: ""             # Sender email address
+  to_email: ""               # Recipient email address
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  password: ""               # Email app password (not your regular password)
+
+# ============================================================================
 # LOGGING
-# ====================================
+# ============================================================================
+
 logging:
   level: INFO
   log_to_file: true
@@ -248,19 +311,31 @@ logging:
   max_log_size_mb: 10
   backup_count: 5
 
-# ====================================
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level: INFO
+
+# Keep logs for this many days
+log_retention_days: 30
+
+# ============================================================================
 # DASHBOARD
-# ====================================
+# ============================================================================
+
 dashboard:
   enabled: true
   host: "0.0.0.0"
   port: 5000
   debug: false
   auto_refresh_seconds: 5
+  
+  # Pagination settings
+  trades_per_page: 25
+  opportunities_per_page: 50
 
-# ====================================
+# ============================================================================
 # ADVANCED SETTINGS
-# ====================================
+# ============================================================================
+
 advanced:
   # Price source settings (for free API aggregator)
   price_aggregator:
@@ -278,23 +353,3 @@ advanced:
     batch_size: 10
     timeout: 10
     retry_on_error: true
-
-# ============================================================================
-# TELEGRAM CONFIGURATION (Optional)
-# ============================================================================
-telegram:
-  enabled: false
-  bot_token: ""              # Your Telegram bot token
-  chat_id: ""                # Your Telegram chat ID
-
-# ============================================================================
-# EMAIL CONFIGURATION (Optional)
-# ============================================================================
-email:
-  enabled: false
-  from_email: ""             # Sender email address
-  to_email: ""               # Recipient email address
-  smtp_server: "smtp.gmail.com"
-  smtp_port: 587
-  password: ""               # Email app password (not your regular password)
-
