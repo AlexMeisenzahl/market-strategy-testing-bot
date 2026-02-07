@@ -64,8 +64,7 @@ class PriceAggregator:
         # Statistics
         self.stats = {
             'total_requests': 0,
-            'binance_ws_hits': 0,
-            'binance_rest_hits': 0,
+            'binance_rest_hits': 0,  # Renamed from binance_ws_hits for clarity
             'coingecko_hits': 0,
             'failures': 0
         }
@@ -93,7 +92,7 @@ class PriceAggregator:
         # 1. Try Binance (WebSocket cache or REST)
         price = self._get_price_binance(symbol)
         if price is not None:
-            self.stats['binance_ws_hits'] += 1
+            self.stats['binance_rest_hits'] += 1  # Track as Binance hit (WS or REST)
             return price
         
         # 2. Fallback to CoinGecko
@@ -322,7 +321,7 @@ class PriceAggregator:
             'aggregator': {
                 'symbols': len(self.symbols),
                 'total_requests': self.stats['total_requests'],
-                'binance_hits': self.stats['binance_ws_hits'],
+                'binance_hits': self.stats['binance_rest_hits'],  # Renamed from binance_ws_hits
                 'coingecko_hits': self.stats['coingecko_hits'],
                 'failures': self.stats['failures'],
                 'success_rate': (

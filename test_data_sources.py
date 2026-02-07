@@ -18,6 +18,11 @@ from data_sources import (
     PriceAggregator
 )
 
+# ANSI color codes for terminal output
+GREEN = '\033[92m'
+RED = '\033[91m'
+RESET = '\033[0m'
+
 
 def test_binance_client():
     """Test Binance client (REST API only, no WebSocket for simplicity)"""
@@ -275,14 +280,13 @@ def main():
     
     for test_name, result in results.items():
         status = "✓ PASSED" if result else "✗ FAILED"
-        color = "\033[92m" if result else "\033[91m"
-        reset = "\033[0m"
-        print(f"{color}{status}{reset} - {test_name}")
+        color = GREEN if result else RED
+        print(f"{color}{status}{RESET} - {test_name}")
     
     print(f"\nTotal: {passed}/{total} tests passed")
     
     if passed == total:
-        print("\n\033[92m✓ ALL TESTS PASSED!\033[0m")
+        print(f"\n{GREEN}✓ ALL TESTS PASSED!{RESET}")
         print("\nFree data sources are working correctly:")
         print("  • Binance WebSocket + REST (1200 req/min)")
         print("  • CoinGecko API (50 req/min)")
@@ -290,7 +294,7 @@ def main():
         print("\nYou can now run the bot with: python3 bot.py")
         return 0
     else:
-        print("\n\033[91m✗ SOME TESTS FAILED\033[0m")
+        print(f"\n{RED}✗ SOME TESTS FAILED{RESET}")
         print("\nNote: Some failures may be due to rate limits or API availability.")
         print("Wait a minute and try again.")
         return 1

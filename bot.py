@@ -160,7 +160,8 @@ class ArbitrageBot:
             
             layout["data_sources"].update(Panel(ds_table, title="FREE DATA SOURCES", box=box.ROUNDED))
         except Exception as e:
-            layout["data_sources"].update(Panel("Error loading data sources", title="DATA SOURCES", box=box.ROUNDED))
+            error_msg = f"Error: {str(e)[:40]}"
+            layout["data_sources"].update(Panel(error_msg, title="DATA SOURCES", box=box.ROUNDED))
         
         # Rate limit status
         rate_status = self.monitor.get_rate_limit_status()

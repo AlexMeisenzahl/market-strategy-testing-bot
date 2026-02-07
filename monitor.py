@@ -132,10 +132,10 @@ class PolymarketMonitor:
         self.warning_threshold = config.get('rate_limit_warning_threshold', 0.80)
         self.pause_threshold = config.get('rate_limit_pause_threshold', 0.95)
         
-        self.logger.log_warning("Monitor initialized with FREE data sources:")
-        self.logger.log_warning(f"  - Binance WebSocket (1200 req/min)")
-        self.logger.log_warning(f"  - CoinGecko API (50 req/min)")
-        self.logger.log_warning(f"  - Polymarket Subgraph (unlimited)")
+        self.logger.log_info("Monitor initialized with FREE data sources:")
+        self.logger.log_info(f"  - Binance WebSocket (1200 req/min)")
+        self.logger.log_info(f"  - CoinGecko API (50 req/min)")
+        self.logger.log_info(f"  - Polymarket Subgraph (unlimited)")
     
     def check_connection_health(self) -> bool:
         """
