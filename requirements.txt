@@ -10,3 +10,8 @@ asyncio>=3.4.3          # Async operations
 plyer>=2.1.0            # Desktop notifications
 numpy>=1.24.0           # Numerical operations for statistics
 pandas>=2.0.0           # Data analysis for backtesting
+
+# Web Dashboard dependencies
+flask>=3.0.0            # Web framework for dashboard
+flask-cors>=4.0.0       # CORS support for API
+werkzeug>=3.0.0        # WSGI utilities
