@@ -148,7 +148,7 @@ class DataParser:
     
     def _get_opportunities_with_cache(self) -> List[Dict[str, Any]]:
         """Get opportunities with caching"""
-        if self._should_refresh_cache():
+        if self._opportunities_cache is None or self._should_refresh_cache():
             # Try to read from CSV
             csv_opportunities = self._read_opportunities_from_csv()
             
@@ -157,8 +157,6 @@ class DataParser:
             else:
                 # Fall back to sample data
                 self._opportunities_cache = self._sample_opportunities
-            
-            self._cache_timestamp = datetime.now()
         
         return self._opportunities_cache
     
