@@ -28,6 +28,7 @@ Thumbs.db
 *.tmp
 *.bak
 config.yaml
+config_test.yaml
 
 # Dashboard specific
 config_backups/

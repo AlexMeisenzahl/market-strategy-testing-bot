@@ -1,5 +1,6 @@
 # Core dependencies for Polymarket Arbitrage Bot
 requests>=2.31.0        # HTTP requests for API calls
+requests-cache>=1.1.0   # API response caching
 pyyaml>=6.0            # YAML configuration file parsing
 rich>=13.0.0           # Beautiful terminal dashboard
 python-dateutil>=2.8.2 # Date/time utilities

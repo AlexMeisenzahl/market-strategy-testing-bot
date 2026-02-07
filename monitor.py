@@ -14,6 +14,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List, Any
 from logger import get_logger
+from polymarket_api import PolymarketAPI
 
 
 class RateLimiter:
@@ -84,6 +85,18 @@ class PolymarketMonitor:
         """
         self.config = config
         self.logger = get_logger()
+        
+        # Check if live data is enabled
+        polymarket_config = config.get('polymarket', {})
+        self.use_live_data = polymarket_config.get('use_live_data', True)
+        
+        # Initialize Polymarket API client for live data
+        if self.use_live_data:
+            self.api_client = PolymarketAPI(config)
+            # Live data mode enabled
+        else:
+            self.api_client = None
+            # Simulated data mode enabled
         
         # Initialize rate limiter
         self.rate_limiter = RateLimiter(
@@ -190,38 +203,17 @@ class PolymarketMonitor:
         Returns:
             List of active market dictionaries
         """
-        # Check rate limit
-        if not self._check_rate_limit():
-            return []
-        
-        try:
-            # Add delay between requests
-            time.sleep(self.request_delay)
-            
-            response = requests.get(
-                f"{self.BASE_URL}{self.MARKETS_ENDPOINT}",
-                timeout=self.timeout,
-                params={"active": "true"}
-            )
-            
-            self.rate_limiter.record_request()
-            
-            if response.status_code == 200:
-                data = response.json()
-                
-                # Validate response format
-                if not self.validate_response_format(data):
-                    self.logger.log_critical("API format changed - unexpected response structure")
-                    return []
-                
-                return data if isinstance(data, list) else [data]
-            else:
-                self.logger.log_error(f"Failed to fetch markets: HTTP {response.status_code}")
+        # Use live data if enabled
+        if self.use_live_data and self.api_client:
+            try:
+                return self.api_client.fetch_markets(limit=100)
+            except Exception as e:
+                self.logger.log_error(f"Error fetching live markets: {str(e)}")
                 return []
-                
-        except Exception as e:
-            self.logger.log_error(f"Error fetching markets: {str(e)}")
-            return []
+        
+        # Fallback to empty list for simulated mode
+        # (simulated markets are handled in bot.py with _get_demo_markets)
+        return []
     
     def get_market_prices(self, market_id: str) -> Optional[Dict[str, float]]:
         """
@@ -233,6 +225,58 @@ class PolymarketMonitor:
         Returns:
             Dictionary with 'yes' and 'no' prices, or None on error
         """
+        # Use live data if enabled
+        if self.use_live_data and self.api_client:
+            return self._get_live_market_prices(market_id)
+        else:
+            return self._get_simulated_market_prices(market_id)
+    
+    def _get_live_market_prices(self, market_id: str) -> Optional[Dict[str, float]]:
+        """
+        Fetch real market prices from Polymarket API
+        
+        Args:
+            market_id: Market identifier (can be token ID)
+            
+        Returns:
+            Dictionary with 'yes' and 'no' prices, or None on error
+        """
+        try:
+            # Fetch prices from API
+            prices = self.api_client.fetch_market_prices(market_id)
+            
+            if prices is None:
+                self.logger.log_warning(f"Failed to fetch live prices for {market_id}")
+                return None
+            
+            # Convert bid/ask to yes/no format
+            # In Polymarket, bid is the highest buy price and ask is the lowest sell price
+            # For a YES token: bid = highest price someone will pay, ask = lowest price someone will sell
+            # The complement gives us NO prices: NO bid ≈ 1 - YES ask, NO ask ≈ 1 - YES bid
+            yes_price = prices.get('mid', (prices.get('bid', 0.5) + prices.get('ask', 0.5)) / 2)
+            no_price = 1.0 - yes_price
+            
+            return {
+                'yes': round(yes_price, 3),
+                'no': round(no_price, 3),
+                'market_id': market_id,
+                'timestamp': prices.get('timestamp', datetime.now().isoformat())
+            }
+            
+        except Exception as e:
+            self.logger.log_error(f"Error fetching live prices for {market_id}: {str(e)}")
+            return None
+    
+    def _get_simulated_market_prices(self, market_id: str) -> Optional[Dict[str, float]]:
+        """
+        Generate simulated market prices for testing
+        
+        Args:
+            market_id: Market identifier
+            
+        Returns:
+            Dictionary with 'yes' and 'no' prices
+        """
         # Check rate limit
         if not self._check_rate_limit():
             return None
@@ -241,11 +285,7 @@ class PolymarketMonitor:
             # Add delay between requests
             time.sleep(self.request_delay)
             
-            # For this implementation, we'll simulate market prices
-            # In production, you would fetch from the actual Polymarket API
-            # This is a paper trading bot, so simulated data is acceptable
-            
-            # Simulate prices (this would be replaced with actual API call)
+            # Simulate prices (for paper trading/testing)
             import random
             yes_price = round(random.uniform(0.40, 0.60), 3)
             no_price = round(random.uniform(0.40, 0.60), 3)
