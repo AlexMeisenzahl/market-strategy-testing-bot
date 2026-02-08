@@ -8,7 +8,7 @@ import json
 import os
 import requests
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from packaging import version as pkg_version
 
@@ -268,7 +268,7 @@ class VersionManager:
             
             # Add timestamp if not present
             if 'date' not in record:
-                record['date'] = datetime.utcnow().isoformat() + 'Z'
+                record['date'] = datetime.now(timezone.utc).isoformat() + 'Z'
             
             history.insert(0, record)  # Most recent first
             

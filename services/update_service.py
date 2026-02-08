@@ -12,7 +12,7 @@ import uuid
 import time
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 
@@ -62,7 +62,7 @@ class UpdateService:
         try:
             lock_data = {
                 'update_id': update_id,
-                'start_time': datetime.utcnow().isoformat() + 'Z',
+                'start_time': datetime.now(timezone.utc).isoformat() + 'Z',
                 'pid': os.getpid(),
                 'step': UpdateStatus.CHECKING.value
             }
@@ -103,8 +103,10 @@ class UpdateService:
                 lock_data = json.load(f)
             
             # Check if lock is stale (older than 30 minutes)
-            start_time = datetime.fromisoformat(lock_data['start_time'].rstrip('Z'))
-            age = (datetime.utcnow() - start_time).total_seconds()
+            # Handle both 'Z' and '+00:00' timezone formats for proper parsing
+            start_time_str = lock_data['start_time'].replace('Z', '+00:00')
+            start_time = datetime.fromisoformat(start_time_str)
+            age = (datetime.now(timezone.utc) - start_time).total_seconds()
             
             if age > 1800:  # 30 minutes
                 logger.log_warning(f"Found stale lock (age: {age}s), considering it invalid")
@@ -146,7 +148,7 @@ class UpdateService:
                 'status': status.value,
                 'progress': progress,
                 'message': message,
-                'timestamp': datetime.utcnow().isoformat() + 'Z',
+                'timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
                 'logs': logs or []
             }
             
@@ -687,7 +689,7 @@ class UpdateService:
             duration = int(time.time() - start_time)
             record = {
                 'update_id': update_id,
-                'date': datetime.utcnow().isoformat() + 'Z',
+                'date': datetime.now(timezone.utc).isoformat() + 'Z',
                 'from_version': update_info.get('current', 'unknown'),
                 'to_version': update_info.get('latest', 'unknown'),
                 'status': 'success',

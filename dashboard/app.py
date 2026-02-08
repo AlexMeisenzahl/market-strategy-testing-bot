@@ -12,7 +12,7 @@ import os
 import sys
 import shutil
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import json
 import psutil  # For process monitoring
 import csv
@@ -2606,7 +2606,7 @@ def list_backups():
                 
                 backups.append({
                     "name": backup_dir.name,
-                    "date": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "date": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
                     "version": version,
                     "size_mb": round(size_mb, 1)
                 })
