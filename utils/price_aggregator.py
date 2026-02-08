@@ -49,7 +49,7 @@ class PriceAggregator:
     def aggregate_prices(
         self,
         prices: Dict[str, Tuple[float, float]]
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Aggregate prices from multiple sources with advanced consensus
         
@@ -240,7 +240,7 @@ class PriceAggregator:
         current_price: float,
         historical_prices: List[float],
         threshold: float = 3.0
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Detect if current price is anomalous compared to history
         
@@ -289,8 +289,8 @@ class PriceAggregator:
         
     def calculate_quality_score(
         self,
-        aggregation_result: Dict[str, any]
-    ) -> Dict[str, any]:
+        aggregation_result: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Calculate overall data quality score
         
