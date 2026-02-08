@@ -234,23 +234,23 @@ class MarketValidator:
         
         threshold = None
         for pattern in threshold_patterns:
-            matches = re.findall(pattern, market_lower)
-            if matches:
-                # Take the first substantial number (> 1000 for crypto)
-                for match in matches:
-                    num_str = match.replace(',', '')
-                    try:
-                        num = float(num_str)
-                        # Check for 'k' multiplier
-                        if 'k' in market_lower and num < 1000:
-                            num *= 1000
-                        if num >= 1000:  # Reasonable crypto price threshold
-                            threshold = Decimal(str(int(num)))
-                            break
-                    except:
-                        continue
-                if threshold:
-                    break
+            matches = re.finditer(pattern, market_lower)
+            for match_obj in matches:
+                match = match_obj.group(1)
+                num_str = match.replace(',', '')
+                try:
+                    num = float(num_str)
+                    # Check for 'k' multiplier immediately after the number
+                    match_end = match_obj.end()
+                    if match_end < len(market_lower) and market_lower[match_end] == 'k' and num < 1000:
+                        num *= 1000
+                    if num >= 1000:  # Reasonable crypto price threshold
+                        threshold = Decimal(str(int(num)))
+                        break
+                except:
+                    continue
+            if threshold:
+                break
         
         if not threshold:
             return None

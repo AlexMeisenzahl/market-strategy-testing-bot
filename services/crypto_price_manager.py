@@ -227,8 +227,9 @@ class CryptoPriceManager:
                     f"(${min_price:.2f} - ${max_price:.2f})"
                 )
         
-        # Calculate 24h change if available (use first source for now)
-        # In a real implementation, we'd fetch this from APIs
+        # Calculate 24h change from historical data if available
+        # TODO: Implement proper 24h change calculation by fetching historical price data
+        # from the price APIs or database. For now, returning 0 as placeholder.
         change_24h_pct = 0.0
         
         return {

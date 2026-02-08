@@ -332,35 +332,36 @@
             // Filter markets
             let filteredMarkets = markets;
             if (currentFilter === 'mispriced') {
-                filteredMarkets = markets.filter(m => m.status !== 'aligned');
+                filteredMarkets = markets.filter(m => m.discrepancy !== 'aligned');
             } else if (currentFilter === 'high-confidence') {
                 filteredMarkets = markets.filter(m => m.confidence >= 0.7);
             }
             
             tbody.innerHTML = filteredMarkets.map(market => {
-                const profitClass = market.profit >= 0 ? 'text-profit' : 'text-loss';
-                const profitSign = market.profit >= 0 ? '+' : '';
+                const profitClass = market.profit_potential_pct >= 0 ? 'text-profit' : 'text-loss';
+                const profitSign = market.profit_potential_pct >= 0 ? '+' : '';
+                const realityPercent = (market.expected_yes_price * 100).toFixed(1);
                 
                 return `
                     <tr class="table-row">
                         <td class="px-6 py-4">
-                            <div class="font-semibold">${market.name}</div>
+                            <div class="font-semibold">${market.market_name}</div>
                             <div class="text-sm text-gray-400">${market.symbol || ''}</div>
                         </td>
                         <td class="px-6 py-4 font-semibold">
-                            $${market.market_price.toFixed(2)}
+                            $${market.market_yes_price.toFixed(2)}
                         </td>
                         <td class="px-6 py-4">
-                            <div class="font-semibold">${market.reality}%</div>
+                            <div class="font-semibold">${realityPercent}%</div>
                             <div class="text-sm text-gray-400">probability</div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="status-badge ${getStatusClass(market.status)}">
-                                ${getStatusIcon(market.status)} ${market.status}
+                            <span class="status-badge ${getStatusClass(market.discrepancy)}">
+                                ${getStatusIcon(market.discrepancy)} ${market.discrepancy}
                             </span>
                         </td>
                         <td class="px-6 py-4 font-semibold ${profitClass}">
-                            ${profitSign}${market.profit.toFixed(2)}%
+                            ${profitSign}${market.profit_potential_pct.toFixed(2)}%
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-2">
@@ -380,9 +381,9 @@
         
         // Get action button based on market status
         function getActionButton(market) {
-            if (market.status === 'aligned') {
+            if (market.discrepancy === 'aligned') {
                 return '<span class="text-sm text-gray-500">No action</span>';
-            } else if (market.status === 'extreme' || market.status === 'high') {
+            } else if (market.discrepancy === 'extreme' || market.discrepancy === 'high') {
                 return '<button class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition">Alert</button>';
             } else {
                 return '<button class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-sm transition">Watch</button>';
@@ -394,9 +395,9 @@
             if (!markets) return;
             
             const total = markets.length;
-            const mispriced = markets.filter(m => m.status !== 'aligned').length;
-            const highRisk = markets.filter(m => m.status === 'high' || m.status === 'extreme').length;
-            const opportunities = markets.filter(m => Math.abs(m.profit) > 5 && m.confidence > 0.7).length;
+            const mispriced = markets.filter(m => m.discrepancy !== 'aligned').length;
+            const highRisk = markets.filter(m => m.discrepancy === 'high' || m.discrepancy === 'extreme').length;
+            const opportunities = markets.filter(m => Math.abs(m.profit_potential_pct) > 5 && m.confidence > 0.7).length;
             
             document.getElementById('stat-total').textContent = total;
             document.getElementById('stat-mispriced').textContent = mispriced;

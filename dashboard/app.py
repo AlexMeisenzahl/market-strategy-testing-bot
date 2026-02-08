@@ -1011,14 +1011,14 @@ def get_crypto_current_prices():
             result[symbol] = {
                 'symbol': data['symbol'],
                 'name': data['name'],
-                'price_usd': float(data['price_usd']),
-                'change_24h_pct': float(data.get('change_24h_pct', 0)),
+                'price': float(data['price_usd']),
+                'change_24h': float(data.get('change_24h_pct', 0)),
                 'sources': data['sources'],
                 'sources_count': data['sources_count'],
                 'last_updated': data['last_updated']
             }
         
-        return jsonify(result)
+        return jsonify({'prices': result})
     except Exception as e:
         logger.log_error(f"Error getting crypto prices: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -1048,18 +1048,27 @@ def get_crypto_price_history():
         history = price_manager.get_price_history(symbol, hours)
         
         # Convert to format for Chart.js
-        timestamps = []
-        prices = []
+        history_data = []
         
         for record in history:
-            timestamps.append(record['timestamp'])
-            prices.append(float(record['price_usd']))
+            history_data.append({
+                'timestamp': record['timestamp'],
+                'price': float(record['price_usd'])
+            })
+        
+        # Calculate change percentage
+        change_percent = 0
+        if len(history_data) >= 2:
+            first_price = history_data[0]['price']
+            last_price = history_data[-1]['price']
+            if first_price > 0:
+                change_percent = ((last_price - first_price) / first_price) * 100
         
         return jsonify({
             'symbol': symbol,
             'timeframe': timeframe,
-            'timestamps': timestamps,
-            'prices': prices
+            'history': history_data,
+            'change_percent': change_percent
         })
     except Exception as e:
         logger.log_error(f"Error getting price history: {str(e)}")
