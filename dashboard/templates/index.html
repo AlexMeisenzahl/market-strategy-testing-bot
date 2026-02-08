@@ -3,7 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#00d4ff">
     <title>Market Strategy Testing Bot - Dashboard</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,14 +19,19 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
+    <!-- Chart.js Zoom Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.0/dist/chartjs-plugin-zoom.min.js"></script>
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Chart Sizing Fix CSS -->
+    <!-- Core CSS -->
     <link rel="stylesheet" href="/static/css/charts-fixed.css">
-    
-    <!-- Crypto Ticker CSS -->
     <link rel="stylesheet" href="/static/css/crypto_ticker.css">
+    
+    <!-- New UX Feature CSS -->
+    <link rel="stylesheet" href="/static/css/mobile.css">
+    <link rel="stylesheet" href="/static/css/skeletons.css">
     
     <!-- Custom Tailwind Config -->
     <script>
@@ -137,8 +150,34 @@
 </head>
 <body class="bg-dark-bg text-gray-100">
     
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav">
+        <button class="hamburger-menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <h1 class="text-lg font-bold">📊 Trading Bot</h1>
+    </div>
+    
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay">
+        <nav>
+            <a href="#" onclick="showPage('overview', event)" class="active">📊 Dashboard</a>
+            <a href="#" onclick="showPage('trades', event)">💱 Trades</a>
+            <a href="#" onclick="showPage('opportunities', event)">💡 Opportunities</a>
+            <a href="#" onclick="showPage('analytics', event)">📈 Analytics</a>
+            <a href="#" onclick="showPage('tax', event)">📄 Tax</a>
+            <a href="#" onclick="showPage('settings', event)">⚙️ Settings</a>
+            <a href="#" onclick="showPage('control', event)">🎮 Control</a>
+        </nav>
+    </div>
+    
+    <!-- Mobile Menu Backdrop -->
+    <div class="mobile-menu-backdrop"></div>
+    
     <!-- Navigation -->
-    <nav class="bg-dark-card border-b border-dark-border sticky top-0 z-50">
+    <nav class="bg-dark-card border-b border-dark-border sticky top-0 z-50 desktop-nav">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
@@ -1080,5 +1119,24 @@
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script src="{{ url_for('static', filename='js/crypto_ticker.js') }}"></script>
+    
+    <!-- New UX Feature Scripts -->
+    <script src="{{ url_for('static', filename='js/touch_gestures.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/keyboard_shortcuts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/command_palette.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/enhanced_charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/favorites.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/debug_panel.js') }}"></script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then(registration => console.log('[PWA] Service Worker registered'))
+                    .catch(error => console.log('[PWA] Service Worker registration failed:', error));
+            });
+        }
+    </script>
 </body>
 </html>
