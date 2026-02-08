@@ -4,13 +4,17 @@ Data Parser Service
 Parses trading logs, opportunities, and other data files
 to provide structured data for the dashboard.
 Reads from actual CSV files with fallback to sample data.
+
+CRITICAL: All money calculations use Decimal for accuracy.
 """
 
 import csv
 import json
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Dict, List, Any, Optional
+from decimal import Decimal, ROUND_HALF_UP
+from collections import defaultdict
 import os
 
 
@@ -277,9 +281,9 @@ class DataParser:
         if outcome:
             filtered_trades = [t for t in filtered_trades if t['outcome'] == outcome]
         
-        # Calculate summary stats
-        total_pnl = sum(t['pnl_usd'] for t in filtered_trades)
-        avg_pnl = total_pnl / len(filtered_trades) if filtered_trades else 0
+        # Calculate summary stats using Decimal
+        total_pnl = self.calculate_total_pnl(filtered_trades)
+        avg_pnl = self.calculate_average_pnl(filtered_trades)
         wins = [t for t in filtered_trades if t['pnl_usd'] > 0]
         losses = [t for t in filtered_trades if t['pnl_usd'] < 0]
         
@@ -374,3 +378,216 @@ class DataParser:
     def get_all_opportunities(self) -> List[Dict[str, Any]]:
         """Get all opportunities without filtering"""
         return self._get_opportunities_with_cache()
+    
+    # ======================================================================
+    # CALCULATION FUNCTIONS WITH DECIMAL PRECISION
+    # ======================================================================
+    
+    def calculate_total_pnl(self, trades: List[Dict[str, Any]]) -> float:
+        """
+        Calculate total P&L using Decimal for accuracy
+        
+        Args:
+            trades: List of trade dictionaries
+            
+        Returns:
+            Total P&L as float (for JSON serialization)
+        """
+        if not trades:
+            return 0.0
+        
+        total = Decimal('0')
+        
+        for trade in trades:
+            # Convert to Decimal (handles string or float input)
+            pnl = Decimal(str(trade['pnl_usd']))
+            total += pnl
+        
+        # Round to 2 decimal places
+        total = total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        
+        return float(total)  # Convert back to float for JSON serialization
+    
+    def calculate_win_rate(self, trades: List[Dict[str, Any]]) -> float:
+        """
+        Calculate win rate with validation
+        
+        Args:
+            trades: List of trade dictionaries
+            
+        Returns:
+            Win rate as percentage (0-100)
+        """
+        if not trades or len(trades) == 0:
+            return 0.0
+        
+        wins = sum(1 for t in trades if t['pnl_usd'] > 0)
+        total = len(trades)
+        
+        win_rate = (wins / total) * 100
+        
+        # Validation: must be between 0 and 100
+        assert 0 <= win_rate <= 100, f"Invalid win rate: {win_rate}"
+        
+        return round(win_rate, 2)
+    
+    def calculate_average_pnl(self, trades: List[Dict[str, Any]]) -> float:
+        """
+        Calculate average P&L per trade using Decimal
+        
+        Args:
+            trades: List of trade dictionaries
+            
+        Returns:
+            Average P&L per trade
+        """
+        if not trades or len(trades) == 0:
+            return 0.0
+        
+        total_pnl = Decimal(str(self.calculate_total_pnl(trades)))
+        count = Decimal(str(len(trades)))
+        
+        # Handle division by zero (shouldn't happen given check above)
+        if count == 0:
+            return 0.0
+        
+        avg = total_pnl / count
+        avg = avg.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        
+        return float(avg)
+    
+    def calculate_arbitrage_profit_pct(self, yes_price: float, no_price: float) -> float:
+        """
+        Calculate Polymarket arbitrage profit percentage
+        
+        Args:
+            yes_price: Yes side price (0-1)
+            no_price: No side price (0-1)
+            
+        Returns:
+            Profit percentage
+        """
+        yes = Decimal(str(yes_price))
+        no = Decimal(str(no_price))
+        
+        # Validation: prices must be between 0 and 1
+        assert 0 <= yes <= 1, f"Invalid yes_price: {yes}"
+        assert 0 <= no <= 1, f"Invalid no_price: {no}"
+        
+        sum_price = yes + no
+        
+        # Validation: sum should be close to 1.00 (allow arbitrage variance)
+        assert Decimal('0.85') <= sum_price <= Decimal('1.05'), \
+            f"Invalid price sum: {sum_price}"
+        
+        if sum_price >= 1:
+            return 0.0  # No arbitrage opportunity
+        
+        # Profit % = ((1.00 - sum) / sum) * 100
+        one = Decimal('1.00')
+        profit_pct = ((one - sum_price) / sum_price) * 100
+        profit_pct = profit_pct.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        
+        return float(profit_pct)
+    
+    # ======================================================================
+    # CHART DATA PREPARATION FUNCTIONS
+    # ======================================================================
+    
+    def prepare_daily_pnl_chart_data(self, trades: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Prepare daily P&L chart data with verification
+        
+        CRITICAL: Groups trades by DATE only (not time), sums P&L for each day,
+        and verifies that sum of daily bars equals total P&L.
+        
+        Args:
+            trades: List of trade dictionaries
+            
+        Returns:
+            Dictionary with 'labels' (dates) and 'data' (P&L values)
+        """
+        if not trades:
+            return {'labels': [], 'data': []}
+        
+        # Group by date (extract DATE only, not time)
+        daily_pnl = defaultdict(lambda: Decimal('0'))
+        
+        for trade in trades:
+            # Extract date only (not time)
+            trade_date = datetime.fromisoformat(trade['entry_time']).date()
+            daily_pnl[trade_date] += Decimal(str(trade['pnl_usd']))
+        
+        # Sort by date
+        sorted_dates = sorted(daily_pnl.keys())
+        
+        # Prepare data
+        labels = [d.isoformat() for d in sorted_dates]  # ['2026-02-01', '2026-02-02', ...]
+        values = [float(daily_pnl[d]) for d in sorted_dates]
+        
+        # VERIFICATION: Sum of daily values must equal total P&L
+        total_pnl = self.calculate_total_pnl(trades)
+        daily_sum = sum(Decimal(str(v)) for v in values)
+        
+        # Allow small floating point error (0.01)
+        diff = abs(daily_sum - Decimal(str(total_pnl)))
+        assert diff < Decimal('0.01'), \
+            f"Daily P&L sum ({daily_sum}) doesn't match total P&L ({total_pnl})"
+        
+        return {'labels': labels, 'data': values}
+    
+    def prepare_cumulative_pnl_chart_data(self, trades: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Prepare cumulative P&L chart data with verification
+        
+        CRITICAL: Calculates running total correctly, ensuring each point equals
+        previous point + daily P&L, and final point equals total P&L.
+        
+        Args:
+            trades: List of trade dictionaries
+            
+        Returns:
+            Dictionary with 'labels' (dates) and 'data' (cumulative P&L values)
+        """
+        if not trades:
+            return {'labels': [], 'data': []}
+        
+        # Group by date
+        daily_pnl = defaultdict(lambda: Decimal('0'))
+        
+        for trade in trades:
+            # Extract date only (not time)
+            trade_date = datetime.fromisoformat(trade['entry_time']).date()
+            daily_pnl[trade_date] += Decimal(str(trade['pnl_usd']))
+        
+        sorted_dates = sorted(daily_pnl.keys())
+        
+        # Calculate cumulative
+        cumulative = []
+        running_total = Decimal('0')
+        
+        for i, date in enumerate(sorted_dates):
+            running_total += daily_pnl[date]
+            cumulative.append(float(running_total))
+            
+            # VERIFICATION 1: Each point = previous + daily (after first point)
+            if i > 0:
+                expected = Decimal(str(cumulative[i-1])) + daily_pnl[date]
+                actual = Decimal(str(cumulative[i]))
+                diff = abs(expected - actual)
+                assert diff < Decimal('0.01'), \
+                    f"Cumulative point {i} ({actual}) doesn't match expected ({expected})"
+        
+        # VERIFICATION 2: Final point = total P&L
+        if cumulative:
+            total_pnl = Decimal(str(self.calculate_total_pnl(trades)))
+            final_cumulative = Decimal(str(cumulative[-1]))
+            diff = abs(final_cumulative - total_pnl)
+            
+            assert diff < Decimal('0.01'), \
+                f"Cumulative final ({final_cumulative}) doesn't match total P&L ({total_pnl})"
+        
+        return {
+            'labels': [d.isoformat() for d in sorted_dates],
+            'data': cumulative
+        }

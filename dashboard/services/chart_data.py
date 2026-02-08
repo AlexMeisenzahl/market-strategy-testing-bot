@@ -2,11 +2,13 @@
 Chart Data Service
 
 Prepares data for charts and visualizations in the dashboard.
+Uses Decimal-based calculations from data_parser for accuracy.
 """
 
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 from collections import defaultdict
+from decimal import Decimal, ROUND_HALF_UP
 from dashboard.services.data_parser import DataParser
 
 
@@ -24,7 +26,7 @@ class ChartDataService:
     
     def get_cumulative_pnl(self, time_range: str = '1M') -> Dict[str, Any]:
         """
-        Get cumulative P&L chart data
+        Get cumulative P&L chart data using Decimal-based calculations
         
         Args:
             time_range: Time range (1D, 1W, 1M, 3M, 6M, 1Y, ALL)
@@ -60,51 +62,51 @@ class ChartDataService:
         # Sort by entry time
         filtered_trades.sort(key=lambda x: x['entry_time'])
         
-        # Calculate cumulative P&L
-        cumulative_pnl = 0
-        data_points = []
+        # Use data_parser's Decimal-based cumulative calculation
+        chart_data = self.data_parser.prepare_cumulative_pnl_chart_data(filtered_trades)
         
-        for trade in filtered_trades:
-            cumulative_pnl += trade['pnl_usd']
-            data_points.append({
-                'timestamp': trade['exit_time'],
-                'value': round(cumulative_pnl, 2),
-                'trade_id': trade['id'],
-                'symbol': trade['symbol']
-            })
+        # Convert to the format expected by existing code
+        data_points = []
+        for i, (label, value) in enumerate(zip(chart_data['labels'], chart_data['data'])):
+            # Find corresponding trade for this date
+            date_obj = datetime.fromisoformat(label).date() if isinstance(label, str) else label
+            trades_on_date = [t for t in filtered_trades 
+                            if datetime.fromisoformat(t['entry_time']).date() == date_obj]
+            
+            # Use last trade of the day for display
+            if trades_on_date:
+                last_trade = trades_on_date[-1]
+                data_points.append({
+                    'timestamp': last_trade['exit_time'],
+                    'value': round(value, 2),
+                    'trade_id': last_trade['id'],
+                    'symbol': last_trade['symbol']
+                })
         
         return {
             'data': data_points,
             'start_date': start_date.isoformat() if start_date != datetime.min else None,
             'end_date': now.isoformat(),
-            'total_pnl': round(cumulative_pnl, 2) if data_points else 0
+            'total_pnl': data_points[-1]['value'] if data_points else 0
         }
     
     def get_daily_pnl(self) -> Dict[str, Any]:
         """
-        Get daily P&L chart data
+        Get daily P&L chart data using Decimal-based calculations
         
         Returns:
             Dictionary with daily P&L data
         """
         trades = self.data_parser.get_all_trades()
         
-        # Group trades by day
-        daily_pnl = defaultdict(float)
+        # Use data_parser's Decimal-based daily calculation
+        chart_data = self.data_parser.prepare_daily_pnl_chart_data(trades)
         
-        for trade in trades:
-            date = datetime.fromisoformat(trade['exit_time']).date()
-            daily_pnl[date] += trade['pnl_usd']
-        
-        # Sort by date
-        sorted_dates = sorted(daily_pnl.keys())
-        
-        # Prepare data points
+        # Convert to the format expected by existing code
         data_points = []
-        for date in sorted_dates:
-            pnl = daily_pnl[date]
+        for label, pnl in zip(chart_data['labels'], chart_data['data']):
             data_points.append({
-                'date': date.isoformat(),
+                'date': label,
                 'pnl': round(pnl, 2),
                 'color': 'green' if pnl > 0 else 'red'
             })
