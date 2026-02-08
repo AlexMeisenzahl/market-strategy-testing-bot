@@ -72,7 +72,7 @@ class TaxReporter:
             if isinstance(date, str):
                 try:
                     date = datetime.fromisoformat(date.replace('Z', '+00:00'))
-                except:
+                except (ValueError, AttributeError):
                     continue
             
             if date.year == year:
@@ -205,7 +205,7 @@ class TaxReporter:
         if isinstance(date, str):
             try:
                 return datetime.fromisoformat(date.replace('Z', '+00:00'))
-            except:
+            except (ValueError, AttributeError):
                 return None
         
         return date

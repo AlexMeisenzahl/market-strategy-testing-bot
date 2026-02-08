@@ -65,7 +65,7 @@ class SmartAlerts:
             if isinstance(timestamp, str):
                 try:
                     timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                except:
+                except (ValueError, AttributeError):
                     continue
             
             day = timestamp.strftime('%A')  # Monday, Tuesday, etc.
@@ -131,7 +131,7 @@ class SmartAlerts:
             if isinstance(timestamp, str):
                 try:
                     timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                except:
+                except (ValueError, AttributeError):
                     continue
             
             hour = timestamp.hour
