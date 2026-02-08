@@ -228,9 +228,17 @@ class CryptoPriceManager:
                 )
         
         # Calculate 24h change from historical data if available
-        # TODO: Implement proper 24h change calculation by fetching historical price data
-        # from the price APIs or database. For now, returning 0 as placeholder.
         change_24h_pct = 0.0
+        try:
+            # Try to get 24h change from historical data
+            history = self.get_price_history(symbol, hours=24)
+            if history and len(history) > 0:
+                oldest_price = history[0]['price_usd']
+                if oldest_price > 0:
+                    change_24h_pct = float((median_price - oldest_price) / oldest_price * 100)
+        except:
+            # If historical data not available, leave as 0
+            pass
         
         return {
             'symbol': symbol,

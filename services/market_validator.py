@@ -248,7 +248,6 @@ class MarketValidator:
                         break
                 except:
                     continue
-                    continue
             if threshold:
                 break
         
