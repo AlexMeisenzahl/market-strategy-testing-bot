@@ -245,6 +245,62 @@ class PortfolioManager:
             )
 
         return list(reversed(daily_pnl))
+    
+    def calculate_position_size_volatility_adjusted(
+        self, strategy: str, entry_price: float, volatility: float,
+        risk_per_trade: float = 0.02
+    ) -> float:
+        """
+        Calculate position size adjusted for market volatility
+        
+        Higher volatility -> smaller position size
+        Lower volatility -> larger position size
+        
+        Args:
+            strategy: Strategy name
+            entry_price: Entry price for position
+            volatility: Market volatility (e.g., standard deviation, ATR)
+            risk_per_trade: Risk percentage per trade (default: 2%)
+            
+        Returns:
+            Position size in dollars
+            
+        Example:
+            # High volatility (10%) - reduces position size
+            size = portfolio_manager.calculate_position_size_volatility_adjusted(
+                'momentum', 100.0, 10.0
+            )
+            
+            # Low volatility (2%) - allows larger position size
+            size = portfolio_manager.calculate_position_size_volatility_adjusted(
+                'momentum', 100.0, 2.0
+            )
+        """
+        # Base position size (without volatility adjustment)
+        base_size = self.cash_balance * risk_per_trade
+        
+        # Normalize volatility (assume 5% as baseline)
+        baseline_volatility = 5.0
+        volatility_factor = baseline_volatility / max(volatility, 0.1)
+        
+        # Adjust position size by volatility
+        # Higher volatility -> smaller position (volatility_factor < 1)
+        # Lower volatility -> larger position (volatility_factor > 1)
+        adjusted_size = base_size * volatility_factor
+        
+        # Cap at maximum position size (20% of portfolio)
+        max_position_size = self.get_current_value() * 0.20
+        adjusted_size = min(adjusted_size, max_position_size)
+        
+        # Cap at available cash
+        adjusted_size = min(adjusted_size, self.cash_balance)
+        
+        self.logger.info(
+            f"Position size for {strategy}: ${adjusted_size:.2f} "
+            f"(volatility: {volatility:.1f}%, factor: {volatility_factor:.2f})"
+        )
+        
+        return adjusted_size
 
     def export_to_dict(self) -> Dict[str, Any]:
         """Export portfolio state to dictionary"""
