@@ -26,6 +26,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from apis.coingecko_client import CoinGeckoClient
 from apis.binance_client import BinanceClient
 from exchanges.coinbase_client import CoinbaseClient
+from utils.price_aggregator import PriceAggregator
 
 
 class CryptoPriceManager:
@@ -80,6 +81,13 @@ class CryptoPriceManager:
         # Configuration
         self.discrepancy_threshold = 0.05  # 5% discrepancy warning threshold
         self.min_sources = 1  # Minimum sources required
+        
+        # Initialize price aggregator with weighted consensus
+        self.price_aggregator = PriceAggregator(
+            outlier_threshold=2.0,
+            min_sources=self.min_sources,
+            volume_weight_factor=0.3
+        )
 
         # Ensure logs directory exists
         self._ensure_log_directory()
@@ -223,66 +231,79 @@ class CryptoPriceManager:
 
     def _aggregate_prices(self, symbol: str, prices: Dict[str, float]) -> Dict:
         """
-        Aggregate prices from multiple sources
-
+        Aggregate prices from multiple sources using weighted consensus algorithm
+        
         Args:
             symbol: Crypto symbol
             prices: Dictionary of source -> price
-
+            
         Returns:
-            Aggregated price data with metadata
+            Aggregated price data with metadata including confidence and quality
         """
         if not prices:
             return None
-
-        price_values = list(prices.values())
-
-        # Calculate median price
-        median_price = Decimal(str(statistics.median(price_values)))
-
-        # Calculate price range and discrepancy
-        min_price = min(price_values)
-        max_price = max(price_values)
-        price_range = max_price - min_price
-        discrepancy_pct = (
-            (price_range / float(median_price)) * 100 if median_price > 0 else 0
-        )
-
+            
+        # Prepare prices with volume data (volume would come from sources if available)
+        # For now, assign equal volume to all sources
+        prices_with_volume = {
+            source: (price, 1.0) for source, price in prices.items()
+        }
+        
+        # Use price aggregator for consensus
+        aggregation_result = self.price_aggregator.aggregate_prices(prices_with_volume)
+        
+        if not aggregation_result.get("price"):
+            if self.logger:
+                self.logger.log_error(
+                    f"Failed to aggregate prices for {symbol}: {aggregation_result.get('error')}"
+                )
+            return None
+            
+        consensus_price = Decimal(str(aggregation_result["price"]))
+        
         # Warn if discrepancy is high
-        if discrepancy_pct > self.discrepancy_threshold * 100:
+        if aggregation_result["price_spread_pct"] > self.discrepancy_threshold * 100:
             if self.logger:
                 self.logger.log_warning(
-                    f"High price discrepancy for {symbol}: {discrepancy_pct:.2f}% "
-                    f"(${min_price:.2f} - ${max_price:.2f})"
+                    f"High price discrepancy for {symbol}: {aggregation_result['price_spread_pct']:.2f}% "
+                    f"(${aggregation_result['min_price']:.2f} - ${aggregation_result['max_price']:.2f}), "
+                    f"Confidence: {aggregation_result['confidence']}%"
                 )
-
+                
+        # Calculate quality score
+        quality_metrics = self.price_aggregator.calculate_quality_score(aggregation_result)
+        
         # Calculate 24h change from historical data if available
         change_24h_pct = 0.0
         try:
-            # Try to get 24h change from historical data
             history = self.get_price_history(symbol, hours=24)
             if history and len(history) > 0:
                 oldest_price = history[0]["price_usd"]
                 if oldest_price > 0:
                     change_24h_pct = float(
-                        (median_price - oldest_price) / oldest_price * 100
+                        (consensus_price - oldest_price) / oldest_price * 100
                     )
         except:
-            # If historical data not available, leave as 0
             pass
-
+            
         return {
             "symbol": symbol,
             "name": self._get_crypto_name(symbol),
-            "price_usd": median_price,
+            "price_usd": consensus_price,
             "change_24h_pct": change_24h_pct,
-            "sources": list(prices.keys()),
-            "sources_count": len(prices),
-            "price_min": Decimal(str(min_price)),
-            "price_max": Decimal(str(max_price)),
-            "discrepancy_pct": Decimal(str(discrepancy_pct)),
+            "sources": aggregation_result["sources"],
+            "sources_count": aggregation_result["source_count"],
+            "sources_used": aggregation_result["sources_used"],
+            "price_min": Decimal(str(aggregation_result["min_price"])),
+            "price_max": Decimal(str(aggregation_result["max_price"])),
+            "median_price": Decimal(str(aggregation_result["median_price"])),
+            "discrepancy_pct": Decimal(str(aggregation_result["price_spread_pct"])),
+            "confidence": aggregation_result["confidence"],
+            "outliers_removed": aggregation_result["outliers_removed"],
+            "quality_score": quality_metrics["quality_score"],
+            "quality_grade": quality_metrics["quality_grade"],
             "last_updated": datetime.now().isoformat(),
-            "source": "Aggregated",
+            "source": "Weighted Consensus",
         }
 
     def _get_crypto_name(self, symbol: str) -> str:
