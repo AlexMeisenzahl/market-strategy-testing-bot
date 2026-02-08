@@ -35,7 +35,8 @@ def init_competition_db():
     cursor = conn.cursor()
 
     # Strategies table - extended with new fields
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS strategies (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
@@ -51,10 +52,12 @@ def init_competition_db():
             created_at INTEGER DEFAULT (strftime('%s', 'now')),
             updated_at INTEGER DEFAULT (strftime('%s', 'now'))
         )
-    """)
+    """
+    )
 
     # Strategy Performance Snapshots table
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS strategy_performance_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             strategy_id INTEGER NOT NULL,
@@ -80,43 +83,53 @@ def init_competition_db():
             
             FOREIGN KEY (strategy_id) REFERENCES strategies(id)
         )
-    """)
+    """
+    )
 
     # Create indexes for efficient queries
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_snapshots_strategy_timestamp 
         ON strategy_performance_snapshots(strategy_id, timestamp DESC)
-    """)
+    """
+    )
 
     # Config table for global settings (kill switch, etc.)
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS config (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
             updated_at INTEGER DEFAULT (strftime('%s', 'now'))
         )
-    """)
+    """
+    )
 
     # Initialize kill switch to false
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT OR IGNORE INTO config (key, value) VALUES ('kill_switch_active', 'false')
-    """)
+    """
+    )
 
     # Initialize default strategies if they don't exist
     default_strategies = [
-        ('Polymarket Arbitrage', 'arbitrage'),
-        ('Crypto Momentum', 'momentum'),
-        ('Mean Reversion', 'mean_reversion'),
-        ('Market Sentiment', 'sentiment'),
-        ('Volume Surge', 'volume'),
-        ('Time-Based', 'time_based'),
+        ("Polymarket Arbitrage", "arbitrage"),
+        ("Crypto Momentum", "momentum"),
+        ("Mean Reversion", "mean_reversion"),
+        ("Market Sentiment", "sentiment"),
+        ("Volume Surge", "volume"),
+        ("Time-Based", "time_based"),
     ]
-    
+
     for name, strategy_type in default_strategies:
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR IGNORE INTO strategies (name, strategy_type, allocated_capital)
             VALUES (?, ?, 10000.0)
-        """, (name, strategy_type))
+        """,
+            (name, strategy_type),
+        )
 
     conn.commit()
 
@@ -137,14 +150,16 @@ class Strategy:
         """Get enabled strategies"""
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM strategies 
             WHERE enabled = 1 
               AND auto_disabled = 0 
               AND emergency_disabled = 0
               AND paused = 0
             ORDER BY id
-        """)
+        """
+        )
         return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
@@ -170,24 +185,30 @@ class Strategy:
         """Update strategy fields"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         updates = []
         params = []
-        
+
         allowed_fields = [
-            'enabled', 'trading_stage', 'allocated_capital', 'auto_disabled',
-            'disable_reason', 'emergency_disabled', 'paused', 'pause_reason'
+            "enabled",
+            "trading_stage",
+            "allocated_capital",
+            "auto_disabled",
+            "disable_reason",
+            "emergency_disabled",
+            "paused",
+            "pause_reason",
         ]
-        
+
         for field, value in kwargs.items():
             if field in allowed_fields:
                 updates.append(f"{field} = ?")
                 params.append(value)
-        
+
         if updates:
             updates.append("updated_at = strftime('%s', 'now')")
             params.append(strategy_id)
-            
+
             query = f"UPDATE strategies SET {', '.join(updates)} WHERE id = ?"
             cursor.execute(query, params)
             conn.commit()
@@ -220,19 +241,32 @@ class StrategyPerformanceSnapshot:
         if timestamp is None:
             timestamp = int(datetime.utcnow().timestamp())
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO strategy_performance_snapshots (
                 strategy_id, timestamp, portfolio_value, total_return_pct,
                 daily_pnl, sharpe_ratio, sortino_ratio, max_drawdown,
                 volatility, total_trades, win_rate, avg_trade_profit,
                 open_positions, total_exposure
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            strategy_id, timestamp, portfolio_value, total_return_pct,
-            daily_pnl, sharpe_ratio, sortino_ratio, max_drawdown,
-            volatility, total_trades, win_rate, avg_trade_profit,
-            open_positions, total_exposure
-        ))
+        """,
+            (
+                strategy_id,
+                timestamp,
+                portfolio_value,
+                total_return_pct,
+                daily_pnl,
+                sharpe_ratio,
+                sortino_ratio,
+                max_drawdown,
+                volatility,
+                total_trades,
+                win_rate,
+                avg_trade_profit,
+                open_positions,
+                total_exposure,
+            ),
+        )
 
         conn.commit()
         return cursor.lastrowid
@@ -242,12 +276,15 @@ class StrategyPerformanceSnapshot:
         """Get latest snapshot for strategy"""
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM strategy_performance_snapshots
             WHERE strategy_id = ?
             ORDER BY timestamp DESC
             LIMIT 1
-        """, (strategy_id,))
+        """,
+            (strategy_id,),
+        )
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -256,15 +293,18 @@ class StrategyPerformanceSnapshot:
         """Get performance history for strategy"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         start_timestamp = int(datetime.utcnow().timestamp()) - (hours * 3600)
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             SELECT * FROM strategy_performance_snapshots
             WHERE strategy_id = ? AND timestamp >= ?
             ORDER BY timestamp ASC
-        """, (strategy_id, start_timestamp))
-        
+        """,
+            (strategy_id, start_timestamp),
+        )
+
         return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
@@ -272,8 +312,9 @@ class StrategyPerformanceSnapshot:
         """Get latest snapshot for all strategies"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             SELECT s1.* 
             FROM strategy_performance_snapshots s1
             INNER JOIN (
@@ -282,8 +323,9 @@ class StrategyPerformanceSnapshot:
                 GROUP BY strategy_id
             ) s2 ON s1.strategy_id = s2.strategy_id 
                 AND s1.timestamp = s2.max_timestamp
-        """)
-        
+        """
+        )
+
         return [dict(row) for row in cursor.fetchall()]
 
 
@@ -297,17 +339,20 @@ class Config:
         cursor = conn.cursor()
         cursor.execute("SELECT value FROM config WHERE key = ?", (key,))
         row = cursor.fetchone()
-        return row['value'] if row else None
+        return row["value"] if row else None
 
     @staticmethod
     def set(key: str, value: str):
         """Set config value"""
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO config (key, value, updated_at)
             VALUES (?, ?, strftime('%s', 'now'))
-        """, (key, value))
+        """,
+            (key, value),
+        )
         conn.commit()
 
     @staticmethod
@@ -316,12 +361,12 @@ class Config:
         value = Config.get(key)
         if value is None:
             return default
-        return value.lower() in ('true', '1', 'yes')
+        return value.lower() in ("true", "1", "yes")
 
     @staticmethod
     def set_bool(key: str, value: bool):
         """Set boolean config value"""
-        Config.set(key, 'true' if value else 'false')
+        Config.set(key, "true" if value else "false")
 
 
 # Initialize database on module import

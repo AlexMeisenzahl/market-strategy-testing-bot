@@ -81,7 +81,7 @@ class ArbitrageBot:
         # Activity log for dashboard
         self.activities = []
         self.alerts = []
-        
+
         # Scheduled tasks
         self.last_hourly_snapshot = datetime.now()
         self.last_weekly_selection = datetime.now()
@@ -313,7 +313,7 @@ class ArbitrageBot:
 
             # 1. Check data pipeline health
             health_status = data_monitor.get_health_status()
-            if health_status['overall'] == 'critical':
+            if health_status["overall"] == "critical":
                 self.logger.log_error("Data pipeline critical, skipping iteration")
                 self.add_alert("⚠️ Data pipeline critical")
                 return
@@ -321,9 +321,9 @@ class ArbitrageBot:
             # 2. Check strategy health (auto-disable if needed)
             health_results = health_monitor.check_all_strategies()
             for result in health_results:
-                if result['status'] == 'disabled':
+                if result["status"] == "disabled":
                     self.add_alert(f"🚫 Auto-disabled: {result['strategy']}")
-            
+
             # Check connection health periodically
             if (
                 datetime.now() - self.last_connection_check
@@ -457,11 +457,13 @@ class ArbitrageBot:
             # 3. Run strategy competition (track all strategies)
             try:
                 # Get current market data for competition
-                competition_result = competition.run_competition({'markets': markets_to_scan})
-                
+                competition_result = competition.run_competition(
+                    {"markets": markets_to_scan}
+                )
+
                 # 4. Take performance snapshot
                 performance_tracker.take_snapshot()
-                
+
             except Exception as e:
                 self.logger.log_error(f"Error in competition/tracking: {e}")
 
@@ -594,31 +596,33 @@ class ArbitrageBot:
             self.logger.log_error(f"Failed to fetch live markets: {str(e)}")
             self.logger.log_warning("Falling back to demo markets")
             return self._get_demo_markets()
-    
+
     def _run_scheduled_tasks(self) -> None:
         """Run scheduled tasks (hourly snapshots, weekly selection)"""
         try:
             now = datetime.now()
-            
+
             # Hourly: Save performance snapshots to database
             if (now - self.last_hourly_snapshot).total_seconds() >= 3600:
                 self.logger.log_info("Running hourly snapshot save")
                 performance_tracker.save_hourly_snapshot()
                 self.last_hourly_snapshot = now
                 self.add_activity("💾 Saved hourly performance snapshots")
-            
+
             # Weekly: Run strategy selection and capital allocation
-            if (now - self.last_weekly_selection).total_seconds() >= (7 * 24 * 3600):  # 7 days
+            if (now - self.last_weekly_selection).total_seconds() >= (
+                7 * 24 * 3600
+            ):  # 7 days
                 self.logger.log_info("Running weekly strategy selection")
                 best_strategy = strategy_selector.select_best_strategy()
                 if best_strategy:
                     self.add_activity(f"🏆 Best strategy selected: {best_strategy}")
                     # Auto-allocate capital
                     allocation_result = strategy_selector.auto_allocate_capital()
-                    if allocation_result.get('allocations'):
+                    if allocation_result.get("allocations"):
                         self.add_activity("💰 Capital reallocated based on performance")
                 self.last_weekly_selection = now
-                
+
         except Exception as e:
             self.logger.log_error(f"Error in scheduled tasks: {e}")
 
@@ -659,7 +663,7 @@ class ArbitrageBot:
                     # Scan markets if not paused
                     if not self.paused:
                         self.scan_markets()
-                    
+
                     # Run scheduled tasks
                     self._run_scheduled_tasks()
 

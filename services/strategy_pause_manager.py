@@ -24,104 +24,78 @@ class StrategyPauseManager:
     def pause_strategy(self, strategy_name: str, reason: str) -> Dict:
         """
         Pause strategy temporarily
-        
+
         Args:
             strategy_name: Name of the strategy
             reason: Reason for pausing
-            
+
         Returns:
             Pause result
         """
         try:
             strategy = Strategy.get_by_name(strategy_name)
-            
+
             if not strategy:
-                return {
-                    'success': False,
-                    'reason': 'Strategy not found'
-                }
-            
-            if strategy['paused']:
-                return {
-                    'success': False,
-                    'reason': 'Strategy is already paused'
-                }
-            
+                return {"success": False, "reason": "Strategy not found"}
+
+            if strategy["paused"]:
+                return {"success": False, "reason": "Strategy is already paused"}
+
             # Pause strategy
-            Strategy.update(
-                strategy['id'],
-                paused=1,
-                pause_reason=reason
-            )
-            
+            Strategy.update(strategy["id"], paused=1, pause_reason=reason)
+
             logger.info(f"⏸️ Paused strategy '{strategy_name}': {reason}")
-            
+
             return {
-                'success': True,
-                'strategy': strategy_name,
-                'reason': reason,
-                'paused_at': datetime.utcnow().isoformat()
+                "success": True,
+                "strategy": strategy_name,
+                "reason": reason,
+                "paused_at": datetime.utcnow().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"Error pausing strategy: {e}", exc_info=True)
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     def resume_strategy(self, strategy_name: str) -> Dict:
         """
         Resume paused strategy
-        
+
         Args:
             strategy_name: Name of the strategy
-            
+
         Returns:
             Resume result
         """
         try:
             strategy = Strategy.get_by_name(strategy_name)
-            
+
             if not strategy:
-                return {
-                    'success': False,
-                    'reason': 'Strategy not found'
-                }
-            
-            if not strategy['paused']:
-                return {
-                    'success': False,
-                    'reason': 'Strategy is not paused'
-                }
-            
+                return {"success": False, "reason": "Strategy not found"}
+
+            if not strategy["paused"]:
+                return {"success": False, "reason": "Strategy is not paused"}
+
             # Resume strategy
-            Strategy.update(
-                strategy['id'],
-                paused=0,
-                pause_reason=None
-            )
-            
+            Strategy.update(strategy["id"], paused=0, pause_reason=None)
+
             logger.info(f"▶️ Resumed strategy '{strategy_name}'")
-            
+
             return {
-                'success': True,
-                'strategy': strategy_name,
-                'resumed_at': datetime.utcnow().isoformat()
+                "success": True,
+                "strategy": strategy_name,
+                "resumed_at": datetime.utcnow().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"Error resuming strategy: {e}", exc_info=True)
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     def is_paused(self, strategy_name: str) -> bool:
         """Check if strategy is paused"""
         try:
             strategy = Strategy.get_by_name(strategy_name)
-            return bool(strategy['paused']) if strategy else False
+            return bool(strategy["paused"]) if strategy else False
         except Exception as e:
             logger.error(f"Error checking pause status: {e}")
             return False
@@ -131,12 +105,9 @@ class StrategyPauseManager:
         try:
             strategies = Strategy.get_all()
             return [
-                {
-                    'name': s['name'],
-                    'reason': s['pause_reason']
-                }
+                {"name": s["name"], "reason": s["pause_reason"]}
                 for s in strategies
-                if s['paused']
+                if s["paused"]
             ]
         except Exception as e:
             logger.error(f"Error getting paused strategies: {e}")
