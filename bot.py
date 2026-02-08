@@ -341,10 +341,11 @@ class ArbitrageBot:
                                 trade = self.trader.execute_paper_trade(opp_obj)
                                 if trade:
                                     # Record trade in metrics
+                                    trader_stats = self.trader.get_statistics()
                                     if feature_flags.is_enabled('prometheus_metrics'):
                                         metrics.record_trade(strategy_name)
-                                        metrics.update_profit(self.trader.get_statistics()['total_profit'])
-                                        metrics.update_trades_count(self.trader.get_statistics()['trades_executed'])
+                                        metrics.update_profit(trader_stats['total_profit'])
+                                        metrics.update_trades_count(trader_stats['trades_executed'])
                                     
                                     # Track in position tracker
                                     position_tracker.open_position(

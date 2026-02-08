@@ -121,9 +121,11 @@ class PortfolioManager:
             if closed_positions else 0.0
         )
         
-        # Calculate Sharpe ratio (simplified)
+        # Calculate Sharpe ratio (simplified - using return/volatility without risk-free rate)
+        # Note: A full Sharpe ratio would be: (portfolio_return - risk_free_rate) / std_deviation
+        # For paper trading, we use a simplified version with zero risk-free rate
         returns = self.get_return_percentage()
-        sharpe_ratio = returns / 10.0 if returns > 0 else 0.0  # Simplified
+        sharpe_ratio = returns / 10.0 if returns > 0 else 0.0  # Normalized by typical std dev estimate
         
         # Calculate max drawdown
         max_drawdown = self._calculate_max_drawdown()

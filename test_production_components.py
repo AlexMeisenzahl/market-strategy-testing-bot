@@ -47,8 +47,8 @@ def test_feature_flags():
         all_flags = feature_flags.get_all()
         print(f"✓ Total flags defined: {len(all_flags)}")
         
-        # Check that real_trading is always disabled
-        assert feature_flags.is_enabled('real_trading') == False
+        # Check that real_trading is always disabled (safety check)
+        assert not feature_flags.is_enabled('real_trading')
         print("✓ Real trading is disabled (safety check)")
         
         # Check some default flags

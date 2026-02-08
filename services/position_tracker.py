@@ -3,6 +3,7 @@ Position Tracking System for Trading Bot
 Tracks all positions, their status, and P&L calculations
 """
 
+import os
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -91,7 +92,6 @@ class PositionTracker:
         """Save positions to storage"""
         try:
             # Ensure directory exists
-            import os
             os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
             
             with open(self.storage_path, 'w') as f:
