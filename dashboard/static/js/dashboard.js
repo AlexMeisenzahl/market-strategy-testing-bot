@@ -1295,7 +1295,7 @@ function initializeMobileFeatures() {
     setupHapticFeedback();
     
     // Initialize bottom nav active states
-    updateBottomNavActiveState();
+    updateBottomNavActiveState(currentPage);
 }
 
 /**
@@ -1373,10 +1373,8 @@ function setupPullToRefresh() {
         const currentY = e.touches[0].pageY;
         const distance = currentY - startY;
         
-        if (distance > 0 && distance < threshold * 2) {
-            // Visual feedback could be added here
-            console.log('Pulling:', distance);
-        }
+        // Visual feedback for pull-to-refresh
+        // Distance is tracked for potential UI indicators
     }, { passive: true });
     
     container.addEventListener('touchend', (e) => {
@@ -1493,13 +1491,55 @@ function initializeMobilePageNavigation() {
     const originalShowPage = window.showPage;
     
     window.showPage = function(page, event) {
-        // Call original function if it exists
-        if (typeof originalShowPage === 'function') {
-            originalShowPage.call(this, page, event);
+        // For mobile navigation, create a synthetic event if needed
+        if (event && !event.target.closest('.nav-link')) {
+            // Call original with a modified event that won't break desktop nav update
+            if (typeof originalShowPage === 'function') {
+                try {
+                    // Hide all pages
+                    document.querySelectorAll('.page-content').forEach(p => {
+                        p.classList.add('hidden');
+                    });
+                    
+                    // Show selected page
+                    const targetPage = document.getElementById(`page-${page}`);
+                    if (targetPage) {
+                        targetPage.classList.remove('hidden');
+                        targetPage.classList.add('slide-in');
+                    }
+                    
+                    // Update desktop nav links if they exist
+                    document.querySelectorAll('.nav-link').forEach(link => {
+                        link.classList.remove('text-white', 'bg-gray-800');
+                        link.classList.add('text-gray-300');
+                    });
+                    
+                    currentPage = page;
+                    
+                    // Load page-specific data
+                    if (page === 'trades') {
+                        loadTradesData();
+                    } else if (page === 'opportunities') {
+                        loadOpportunitiesData();
+                    } else if (page === 'analytics') {
+                        loadAnalyticsData();
+                    } else if (page === 'tax') {
+                        loadTaxData();
+                    } else if (page === 'settings') {
+                        loadSettings();
+                    }
+                } catch (error) {
+                    console.error('Error in page navigation:', error);
+                }
+            }
         } else {
-            // Basic fallback implementation
-            console.log('Navigating to page:', page);
-            currentPage = page;
+            // Call original function for desktop navigation
+            if (typeof originalShowPage === 'function') {
+                originalShowPage.call(this, page, event);
+            } else {
+                // Basic fallback implementation
+                currentPage = page;
+            }
         }
         
         // Update mobile navigation

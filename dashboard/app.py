@@ -163,6 +163,7 @@ def service_worker():
 
 
 @app.route("/offline")
+@app.route("/offline.html")
 def offline():
     """Serve offline fallback page"""
     return render_template("offline.html")

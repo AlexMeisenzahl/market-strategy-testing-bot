@@ -21,7 +21,6 @@ class DeviceDetector {
      */
     static isTablet() {
         const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-        const tabletRegex = /iPad|Android/i;
         const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         const screenWidth = window.innerWidth || document.documentElement.clientWidth;
         
@@ -182,16 +181,6 @@ class DeviceDetector {
             setTimeout(() => {
                 this.applyDeviceClasses();
             }, 100);
-        });
-        
-        // Log device info for debugging
-        console.log('Device Detection:', {
-            type: this.getDeviceType(),
-            isIOS: this.isIOS(),
-            isStandalone: this.isStandalone(),
-            hasTouch: this.hasTouch(),
-            hasSafeArea: this.hasSafeArea(),
-            orientation: this.getOrientation()
         });
     }
 }

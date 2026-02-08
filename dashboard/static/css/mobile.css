@@ -496,8 +496,8 @@ button, a, .clickable {
     --safe-area-left: env(safe-area-inset-left, 0);
 }
 
-/* Apply safe area to mobile nav */
-body.has-safe-area .mobile-nav {
+/* Apply safe area to mobile top bar */
+body.has-safe-area .mobile-top-bar {
     padding-top: calc(12px + var(--safe-area-top));
     padding-left: calc(16px + var(--safe-area-left));
     padding-right: calc(16px + var(--safe-area-right));

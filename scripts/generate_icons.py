@@ -4,7 +4,6 @@ Icon Generator for PWA
 Generates app icons in all required sizes for Progressive Web App
 """
 
-import os
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import sys
@@ -149,11 +148,10 @@ def create_splash_screen(width, height, name, output_path):
     text_y = icon_y + icon_size + padding * 2
     
     try:
-        # Try to load a font
-        font_size = width // 25
-        # Use default font if custom font not available
+        # Use default font (custom fonts may not be available)
         font = ImageFont.load_default()
-    except:
+    except (OSError, IOError) as e:
+        # If even default font fails, set to None
         font = None
     
     app_name = "Market Strategy Bot"

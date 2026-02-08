@@ -11,6 +11,7 @@ const RUNTIME_CACHE = `trading-bot-runtime-v${CACHE_VERSION}`;
 // URLs to cache on install
 const urlsToCache = [
     '/',
+    '/offline.html',
     '/static/css/mobile.css',
     '/static/css/themes.css',
     '/static/css/custom.css',
