@@ -142,6 +142,12 @@
                     <button onclick="showPage('opportunities', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
                         <i class="fas fa-lightbulb mr-2"></i>Opportunities
                     </button>
+                    <button onclick="showPage('analytics', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-chart-bar mr-2"></i>Analytics
+                    </button>
+                    <button onclick="showPage('tax', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-file-invoice-dollar mr-2"></i>Tax
+                    </button>
                     <button onclick="showPage('settings', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
                         <i class="fas fa-cog mr-2"></i>Settings
                     </button>
@@ -444,6 +450,154 @@
             </div>
         </div>
         
+        <!-- Analytics Page -->
+        <div id="page-analytics" class="page-content hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold mb-2">Advanced Analytics</h2>
+                <p class="text-gray-400">Performance attribution, risk metrics, and detailed comparisons</p>
+            </div>
+            
+            <!-- Analytics Sections -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Performance Attribution -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h3 class="text-xl font-semibold mb-4"><i class="fas fa-chart-pie mr-2 text-blue-500"></i>Performance Attribution</h3>
+                    <p class="text-gray-400 mb-4">Analyze P&L by strategy, symbol, time, and day of week</p>
+                    <div class="text-center py-8">
+                        <i class="fas fa-chart-pie text-4xl text-gray-600 mb-2"></i>
+                        <p class="text-sm text-gray-500">Coming soon</p>
+                    </div>
+                </div>
+                
+                <!-- Risk Analytics -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h3 class="text-xl font-semibold mb-4"><i class="fas fa-shield-alt mr-2 text-red-500"></i>Risk Analytics</h3>
+                    <p class="text-gray-400 mb-4">Sharpe Ratio, Sortino, Max DD, VaR, Beta, Volatility</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-800 rounded-lg p-4">
+                            <p class="text-xs text-gray-400 mb-1">Sharpe Ratio</p>
+                            <p class="text-2xl font-bold">--</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-lg p-4">
+                            <p class="text-xs text-gray-400 mb-1">Max Drawdown</p>
+                            <p class="text-2xl font-bold text-red-400">--</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-lg p-4">
+                            <p class="text-xs text-gray-400 mb-1">Sortino Ratio</p>
+                            <p class="text-2xl font-bold">--</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-lg p-4">
+                            <p class="text-xs text-gray-400 mb-1">Volatility</p>
+                            <p class="text-2xl font-bold">--</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Comparison Tools -->
+            <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                <h3 class="text-xl font-semibold mb-4"><i class="fas fa-balance-scale mr-2 text-green-500"></i>Comparison Tools</h3>
+                <p class="text-gray-400 mb-4">Compare your bot vs market benchmarks and strategies</p>
+                <div class="text-center py-8">
+                    <i class="fas fa-balance-scale text-4xl text-gray-600 mb-2"></i>
+                    <p class="text-sm text-gray-500">Coming soon: Compare to SPY, QQQ, and individual strategies</p>
+                </div>
+            </div>
+            
+            <!-- Heatmaps -->
+            <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                <h3 class="text-xl font-semibold mb-4"><i class="fas fa-th mr-2 text-purple-500"></i>Performance Heatmaps</h3>
+                <p class="text-gray-400 mb-4">Visualize performance by time, strategy, and symbol</p>
+                <div class="text-center py-8">
+                    <i class="fas fa-th text-4xl text-gray-600 mb-2"></i>
+                    <p class="text-sm text-gray-500">Coming soon: Time-of-day, day-of-week, and monthly heatmaps</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tax Page -->
+        <div id="page-tax" class="page-content hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold mb-2">Tax Dashboard</h2>
+                <p class="text-gray-400">IRS-compliant tax reporting and capital gains tracking</p>
+            </div>
+            
+            <!-- YTD Summary -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <p class="text-sm text-gray-400 mb-2">Total Realized Gains</p>
+                    <p class="text-3xl font-bold text-profit">$--</p>
+                    <p class="text-xs text-gray-500 mt-1">YTD</p>
+                </div>
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <p class="text-sm text-gray-400 mb-2">Short-term Gains</p>
+                    <p class="text-3xl font-bold">$--</p>
+                    <p class="text-xs text-gray-500 mt-1">&lt; 1 year holding</p>
+                </div>
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <p class="text-sm text-gray-400 mb-2">Long-term Gains</p>
+                    <p class="text-3xl font-bold">$--</p>
+                    <p class="text-xs text-gray-500 mt-1">&gt; 1 year holding</p>
+                </div>
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <p class="text-sm text-gray-400 mb-2">Net Capital Gain/Loss</p>
+                    <p class="text-3xl font-bold">$--</p>
+                    <p class="text-xs text-gray-500 mt-1">After losses</p>
+                </div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                <h3 class="text-xl font-semibold mb-4"><i class="fas fa-file-export mr-2 text-blue-500"></i>Export Tax Reports</h3>
+                <p class="text-gray-400 mb-4">Generate IRS-compliant reports for your tax software</p>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <button class="px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition">
+                        <i class="fas fa-file-invoice mr-2"></i>TurboTax (TXF)
+                    </button>
+                    <button class="px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition">
+                        <i class="fas fa-file-alt mr-2"></i>H&R Block (CSV)
+                    </button>
+                    <button class="px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-white font-medium transition">
+                        <i class="fas fa-file-pdf mr-2"></i>IRS Form 8949
+                    </button>
+                    <button class="px-4 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg text-white font-medium transition">
+                        <i class="fas fa-table mr-2"></i>Raw CSV
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Trade Details Table -->
+            <div class="card bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+                <div class="px-6 py-4 bg-gray-800 border-b border-dark-border">
+                    <h3 class="text-lg font-semibold"><i class="fas fa-list mr-2"></i>Trade Details (Form 8949 Format)</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-800">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Symbol</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Buy Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Sell Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Days Held</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Proceeds</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Cost Basis</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Gain/Loss</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Type</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-700">
+                            <tr>
+                                <td colspan="8" class="px-6 py-8 text-center text-gray-400">
+                                    <i class="fas fa-file-invoice text-3xl mb-2"></i>
+                                    <p>No tax data available. Start trading to generate tax reports.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
         <!-- Settings Page -->
         <div id="page-settings" class="page-content hidden">
             <div class="mb-8">
@@ -457,11 +611,14 @@
                     <button onclick="showSettingsTab('notifications', event)" class="settings-tab px-4 py-2 font-medium border-b-2 border-blue-500 text-blue-500">
                         <i class="fas fa-bell mr-2"></i>Notifications
                     </button>
+                    <button onclick="showSettingsTab('display', event)" class="settings-tab px-4 py-2 font-medium text-gray-400 hover:text-white">
+                        <i class="fas fa-palette mr-2"></i>Display
+                    </button>
                     <button onclick="showSettingsTab('strategies', event)" class="settings-tab px-4 py-2 font-medium text-gray-400 hover:text-white">
                         <i class="fas fa-chess mr-2"></i>Strategies
                     </button>
-                    <button onclick="showSettingsTab('display', event)" class="settings-tab px-4 py-2 font-medium text-gray-400 hover:text-white">
-                        <i class="fas fa-palette mr-2"></i>Display
+                    <button onclick="showSettingsTab('datasources', event)" class="settings-tab px-4 py-2 font-medium text-gray-400 hover:text-white">
+                        <i class="fas fa-database mr-2"></i>Data Sources
                     </button>
                 </div>
             </div>
@@ -589,9 +746,174 @@
             
             <!-- Display Settings -->
             <div id="settings-display" class="settings-content hidden">
-                <div class="text-center py-20">
-                    <i class="fas fa-palette text-6xl text-gray-600 mb-4"></i>
-                    <p class="text-xl text-gray-400">Display preferences coming soon</p>
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                    <h3 class="text-lg font-semibold mb-4"><i class="fas fa-moon mr-2 text-purple-500"></i>Theme Settings</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button class="p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-blue-500 transition">
+                            <i class="fas fa-moon text-2xl mb-2"></i>
+                            <p class="font-medium">Dark Mode</p>
+                            <p class="text-xs text-gray-400">Current</p>
+                        </button>
+                        <button class="p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-transparent hover:border-gray-600 transition">
+                            <i class="fas fa-sun text-2xl mb-2"></i>
+                            <p class="font-medium">Light Mode</p>
+                            <p class="text-xs text-gray-400">Coming soon</p>
+                        </button>
+                        <button class="p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-transparent hover:border-gray-600 transition">
+                            <i class="fas fa-palette text-2xl mb-2"></i>
+                            <p class="font-medium">Custom</p>
+                            <p class="text-xs text-gray-400">Coming soon</p>
+                        </button>
+                    </div>
+                </div>
+                <div class="text-center py-8">
+                    <p class="text-gray-400">Additional display preferences coming soon</p>
+                </div>
+            </div>
+            
+            <!-- Data Sources Settings -->
+            <div id="settings-datasources" class="settings-content hidden">
+                <!-- Data Mode Toggle -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                    <h3 class="text-lg font-semibold mb-4"><i class="fas fa-toggle-on mr-2 text-blue-500"></i>Data Mode</h3>
+                    <p class="text-sm text-gray-400 mb-4">Choose between live market data or historical data only</p>
+                    <div class="bg-yellow-900/20 border border-yellow-600 rounded-lg p-4 mb-4">
+                        <p class="text-yellow-400 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i>NEVER MIX BOTH - Clear visual separation between live and historical data</p>
+                    </div>
+                    <div class="space-y-3">
+                        <label class="flex items-center p-4 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition">
+                            <input type="radio" name="data-mode" value="live" class="w-4 h-4 text-blue-600">
+                            <div class="ml-3">
+                                <p class="font-medium">● Live APIs (real-time market data)</p>
+                                <p class="text-xs text-gray-400">Connect to real-time market data sources</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center p-4 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition">
+                            <input type="radio" name="data-mode" value="historical" checked class="w-4 h-4 text-blue-600">
+                            <div class="ml-3">
+                                <p class="font-medium">○ Historical Only (backtest data only)</p>
+                                <p class="text-xs text-gray-400">Use only historical data for backtesting</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Connected APIs -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                    <h3 class="text-lg font-semibold mb-4"><i class="fas fa-plug mr-2 text-green-500"></i>Connected APIs</h3>
+                    <p class="text-sm text-gray-400 mb-4">Enable and configure data source APIs</p>
+                    <div class="space-y-3">
+                        <!-- Alpaca -->
+                        <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+                            <div class="flex items-center">
+                                <input type="checkbox" checked class="w-4 h-4 text-blue-600 mr-3">
+                                <div>
+                                    <p class="font-medium">Alpaca API</p>
+                                    <p class="text-xs text-gray-400">Stock trading and market data</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition">Configure</button>
+                                <button class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition">Test</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Yahoo Finance -->
+                        <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+                            <div class="flex items-center">
+                                <input type="checkbox" checked class="w-4 h-4 text-blue-600 mr-3">
+                                <div>
+                                    <p class="font-medium">Yahoo Finance</p>
+                                    <p class="text-xs text-gray-400">Free market data (no API key required)</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition">Test</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Alpha Vantage -->
+                        <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+                            <div class="flex items-center">
+                                <input type="checkbox" class="w-4 h-4 text-blue-600 mr-3">
+                                <div>
+                                    <p class="font-medium">Alpha Vantage</p>
+                                    <p class="text-xs text-gray-400">Market data and technical indicators</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition">Configure</button>
+                                <button class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition">Test</button>
+                            </div>
+                        </div>
+                        
+                        <!-- IEX Cloud -->
+                        <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+                            <div class="flex items-center">
+                                <input type="checkbox" class="w-4 h-4 text-blue-600 mr-3">
+                                <div>
+                                    <p class="font-medium">IEX Cloud</p>
+                                    <p class="text-xs text-gray-400">Real-time and historical market data</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition">Configure</button>
+                                <button class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition">Test</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Finnhub -->
+                        <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+                            <div class="flex items-center">
+                                <input type="checkbox" class="w-4 h-4 text-blue-600 mr-3">
+                                <div>
+                                    <p class="font-medium">Finnhub</p>
+                                    <p class="text-xs text-gray-400">Real-time stock market data</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition">Configure</button>
+                                <button class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition">Test</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Twelve Data -->
+                        <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
+                            <div class="flex items-center">
+                                <input type="checkbox" class="w-4 h-4 text-blue-600 mr-3">
+                                <div>
+                                    <p class="font-medium">Twelve Data</p>
+                                    <p class="text-xs text-gray-400">Real-time and historical data</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition">Configure</button>
+                                <button class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition">Test</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Trading Mode -->
+                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                    <h3 class="text-lg font-semibold mb-4"><i class="fas fa-shield-alt mr-2 text-yellow-500"></i>Trading Mode</h3>
+                    <p class="text-sm text-gray-400 mb-4">Switch between paper trading and live trading</p>
+                    <div class="space-y-3">
+                        <label class="flex items-center p-4 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition">
+                            <input type="radio" name="trading-mode" value="paper" checked class="w-4 h-4 text-blue-600">
+                            <div class="ml-3">
+                                <p class="font-medium">○ Paper Trading</p>
+                                <p class="text-xs text-gray-400">Simulated trading with virtual money (current)</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center p-4 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition">
+                            <input type="radio" name="trading-mode" value="live" class="w-4 h-4 text-red-600">
+                            <div class="ml-3">
+                                <p class="font-medium text-red-400">○ Live Trading</p>
+                                <p class="text-xs text-red-400">REAL MONEY - Requires confirmation modal</p>
+                            </div>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
