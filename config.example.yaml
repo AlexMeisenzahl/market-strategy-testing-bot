@@ -359,3 +359,44 @@ exchanges:
     api_key: "${KALSHI_API_KEY}"
     base_url: "https://trading-api.kalshi.com/trade-api/v2"
 
+
+# ============================================================================
+# STRATEGY COMPETITION SETTINGS
+# ============================================================================
+
+# Competition settings
+competition:
+  enabled: true
+  starting_capital: 10000  # Virtual capital per strategy
+  
+# Data validation
+data_validation:
+  freshness_threshold: 5  # seconds
+  price_discrepancy_threshold: 1.0  # percent
+  
+# Health monitoring
+health_monitoring:
+  websocket_timeout: 10  # seconds
+  api_slow_threshold: 2000  # milliseconds
+  
+# Auto-disable thresholds
+auto_disable:
+  max_daily_loss_pct: 10
+  max_consecutive_losses: 5
+  max_drawdown_pct: 20
+  min_win_rate: 40
+  min_trades_for_winrate: 20
+  
+# Graduation requirements
+graduation:
+  paper_trading_days: 30
+  micro_live_days: 7
+  mini_live_days: 14
+  
+  # Paper trading graduation requirements
+  paper:
+    min_return_pct: 5.0
+    min_sharpe: 1.5
+    min_win_rate: 55.0
+    max_drawdown: 15.0
+    min_trades: 50
