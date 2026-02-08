@@ -38,12 +38,16 @@ from database.settings_models import (
 from services.notification_service import notification_service
 from services.realtime_server import init_realtime_server
 from dashboard.routes.config_api import config_api
+from dashboard.routes.leaderboard import leaderboard_bp
+from dashboard.routes.emergency import emergency_bp
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for API access
 
 # Register blueprints
 app.register_blueprint(config_api)
+app.register_blueprint(leaderboard_bp)
+app.register_blueprint(emergency_bp)
 
 # Configuration
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -91,6 +95,12 @@ def index():
 def opportunities_page():
     """Render opportunities page"""
     return render_template("opportunities.html")
+
+
+@app.route("/leaderboard")
+def leaderboard_page():
+    """Render leaderboard page"""
+    return render_template("leaderboard.html")
 
 
 @app.route("/health")
