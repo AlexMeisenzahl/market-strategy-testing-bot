@@ -9,8 +9,8 @@ This module contains service classes for:
 """
 
 __all__ = [
-    'CryptoPriceManager',
-    'MarketValidator',
-    'RealityArbitrageDetector',
-    'PriceAlertManager',
+    "CryptoPriceManager",
+    "MarketValidator",
+    "RealityArbitrageDetector",
+    "PriceAlertManager",
 ]

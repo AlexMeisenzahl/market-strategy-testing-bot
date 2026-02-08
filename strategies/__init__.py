@@ -20,10 +20,10 @@ from .arbitrage_tracker import ArbitrageTracker
 from .arbitrage_orchestrator import ArbitrageOrchestrator
 
 __all__ = [
-    'ArbitrageStrategy',
-    'MomentumStrategy',
-    'NewsStrategy',
-    'StatisticalArbStrategy',
-    'ArbitrageTracker',
-    'ArbitrageOrchestrator'
+    "ArbitrageStrategy",
+    "MomentumStrategy",
+    "NewsStrategy",
+    "StatisticalArbStrategy",
+    "ArbitrageTracker",
+    "ArbitrageOrchestrator",
 ]
