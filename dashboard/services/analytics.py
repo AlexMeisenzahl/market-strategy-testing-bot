@@ -3,10 +3,13 @@ Analytics Service
 
 Calculates performance metrics, statistics, and analytics
 for the trading bot including Sharpe ratio, max drawdown, and more.
+
+CRITICAL: All money calculations use Decimal for accuracy.
 """
 
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from dashboard.services.data_parser import DataParser
 import math
 
@@ -61,7 +64,7 @@ class AnalyticsService:
     
     def calculate_max_drawdown(self, trades: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Calculate maximum drawdown from peak equity
+        Calculate maximum drawdown from peak equity using Decimal
         
         Args:
             trades: List of trade dictionaries sorted by time
@@ -77,15 +80,15 @@ class AnalyticsService:
                 'trough_value': 0.0
             }
         
-        # Calculate cumulative equity curve
-        cumulative_pnl = 0
-        peak = 0
-        max_drawdown = 0
-        peak_value = 0
-        trough_value = 0
+        # Calculate cumulative equity curve using Decimal
+        cumulative_pnl = Decimal('0')
+        peak = Decimal('0')
+        max_drawdown = Decimal('0')
+        peak_value = Decimal('0')
+        trough_value = Decimal('0')
         
         for trade in trades:
-            cumulative_pnl += trade['pnl_usd']
+            cumulative_pnl += Decimal(str(trade['pnl_usd']))
             
             # Update peak if current value is higher
             if cumulative_pnl > peak:
@@ -101,18 +104,21 @@ class AnalyticsService:
                 trough_value = cumulative_pnl
         
         # Calculate percentage drawdown
-        max_drawdown_pct = (max_drawdown / peak_value * 100) if peak_value > 0 else 0
+        if peak_value > 0:
+            max_drawdown_pct = (max_drawdown / peak_value * 100)
+        else:
+            max_drawdown_pct = Decimal('0')
         
         return {
-            'max_drawdown': round(max_drawdown, 2),
-            'max_drawdown_pct': round(max_drawdown_pct, 2),
-            'peak_value': round(peak_value, 2),
-            'trough_value': round(trough_value, 2)
+            'max_drawdown': float(max_drawdown.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
+            'max_drawdown_pct': float(max_drawdown_pct.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
+            'peak_value': float(peak_value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
+            'trough_value': float(trough_value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
         }
     
     def calculate_profit_factor(self, trades: List[Dict[str, Any]]) -> float:
         """
-        Calculate profit factor (gross profit / gross loss)
+        Calculate profit factor (gross profit / gross loss) using Decimal
         
         Args:
             trades: List of trade dictionaries
@@ -123,14 +129,17 @@ class AnalyticsService:
         wins = [t for t in trades if t['pnl_usd'] > 0]
         losses = [t for t in trades if t['pnl_usd'] < 0]
         
-        gross_profit = sum(t['pnl_usd'] for t in wins)
-        gross_loss = abs(sum(t['pnl_usd'] for t in losses))
+        gross_profit = sum(Decimal(str(t['pnl_usd'])) for t in wins)
+        gross_loss = abs(sum(Decimal(str(t['pnl_usd'])) for t in losses))
         
-        return (gross_profit / gross_loss) if gross_loss > 0 else 0
+        if gross_loss > 0:
+            result = gross_profit / gross_loss
+            return float(result.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        return 0.0
     
     def calculate_win_loss_ratio(self, trades: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Calculate win/loss ratio metrics
+        Calculate win/loss ratio metrics using Decimal
         
         Args:
             trades: List of trade dictionaries
@@ -141,15 +150,25 @@ class AnalyticsService:
         wins = [t for t in trades if t['pnl_usd'] > 0]
         losses = [t for t in trades if t['pnl_usd'] < 0]
         
-        avg_win = sum(t['pnl_usd'] for t in wins) / len(wins) if wins else 0
-        avg_loss = abs(sum(t['pnl_usd'] for t in losses) / len(losses)) if losses else 0
+        if wins:
+            avg_win = sum(Decimal(str(t['pnl_usd'])) for t in wins) / len(wins)
+        else:
+            avg_win = Decimal('0')
         
-        win_loss_ratio = (avg_win / avg_loss) if avg_loss > 0 else 0
+        if losses:
+            avg_loss = abs(sum(Decimal(str(t['pnl_usd'])) for t in losses) / len(losses))
+        else:
+            avg_loss = Decimal('0')
+        
+        if avg_loss > 0:
+            win_loss_ratio = avg_win / avg_loss
+        else:
+            win_loss_ratio = Decimal('0')
         
         return {
-            'avg_win': round(avg_win, 2),
-            'avg_loss': round(avg_loss, 2),
-            'win_loss_ratio': round(win_loss_ratio, 2),
+            'avg_win': float(avg_win.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
+            'avg_loss': float(avg_loss.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
+            'win_loss_ratio': float(win_loss_ratio.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
             'total_wins': len(wins),
             'total_losses': len(losses)
         }
@@ -164,16 +183,16 @@ class AnalyticsService:
         trades = self.data_parser.get_all_trades()
         opportunities = self.data_parser.get_all_opportunities()
         
-        # Calculate P&L metrics
-        total_pnl = sum(t['pnl_usd'] for t in trades)
+        # Calculate P&L metrics using Decimal through data_parser
+        total_pnl = self.data_parser.calculate_total_pnl(trades)
         wins = [t for t in trades if t['pnl_usd'] > 0]
         losses = [t for t in trades if t['pnl_usd'] < 0]
         
-        win_rate = (len(wins) / len(trades) * 100) if trades else 0
+        win_rate = self.data_parser.calculate_win_rate(trades)
         
         # Calculate profit factor
-        gross_profit = sum(t['pnl_usd'] for t in wins)
-        gross_loss = abs(sum(t['pnl_usd'] for t in losses))
+        gross_profit = sum(Decimal(str(t['pnl_usd'])) for t in wins)
+        gross_loss = abs(sum(Decimal(str(t['pnl_usd'])) for t in losses))
         profit_factor = self.calculate_profit_factor(trades)
         
         # Calculate average trade duration

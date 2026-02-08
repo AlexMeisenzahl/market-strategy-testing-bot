@@ -999,3 +999,273 @@ async function loadAnalyticsData() {
         showToast('Error loading analytics', 'error');
     }
 }
+
+// ========================================================================
+// ACTIVITY FEED FUNCTIONS
+// ========================================================================
+
+let activityPaused = false;
+let activityFilter = 'all';
+let activityRefreshInterval = null;
+let allActivities = [];
+
+/**
+ * Load and display recent activity feed
+ */
+async function loadRecentActivity() {
+    if (activityPaused) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/recent_activity`);
+        if (!response.ok) throw new Error('Failed to load activity');
+        
+        allActivities = await response.json();
+        displayActivityFeed();
+    } catch (error) {
+        console.error('Error loading activity:', error);
+    }
+}
+
+/**
+ * Display activity feed with current filter
+ */
+function displayActivityFeed() {
+    const container = document.getElementById('recent-activity');
+    if (!container) return;
+    
+    // Filter activities
+    let filtered = allActivities;
+    if (activityFilter !== 'all') {
+        filtered = allActivities.filter(a => a.type === activityFilter);
+    }
+    
+    // Apply search if any
+    const searchInput = document.getElementById('activity-search');
+    if (searchInput && searchInput.value) {
+        const searchTerm = searchInput.value.toLowerCase();
+        filtered = filtered.filter(a => 
+            a.message.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-gray-500 py-4">
+                <i class="fas fa-inbox mb-2"></i>
+                <p class="text-sm">No activities found</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Render activities (max 20)
+    filtered.slice(0, 20).forEach(activity => {
+        const activityEl = createActivityElement(activity);
+        container.appendChild(activityEl);
+    });
+}
+
+/**
+ * Create activity element
+ */
+function createActivityElement(activity) {
+    const div = document.createElement('div');
+    div.className = 'p-3 rounded-lg cursor-pointer hover:bg-gray-800 transition';
+    
+    // Color coding
+    let bgColor = 'bg-gray-800';
+    let textColor = 'text-gray-300';
+    let icon = 'fa-circle';
+    
+    if (activity.type === 'trade') {
+        if (activity.profit > 0) {
+            bgColor = 'bg-green-900/20';
+            textColor = 'text-green-400';
+            icon = 'fa-arrow-up';
+        } else if (activity.profit < 0) {
+            bgColor = 'bg-red-900/20';
+            textColor = 'text-red-400';
+            icon = 'fa-arrow-down';
+        }
+    } else if (activity.type === 'opportunity') {
+        bgColor = 'bg-yellow-900/20';
+        textColor = 'text-yellow-400';
+        icon = 'fa-lightbulb';
+    } else if (activity.type === 'error') {
+        bgColor = 'bg-orange-900/20';
+        textColor = 'text-orange-400';
+        icon = 'fa-exclamation-triangle';
+    }
+    
+    // Format timestamp
+    const time = new Date(activity.timestamp).toLocaleTimeString();
+    
+    div.className = `p-3 rounded-lg cursor-pointer hover:bg-gray-700 transition ${bgColor}`;
+    div.innerHTML = `
+        <div class="flex items-start">
+            <i class="fas ${icon} ${textColor} mt-1 mr-3"></i>
+            <div class="flex-1">
+                <p class="text-sm ${textColor}">${activity.message}</p>
+                <p class="text-xs text-gray-500 mt-1">${time}</p>
+            </div>
+        </div>
+    `;
+    
+    // Click to see details
+    div.onclick = () => showActivityDetails(activity);
+    
+    return div;
+}
+
+/**
+ * Show activity details in modal
+ */
+function showActivityDetails(activity) {
+    const details = JSON.stringify(activity.details, null, 2);
+    alert(`Activity Details:\n\n${details}`);
+}
+
+/**
+ * Toggle activity feed pause
+ */
+function toggleActivityPause() {
+    activityPaused = !activityPaused;
+    const btn = document.getElementById('pause-activity');
+    
+    if (activityPaused) {
+        btn.innerHTML = '<i class="fas fa-play"></i> Resume';
+        btn.classList.remove('bg-gray-700');
+        btn.classList.add('bg-green-600');
+    } else {
+        btn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+        btn.classList.remove('bg-green-600');
+        btn.classList.add('bg-gray-700');
+        loadRecentActivity();
+    }
+}
+
+/**
+ * Filter activity by type
+ */
+function filterActivity(filter, event) {
+    activityFilter = filter;
+    
+    // Update button styles
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-blue-600');
+        btn.classList.add('bg-gray-700');
+    });
+    
+    if (event && event.target) {
+        event.target.classList.remove('bg-gray-700');
+        event.target.classList.add('active', 'bg-blue-600');
+    }
+    
+    displayActivityFeed();
+}
+
+/**
+ * Search activity
+ */
+function searchActivity() {
+    displayActivityFeed();
+}
+
+/**
+ * Start activity feed auto-refresh
+ */
+function startActivityRefresh() {
+    // Load immediately
+    loadRecentActivity();
+    
+    // Then refresh every 5 seconds
+    if (activityRefreshInterval) {
+        clearInterval(activityRefreshInterval);
+    }
+    activityRefreshInterval = setInterval(loadRecentActivity, 5000);
+}
+
+// ========================================================================
+// DATA QUALITY VERIFICATION
+// ========================================================================
+
+/**
+ * Verify data quality
+ */
+async function verifyDataQuality() {
+    const statusEl = document.getElementById('health-status');
+    const statusIcon = statusEl.querySelector('.status-icon');
+    const statusText = statusEl.querySelector('.status-text');
+    
+    // Show loading state
+    statusIcon.textContent = '⏳';
+    statusText.textContent = 'Verifying...';
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/data/verify`);
+        if (!response.ok) throw new Error('Verification failed');
+        
+        const results = await response.json();
+        
+        // Update status based on results
+        if (results.status === 'healthy') {
+            statusEl.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400 cursor-pointer';
+            statusIcon.textContent = '🟢';
+            statusText.textContent = 'Data Healthy';
+            showToast('Data verification passed', 'success');
+        } else if (results.status === 'warning') {
+            statusEl.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-900/20 text-yellow-400 cursor-pointer';
+            statusIcon.textContent = '🟡';
+            statusText.textContent = 'Minor Issues';
+            showToast(`${results.issues.length} warnings found`, 'warning');
+        } else {
+            statusEl.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-900/20 text-red-400 cursor-pointer';
+            statusIcon.textContent = '🔴';
+            statusText.textContent = 'Issues Detected';
+            showToast(`${results.issues.length} errors found`, 'error');
+        }
+        
+        // Show detailed report if there are issues
+        if (results.issues.length > 0) {
+            const issuesList = results.issues.join('\n• ');
+            alert(`Data Quality Issues:\n\n• ${issuesList}`);
+        }
+    } catch (error) {
+        console.error('Error verifying data:', error);
+        statusEl.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-900/20 text-red-400 cursor-pointer';
+        statusIcon.textContent = '🔴';
+        statusText.textContent = 'Verification Failed';
+        showToast('Data verification failed', 'error');
+    }
+}
+
+/**
+ * Navigate to a page/URL
+ */
+function navigateTo(url) {
+    // For now, just show alert since we're in SPA mode
+    // In full implementation, this would handle routing
+    console.log('Navigate to:', url);
+    
+    if (url.includes('analytics')) {
+        showPage('analytics');
+    } else if (url.includes('trades')) {
+        showPage('trades');
+    } else {
+        showToast(`Navigation: ${url}`, 'info');
+    }
+}
+
+// Initialize activity feed when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Start activity feed refresh
+    setTimeout(startActivityRefresh, 1000);
+    
+    // Run initial data verification
+    setTimeout(verifyDataQuality, 2000);
+});
