@@ -597,6 +597,246 @@ def update_bot_status_from_instance(status_dict):
     bot_status.update(status_dict)
 
 
+@app.route('/api/tax/summary')
+def get_tax_summary():
+    """Get tax summary data from tax_exporter"""
+    try:
+        year = request.args.get('year', None)
+        if year:
+            year = int(year)
+        
+        # Import and initialize tax exporter
+        from tax_exporter import TaxExporter
+        config = config_manager.get_all_settings()
+        tax_exporter = TaxExporter(config, str(LOGS_DIR))
+        
+        # Generate summary
+        summary = tax_exporter.generate_summary(year)
+        
+        return jsonify(summary)
+    except Exception as e:
+        logger.log_error(f"Error getting tax summary: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tax/positions')
+def get_tax_positions():
+    """Get detailed tax positions for Form 8949"""
+    try:
+        year = request.args.get('year', None)
+        if year:
+            year = int(year)
+        
+        # Import and initialize tax exporter
+        from tax_exporter import TaxExporter
+        config = config_manager.get_all_settings()
+        tax_exporter = TaxExporter(config, str(LOGS_DIR))
+        
+        # Load trades and process
+        trades = tax_exporter.load_trades_from_logs(year)
+        if not trades:
+            return jsonify([])
+        
+        positions = tax_exporter.process_trades_fifo(trades)
+        
+        # Convert to dictionaries
+        positions_data = [pos.to_dict() for pos in positions]
+        
+        return jsonify(positions_data)
+    except Exception as e:
+        logger.log_error(f"Error getting tax positions: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tax/export/<format>')
+def export_tax_report(format):
+    """Export tax report in various formats"""
+    try:
+        year = request.args.get('year', datetime.now().year)
+        if isinstance(year, str):
+            year = int(year)
+        
+        # Import and initialize tax exporter
+        from tax_exporter import TaxExporter
+        config = config_manager.get_all_settings()
+        tax_exporter = TaxExporter(config, str(LOGS_DIR))
+        
+        if format == 'csv':
+            # Export to CSV
+            output_path = tax_exporter.export_to_csv(year, str(LOGS_DIR))
+            if output_path and os.path.exists(output_path):
+                return send_file(output_path, as_attachment=True, download_name=f'tax_report_{year}.csv')
+            else:
+                return jsonify({'error': 'Failed to generate CSV'}), 500
+        
+        elif format == 'turbotax':
+            # TurboTax TXF format (simplified - would need full implementation)
+            return jsonify({'error': 'TurboTax format not yet implemented'}), 501
+        
+        elif format == 'hrblock':
+            # H&R Block CSV format (similar to standard CSV)
+            output_path = tax_exporter.export_to_csv(year, str(LOGS_DIR))
+            if output_path and os.path.exists(output_path):
+                return send_file(output_path, as_attachment=True, download_name=f'hrblock_report_{year}.csv')
+            else:
+                return jsonify({'error': 'Failed to generate CSV'}), 500
+        
+        elif format == 'form8949':
+            # IRS Form 8949 format (simplified - would need full implementation)
+            return jsonify({'error': 'Form 8949 format not yet implemented'}), 501
+        
+        else:
+            return jsonify({'error': 'Unknown format'}), 400
+            
+    except Exception as e:
+        logger.log_error(f"Error exporting tax report: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/risk')
+def get_risk_analytics():
+    """Get risk analytics metrics"""
+    try:
+        # Get trades data
+        trades_data = data_parser.get_trades(page=1, per_page=10000)
+        trade_list = trades_data.get('trades', []) if isinstance(trades_data, dict) else []
+        
+        if not trade_list:
+            return jsonify({
+                'sharpe_ratio': 0,
+                'sortino_ratio': 0,
+                'max_drawdown': 0,
+                'volatility': 0,
+                'var_95': 0,
+                'beta': 0
+            })
+        
+        # Calculate basic risk metrics
+        # Note: These are simplified calculations - full implementation would need more sophisticated algorithms
+        import numpy as np
+        
+        # Get P&L series
+        pnl_series = [t.get('profit', 0) for t in trade_list]
+        
+        if not pnl_series:
+            return jsonify({
+                'sharpe_ratio': 0,
+                'sortino_ratio': 0,
+                'max_drawdown': 0,
+                'volatility': 0,
+                'var_95': 0,
+                'beta': 0
+            })
+        
+        # Calculate metrics
+        returns = np.array(pnl_series)
+        mean_return = np.mean(returns)
+        std_return = np.std(returns)
+        
+        # Sharpe Ratio (simplified - assuming risk-free rate of 0)
+        sharpe_ratio = (mean_return / std_return) if std_return > 0 else 0
+        
+        # Sortino Ratio (using downside deviation)
+        downside_returns = returns[returns < 0]
+        downside_std = np.std(downside_returns) if len(downside_returns) > 0 else std_return
+        sortino_ratio = (mean_return / downside_std) if downside_std > 0 else 0
+        
+        # Max Drawdown
+        cumulative = np.cumsum(returns)
+        running_max = np.maximum.accumulate(cumulative)
+        drawdown = (cumulative - running_max)
+        max_drawdown = np.min(drawdown) if len(drawdown) > 0 else 0
+        
+        # Volatility
+        volatility = std_return
+        
+        # Value at Risk (95% confidence)
+        var_95 = np.percentile(returns, 5) if len(returns) > 0 else 0
+        
+        # Beta (simplified - would need market data for proper calculation)
+        beta = 1.0  # Placeholder
+        
+        return jsonify({
+            'sharpe_ratio': round(float(sharpe_ratio), 2),
+            'sortino_ratio': round(float(sortino_ratio), 2),
+            'max_drawdown': round(float(max_drawdown), 2),
+            'volatility': round(float(volatility), 2),
+            'var_95': round(float(var_95), 2),
+            'beta': round(float(beta), 2)
+        })
+    except Exception as e:
+        logger.log_error(f"Error calculating risk analytics: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/strategy-breakdown')
+def get_strategy_breakdown():
+    """Get detailed per-strategy performance breakdown"""
+    try:
+        # Get trades data
+        trades_data = data_parser.get_trades(page=1, per_page=10000)
+        trade_list = trades_data.get('trades', []) if isinstance(trades_data, dict) else []
+        
+        # Group by strategy
+        strategy_stats = {}
+        for trade in trade_list:
+            strategy = trade.get('strategy', 'unknown')
+            if strategy not in strategy_stats:
+                strategy_stats[strategy] = {
+                    'strategy': strategy,
+                    'total_trades': 0,
+                    'winning_trades': 0,
+                    'losing_trades': 0,
+                    'total_pnl': 0,
+                    'avg_win': 0,
+                    'avg_loss': 0,
+                    'win_rate': 0,
+                    'profit_factor': 0,
+                    'max_drawdown': 0
+                }
+            
+            profit = trade.get('profit', 0)
+            strategy_stats[strategy]['total_trades'] += 1
+            strategy_stats[strategy]['total_pnl'] += profit
+            
+            if profit > 0:
+                strategy_stats[strategy]['winning_trades'] += 1
+            else:
+                strategy_stats[strategy]['losing_trades'] += 1
+        
+        # Calculate derived metrics
+        for strategy in strategy_stats:
+            stats = strategy_stats[strategy]
+            total = stats['total_trades']
+            wins = stats['winning_trades']
+            losses = stats['losing_trades']
+            
+            if total > 0:
+                stats['win_rate'] = round((wins / total) * 100, 2)
+            
+            # Get wins and losses for averages
+            strategy_trades = [t for t in trade_list if t.get('strategy') == strategy]
+            win_amounts = [t.get('profit', 0) for t in strategy_trades if t.get('profit', 0) > 0]
+            loss_amounts = [abs(t.get('profit', 0)) for t in strategy_trades if t.get('profit', 0) < 0]
+            
+            stats['avg_win'] = round(sum(win_amounts) / len(win_amounts), 2) if win_amounts else 0
+            stats['avg_loss'] = round(sum(loss_amounts) / len(loss_amounts), 2) if loss_amounts else 0
+            
+            # Profit factor
+            total_wins = sum(win_amounts)
+            total_losses = sum(loss_amounts)
+            stats['profit_factor'] = round(total_wins / total_losses, 2) if total_losses > 0 else 0
+        
+        # Convert to list and sort by P&L
+        breakdown = list(strategy_stats.values())
+        breakdown.sort(key=lambda x: x['total_pnl'], reverse=True)
+        
+        return jsonify(breakdown)
+    except Exception as e:
+        logger.log_error(f"Error getting strategy breakdown: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Check if config exists
     if not CONFIG_PATH.exists():
