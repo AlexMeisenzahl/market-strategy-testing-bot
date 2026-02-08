@@ -10,6 +10,7 @@ from flask_cors import CORS
 import yaml
 import os
 import sys
+import shutil
 from pathlib import Path
 from datetime import datetime, timedelta
 import json
@@ -40,6 +41,12 @@ from services.realtime_server import init_realtime_server
 from dashboard.routes.config_api import config_api
 from dashboard.routes.leaderboard import leaderboard_bp
 from dashboard.routes.emergency import emergency_bp
+
+# Import update system services
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from version_manager import VersionManager
+from services.update_service import UpdateService
+from services.process_manager import ProcessManager
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for API access
@@ -72,6 +79,11 @@ risk_metrics = RiskMetrics(data_parser)
 
 # Initialize database
 init_db()
+
+# Initialize update system services
+version_manager = VersionManager(BASE_DIR)
+update_service = UpdateService(BASE_DIR)
+process_manager = ProcessManager(BASE_DIR)
 
 # Global bot status (will be updated by bot)
 bot_status = {
@@ -2398,3 +2410,287 @@ def run_backtest():
     except Exception as e:
         logger.log_error(f"Error running backtest: {e}")
         return jsonify({"success": False, "error": str(e)})
+
+
+# ============================================================================
+# UPDATE SYSTEM API ENDPOINTS
+# ============================================================================
+
+@app.route("/api/update/check", methods=["GET"])
+def check_for_updates():
+    """Check if updates are available"""
+    try:
+        update_info = version_manager.check_for_updates()
+        return jsonify(update_info)
+    except Exception as e:
+        logger.log_error(f"Error checking for updates: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/update/history", methods=["GET"])
+def get_update_history():
+    """Get past updates"""
+    try:
+        history = version_manager.get_update_history()
+        return jsonify({"history": history})
+    except Exception as e:
+        logger.log_error(f"Error getting update history: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/update/start", methods=["POST"])
+def start_update():
+    """Start update process"""
+    try:
+        # Run pre-flight checks
+        checks_passed, checks = update_service.pre_flight_checks()
+        
+        if not checks_passed:
+            return jsonify({
+                "success": False,
+                "error": "Pre-flight checks failed",
+                "checks": checks
+            }), 400
+        
+        # Generate update ID
+        import uuid
+        update_id = str(uuid.uuid4())
+        
+        # Start update in background thread
+        import threading
+        def run_update():
+            result = update_service.perform_update()
+            logger.log_info(f"Update completed: {result}")
+        
+        thread = threading.Thread(target=run_update, daemon=True)
+        thread.start()
+        
+        return jsonify({
+            "status": "started",
+            "update_id": update_service.current_update_id or update_id,
+            "message": "Update started successfully"
+        })
+        
+    except Exception as e:
+        logger.log_error(f"Error starting update: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/update/progress", methods=["GET"])
+def get_update_progress():
+    """Get real-time update progress"""
+    try:
+        progress = update_service.get_progress()
+        if progress is None:
+            return jsonify({
+                "status": "idle",
+                "progress": 0,
+                "message": "No update in progress",
+                "logs": []
+            })
+        return jsonify(progress)
+    except Exception as e:
+        logger.log_error(f"Error getting update progress: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/update/cancel", methods=["POST"])
+def cancel_update():
+    """Cancel in-progress update"""
+    try:
+        # For now, just unlock - actual cancellation is complex
+        success = update_service.unlock_update(force=True)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Update cancelled, lock removed"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to cancel update"
+            }), 500
+            
+    except Exception as e:
+        logger.log_error(f"Error cancelling update: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/update/rollback", methods=["POST"])
+def manual_rollback():
+    """Manual rollback to previous version"""
+    try:
+        data = request.get_json() or {}
+        backup_name = data.get("backup_name")
+        
+        success = update_service.rollback(backup_name)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": f"Rolled back to {backup_name or 'latest backup'}"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Rollback failed"
+            }), 500
+            
+    except Exception as e:
+        logger.log_error(f"Error during rollback: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================================
+# SYSTEM HEALTH & RECOVERY API ENDPOINTS
+# ============================================================================
+
+@app.route("/api/system/health", methods=["GET"])
+def get_system_health():
+    """System health check"""
+    try:
+        # Run pre-flight checks (they're comprehensive)
+        checks_passed, checks = update_service.pre_flight_checks()
+        
+        # Additional checks
+        bot_running = process_manager.is_bot_running()
+        dashboard_running = process_manager.is_dashboard_running()
+        
+        # Get disk space
+        stat = shutil.disk_usage(BASE_DIR)
+        free_gb = stat.free / (1024**3)
+        
+        # Count backups
+        backups_dir = BASE_DIR / "backups"
+        backup_count = len([d for d in backups_dir.iterdir() if d.is_dir()]) if backups_dir.exists() else 0
+        
+        # Get last update
+        history = version_manager.get_update_history()
+        last_update = history[0] if history else None
+        
+        return jsonify({
+            "status": "healthy" if checks_passed else "warning",
+            "bot_running": bot_running,
+            "dashboard_running": dashboard_running,
+            "disk_space_gb": round(free_gb, 1),
+            "backup_count": backup_count,
+            "last_update": last_update,
+            "checks": checks
+        })
+        
+    except Exception as e:
+        logger.log_error(f"Error getting system health: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/backups/list", methods=["GET"])
+def list_backups():
+    """List all backups"""
+    try:
+        backups_dir = BASE_DIR / "backups"
+        
+        if not backups_dir.exists():
+            return jsonify({"backups": []})
+        
+        backups = []
+        for backup_dir in backups_dir.iterdir():
+            if backup_dir.is_dir():
+                # Get backup info
+                stat = backup_dir.stat()
+                size_mb = sum(f.stat().st_size for f in backup_dir.rglob('*') if f.is_file()) / (1024 * 1024)
+                
+                # Try to read version from backup
+                version_file = backup_dir / "VERSION"
+                version = version_file.read_text().strip() if version_file.exists() else "unknown"
+                
+                backups.append({
+                    "name": backup_dir.name,
+                    "date": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "version": version,
+                    "size_mb": round(size_mb, 1)
+                })
+        
+        # Sort by date, most recent first
+        backups.sort(key=lambda x: x["date"], reverse=True)
+        
+        return jsonify({"backups": backups})
+        
+    except Exception as e:
+        logger.log_error(f"Error listing backups: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/backups/restore", methods=["POST"])
+def restore_backup():
+    """Restore specific backup"""
+    try:
+        data = request.get_json()
+        backup_id = data.get("backup_id")
+        
+        if not backup_id:
+            return jsonify({"success": False, "error": "backup_id required"}), 400
+        
+        success = update_service.rollback(backup_id)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": f"Restored backup: {backup_id}"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Restore failed"
+            }), 500
+            
+    except Exception as e:
+        logger.log_error(f"Error restoring backup: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/system/force-stop", methods=["POST"])
+def force_stop_all():
+    """Emergency stop all processes"""
+    try:
+        success = process_manager.force_stop_all()
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "All processes stopped"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Force stop failed"
+            }), 500
+            
+    except Exception as e:
+        logger.log_error(f"Error force stopping: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/system/unlock-update", methods=["POST"])
+def unlock_update_system():
+    """Clear stuck update locks"""
+    try:
+        data = request.get_json() or {}
+        force = data.get("force", False)
+        
+        success = update_service.unlock_update(force=force)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Update system unlocked"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to unlock (update may be in progress)"
+            }), 400
+            
+    except Exception as e:
+        logger.log_error(f"Error unlocking update: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
