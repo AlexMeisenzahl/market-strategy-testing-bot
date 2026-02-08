@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Competition Leaderboard</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .winning {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .marginal {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        .losing {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .medal {
+            font-size: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold mb-2">
+                <i class="fas fa-trophy text-yellow-400 mr-3"></i>
+                Strategy Competition Leaderboard
+            </h1>
+            <p class="text-gray-400">Real-time strategy performance rankings</p>
+        </div>
+        
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-gray-800 rounded-lg p-6 card">
+                <div class="text-gray-400 text-sm mb-2">Total Strategies</div>
+                <div class="text-3xl font-bold" id="total-strategies">0</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-6 card">
+                <div class="text-gray-400 text-sm mb-2">Active Strategies</div>
+                <div class="text-3xl font-bold text-green-400" id="active-strategies">0</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-6 card">
+                <div class="text-gray-400 text-sm mb-2">Average Return</div>
+                <div class="text-3xl font-bold" id="avg-return">0%</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-6 card">
+                <div class="text-gray-400 text-sm mb-2">Top Performer</div>
+                <div class="text-xl font-bold text-yellow-400" id="top-performer">-</div>
+            </div>
+        </div>
+        
+        <!-- Today's Winner Banner -->
+        <div id="winner-banner" class="winning rounded-lg p-6 mb-8 text-center" style="display: none;">
+            <div class="text-5xl mb-2">🏆</div>
+            <h2 class="text-2xl font-bold mb-2">Today's Winner</h2>
+            <div class="text-3xl font-bold" id="winner-name">-</div>
+            <div class="text-xl mt-2" id="winner-return">+0%</div>
+        </div>
+        
+        <!-- Leaderboard Table -->
+        <div class="bg-gray-800 rounded-lg overflow-hidden card mb-8">
+            <div class="p-6 border-b border-gray-700">
+                <h2 class="text-2xl font-bold">Rankings</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-700">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Rank</th>
+                            <th class="px-6 py-3 text-left">Strategy</th>
+                            <th class="px-6 py-3 text-right">Value</th>
+                            <th class="px-6 py-3 text-right">Return</th>
+                            <th class="px-6 py-3 text-right">Sharpe</th>
+                            <th class="px-6 py-3 text-right">Trades</th>
+                            <th class="px-6 py-3 text-right">Win Rate</th>
+                            <th class="px-6 py-3 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Performance Chart -->
+        <div class="bg-gray-800 rounded-lg p-6 card">
+            <h2 class="text-2xl font-bold mb-4">Equity Curve Comparison</h2>
+            <canvas id="equityChart" height="100"></canvas>
+        </div>
+        
+    </div>
+    
+    <script>
+        // Global chart instance
+        let equityChart = null;
+        
+        // Load leaderboard data
+        async function loadLeaderboard() {
+            try {
+                const response = await fetch('/api/leaderboard/');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLeaderboard(data.leaderboard);
+                    loadSummary();
+                }
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+            }
+        }
+        
+        // Display leaderboard
+        function displayLeaderboard(leaderboard) {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+            
+            leaderboard.forEach(strategy => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-700 hover:bg-gray-700 transition';
+                
+                // Medal for top 3
+                let medal = '';
+                if (strategy.rank === 1) medal = '<span class="medal">🥇</span>';
+                else if (strategy.rank === 2) medal = '<span class="medal">🥈</span>';
+                else if (strategy.rank === 3) medal = '<span class="medal">🥉</span>';
+                
+                // Status color
+                let statusClass = '';
+                if (strategy.status.includes('WINNING')) statusClass = 'text-green-400';
+                else if (strategy.status.includes('MARGINAL')) statusClass = 'text-yellow-400';
+                else statusClass = 'text-red-400';
+                
+                // Return color
+                const returnClass = strategy.return_pct >= 0 ? 'text-green-400' : 'text-red-400';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4">
+                        ${medal}
+                        <span class="ml-2">#${strategy.rank}</span>
+                    </td>
+                    <td class="px-6 py-4 font-semibold">${strategy.strategy}</td>
+                    <td class="px-6 py-4 text-right">$${strategy.current_value.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-right ${returnClass}">
+                        ${strategy.return_pct >= 0 ? '+' : ''}${strategy.return_pct.toFixed(2)}%
+                    </td>
+                    <td class="px-6 py-4 text-right">${strategy.sharpe_ratio.toFixed(2)}</td>
+                    <td class="px-6 py-4 text-right">${strategy.total_trades}</td>
+                    <td class="px-6 py-4 text-right">${strategy.win_rate.toFixed(1)}%</td>
+                    <td class="px-6 py-4 text-center ${statusClass}">${strategy.status}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            // Show winner banner
+            if (leaderboard.length > 0) {
+                const winner = leaderboard[0];
+                document.getElementById('winner-banner').style.display = 'block';
+                document.getElementById('winner-name').textContent = winner.strategy;
+                document.getElementById('winner-return').textContent = 
+                    `${winner.return_pct >= 0 ? '+' : ''}${winner.return_pct.toFixed(2)}%`;
+            }
+        }
+        
+        // Load summary stats
+        async function loadSummary() {
+            try {
+                const response = await fetch('/api/leaderboard/summary');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const summary = data.summary;
+                    document.getElementById('total-strategies').textContent = summary.total_strategies;
+                    document.getElementById('active-strategies').textContent = summary.active_strategies;
+                    document.getElementById('avg-return').textContent = `${summary.avg_return.toFixed(2)}%`;
+                    if (summary.top_performer) {
+                        document.getElementById('top-performer').textContent = summary.top_performer.strategy;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading summary:', error);
+            }
+        }
+        
+        // Initialize equity chart
+        function initEquityChart() {
+            const ctx = document.getElementById('equityChart').getContext('2d');
+            equityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#fff'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                color: '#9ca3af'
+                            },
+                            grid: {
+                                color: '#374151'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#9ca3af'
+                            },
+                            grid: {
+                                color: '#374151'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Auto-refresh every 5 seconds
+        setInterval(loadLeaderboard, 5000);
+        
+        // Initial load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadLeaderboard();
+            initEquityChart();
+        });
+    </script>
+    
+</body>
+</html>

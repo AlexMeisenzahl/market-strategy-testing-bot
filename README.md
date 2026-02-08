@@ -394,6 +394,53 @@ rate_limit_pause_threshold: 0.95      # Pause at 95%
 
 The bot now supports **live, real-time data from the Polymarket API**! This allows you to test strategies against actual market conditions while remaining in safe paper trading mode.
 
+## 🏆 Strategy Competition System
+
+The bot now includes a comprehensive **Strategy Competition System** that runs multiple trading strategies simultaneously and tracks which ones perform best.
+
+### Competition Features:
+
+- **📊 Real-Time Leaderboard** - View strategy rankings updated every second
+  - Access at: http://localhost:5000/leaderboard
+  - Medal rankings (🥇🥈🥉) for top 3 performers
+  - Status indicators: ✅ WINNING, ⚠️ MARGINAL, ❌ LOSING
+
+- **🎯 Performance Tracking** - Comprehensive metrics for each strategy
+  - Portfolio value and return percentage
+  - Sharpe ratio (risk-adjusted returns)
+  - Win rate and total trades
+  - Max drawdown monitoring
+
+- **🛡️ Safety Controls**
+  - **Emergency Kill Switch** - Stop all trading immediately
+  - **Auto-Disable System** - Automatically stops failing strategies
+  - **Strategy Health Monitoring** - Continuous performance checking
+  - **Data Pipeline Monitoring** - Real-time data quality validation
+
+- **📈 Strategy Graduation System** - Safe progression from paper to live trading
+  - 5 stages: Backtest → Paper → Micro Live → Mini Live → Full Live
+  - Strict requirements at each stage
+  - Automatic eligibility checking
+  - See [STRATEGY_GRADUATION.md](STRATEGY_GRADUATION.md) for details
+
+- **💰 Capital Allocation** - Intelligent capital distribution
+  - Top strategy gets 70% of capital
+  - Second best gets 20%
+  - Third best gets 10%
+  - Weekly reallocation based on performance
+
+### Quick Access:
+
+- **Main Dashboard:** http://localhost:5000
+- **Strategy Leaderboard:** http://localhost:5000/leaderboard
+- **API Documentation:** See [USER_GUIDE.md](USER_GUIDE.md)
+
+👉 **[Complete Testing Guide](TESTING_GUIDE.md)** - Step-by-step testing checklist
+👉 **[User Guide](USER_GUIDE.md)** - How to use all features
+👉 **[Strategy Graduation](STRATEGY_GRADUATION.md)** - Safe path to live trading
+
+---
+
 ### Features
 
 - **Real Market Data**: Fetches live markets from Polymarket

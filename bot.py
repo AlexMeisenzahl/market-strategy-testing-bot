@@ -8,6 +8,7 @@ Paper trading only - NO REAL MONEY
 import yaml
 import time
 import sys
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -32,6 +33,17 @@ from services.sentry_integration import sentry
 from services.feature_flags import feature_flags
 from services.position_tracker import position_tracker
 from services.portfolio_manager import portfolio_manager
+
+# Import strategy competition services
+from services.strategy_competition import competition
+from services.performance_tracker import performance_tracker
+from services.strategy_selector import strategy_selector
+from services.data_validator import data_validator
+from services.data_monitor import data_monitor
+from services.strategy_graduation import strategy_graduation
+from services.emergency_kill_switch import kill_switch
+from services.strategy_health_monitor import health_monitor
+from services.strategy_pause_manager import pause_manager
 
 
 class ArbitrageBot:
@@ -70,6 +82,10 @@ class ArbitrageBot:
         self.activities = []
         self.alerts = []
 
+        # Scheduled tasks
+        self.last_hourly_snapshot = datetime.now()
+        self.last_weekly_selection = datetime.now()
+
         # Set bot status in metrics
         if feature_flags.is_enabled("prometheus_metrics"):
             metrics.set_bot_status(True)
@@ -98,7 +114,10 @@ class ArbitrageBot:
 
     def check_kill_switch(self) -> bool:
         """Check if kill switch is activated"""
-        return self.config.get("kill_switch", False)
+        # Check both config and database kill switch
+        config_kill_switch = self.config.get("kill_switch", False)
+        db_kill_switch = kill_switch.is_active()
+        return config_kill_switch or db_kill_switch
 
     def create_dashboard(self) -> Layout:
         """Create the dashboard layout"""
@@ -292,6 +311,19 @@ class ArbitrageBot:
             if feature_flags.is_enabled("sentry_error_tracking"):
                 transaction = sentry.start_transaction(name="market_scan", op="scan")
 
+            # 1. Check data pipeline health
+            health_status = data_monitor.get_health_status()
+            if health_status["overall"] == "critical":
+                self.logger.log_error("Data pipeline critical, skipping iteration")
+                self.add_alert("⚠️ Data pipeline critical")
+                return
+
+            # 2. Check strategy health (auto-disable if needed)
+            health_results = health_monitor.check_all_strategies()
+            for result in health_results:
+                if result["status"] == "disabled":
+                    self.add_alert(f"🚫 Auto-disabled: {result['strategy']}")
+
             # Check connection health periodically
             if (
                 datetime.now() - self.last_connection_check
@@ -421,6 +453,19 @@ class ArbitrageBot:
                         )
 
             self.last_update = datetime.now()
+
+            # 3. Run strategy competition (track all strategies)
+            try:
+                # Get current market data for competition
+                competition_result = competition.run_competition(
+                    {"markets": markets_to_scan}
+                )
+
+                # 4. Take performance snapshot
+                performance_tracker.take_snapshot()
+
+            except Exception as e:
+                self.logger.log_error(f"Error in competition/tracking: {e}")
 
             # Update last scan time
             if feature_flags.is_enabled("prometheus_metrics"):
@@ -552,6 +597,35 @@ class ArbitrageBot:
             self.logger.log_warning("Falling back to demo markets")
             return self._get_demo_markets()
 
+    def _run_scheduled_tasks(self) -> None:
+        """Run scheduled tasks (hourly snapshots, weekly selection)"""
+        try:
+            now = datetime.now()
+
+            # Hourly: Save performance snapshots to database
+            if (now - self.last_hourly_snapshot).total_seconds() >= 3600:
+                self.logger.log_info("Running hourly snapshot save")
+                performance_tracker.save_hourly_snapshot()
+                self.last_hourly_snapshot = now
+                self.add_activity("💾 Saved hourly performance snapshots")
+
+            # Weekly: Run strategy selection and capital allocation
+            if (now - self.last_weekly_selection).total_seconds() >= (
+                7 * 24 * 3600
+            ):  # 7 days
+                self.logger.log_info("Running weekly strategy selection")
+                best_strategy = strategy_selector.select_best_strategy()
+                if best_strategy:
+                    self.add_activity(f"🏆 Best strategy selected: {best_strategy}")
+                    # Auto-allocate capital
+                    allocation_result = strategy_selector.auto_allocate_capital()
+                    if allocation_result.get("allocations"):
+                        self.add_activity("💰 Capital reallocated based on performance")
+                self.last_weekly_selection = now
+
+        except Exception as e:
+            self.logger.log_error(f"Error in scheduled tasks: {e}")
+
     def run(self) -> None:
         """Main bot loop with live dashboard"""
         self.console.clear()
@@ -589,6 +663,9 @@ class ArbitrageBot:
                     # Scan markets if not paused
                     if not self.paused:
                         self.scan_markets()
+
+                    # Run scheduled tasks
+                    self._run_scheduled_tasks()
 
                     # Sleep between scans
                     time.sleep(3)
