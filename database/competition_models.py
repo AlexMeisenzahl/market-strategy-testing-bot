@@ -35,8 +35,7 @@ def init_competition_db():
     cursor = conn.cursor()
 
     # Strategies table - extended with new fields
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS strategies (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
@@ -52,12 +51,10 @@ def init_competition_db():
             created_at INTEGER DEFAULT (strftime('%s', 'now')),
             updated_at INTEGER DEFAULT (strftime('%s', 'now'))
         )
-    """
-    )
+    """)
 
     # Strategy Performance Snapshots table
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS strategy_performance_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             strategy_id INTEGER NOT NULL,
@@ -83,34 +80,27 @@ def init_competition_db():
             
             FOREIGN KEY (strategy_id) REFERENCES strategies(id)
         )
-    """
-    )
+    """)
 
     # Create indexes for efficient queries
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_snapshots_strategy_timestamp 
         ON strategy_performance_snapshots(strategy_id, timestamp DESC)
-    """
-    )
+    """)
 
     # Config table for global settings (kill switch, etc.)
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS config (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
             updated_at INTEGER DEFAULT (strftime('%s', 'now'))
         )
-    """
-    )
+    """)
 
     # Initialize kill switch to false
-    cursor.execute(
-        """
+    cursor.execute("""
         INSERT OR IGNORE INTO config (key, value) VALUES ('kill_switch_active', 'false')
-    """
-    )
+    """)
 
     # Initialize default strategies if they don't exist
     default_strategies = [
@@ -150,16 +140,14 @@ class Strategy:
         """Get enabled strategies"""
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT * FROM strategies 
             WHERE enabled = 1 
               AND auto_disabled = 0 
               AND emergency_disabled = 0
               AND paused = 0
             ORDER BY id
-        """
-        )
+        """)
         return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
@@ -313,8 +301,7 @@ class StrategyPerformanceSnapshot:
         conn = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT s1.* 
             FROM strategy_performance_snapshots s1
             INNER JOIN (
@@ -323,8 +310,7 @@ class StrategyPerformanceSnapshot:
                 GROUP BY strategy_id
             ) s2 ON s1.strategy_id = s2.strategy_id 
                 AND s1.timestamp = s2.max_timestamp
-        """
-        )
+        """)
 
         return [dict(row) for row in cursor.fetchall()]
 

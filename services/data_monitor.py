@@ -75,9 +75,11 @@ class DataPipelineMonitor:
                 "status": status,
                 "message": message,
                 "connected": self.websocket_connected,
-                "last_message": self.last_websocket_message.isoformat()
-                if self.last_websocket_message
-                else None,
+                "last_message": (
+                    self.last_websocket_message.isoformat()
+                    if self.last_websocket_message
+                    else None
+                ),
                 "reconnect_count": self.websocket_reconnect_count,
                 "timestamp": now.isoformat(),
             }
