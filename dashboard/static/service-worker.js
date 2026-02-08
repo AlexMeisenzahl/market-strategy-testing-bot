@@ -3,8 +3,8 @@
  * Provides offline support and caching
  */
 
-const CACHE_NAME = 'trading-bot-v1';
-const RUNTIME_CACHE = 'trading-bot-runtime';
+const CACHE_NAME = 'trading-bot-v2';
+const RUNTIME_CACHE = 'trading-bot-runtime-v2';
 
 // URLs to cache on install
 const urlsToCache = [
@@ -16,13 +16,17 @@ const urlsToCache = [
     '/static/css/settings.css',
     '/static/css/charts-fixed.css',
     '/static/css/crypto_ticker.css',
+    '/static/css/skeletons.css',
     '/static/js/dashboard.js',
     '/static/js/analytics.js',
     '/static/js/settings.js',
     '/static/js/utils.js',
     '/static/js/crypto_ticker.js',
     '/static/js/touch_gestures.js',
-    '/static/manifest.json'
+    '/static/js/device-detector.js',
+    '/static/manifest.json',
+    '/static/icons/icon-192x192.png',
+    '/static/icons/icon-512x512.png'
 ];
 
 // Install event - cache resources
