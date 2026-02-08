@@ -1,0 +1,420 @@
+/**
+ * Mobile-First Responsive CSS Framework
+ * Breakpoints:
+ * - Mobile: <768px
+ * - Tablet: 768-1024px
+ * - Desktop: >1024px
+ */
+
+/* ========================================
+   MOBILE-FIRST BASE STYLES
+   ======================================== */
+
+/* Touch-friendly targets */
+button, a, .clickable {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 12px;
+}
+
+/* Responsive typography */
+:root {
+    --font-size-base: 16px;
+    --font-size-small: 14px;
+    --font-size-large: 20px;
+    --font-size-xlarge: 24px;
+}
+
+@media (max-width: 767px) {
+    :root {
+        --font-size-base: 14px;
+        --font-size-small: 12px;
+        --font-size-large: 18px;
+        --font-size-xlarge: 22px;
+    }
+}
+
+/* ========================================
+   MOBILE NAVIGATION
+   ======================================== */
+
+.mobile-nav {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--dark-card, #1e293b);
+    z-index: 1000;
+    padding: 12px 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 767px) {
+    .mobile-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    /* Hide desktop navigation on mobile */
+    .desktop-nav {
+        display: none !important;
+    }
+}
+
+.hamburger-menu {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 1001;
+}
+
+.hamburger-menu span {
+    width: 30px;
+    height: 3px;
+    background: #fff;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    transform-origin: center;
+}
+
+.hamburger-menu.active span:nth-child(1) {
+    transform: rotate(45deg) translateY(10px);
+}
+
+.hamburger-menu.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger-menu.active span:nth-child(3) {
+    transform: rotate(-45deg) translateY(-10px);
+}
+
+.mobile-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 80%;
+    max-width: 300px;
+    height: 100vh;
+    background: var(--dark-bg, #0f172a);
+    z-index: 999;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-menu-overlay.active {
+    left: 0;
+}
+
+.mobile-menu-overlay nav {
+    padding: 80px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mobile-menu-overlay nav a {
+    display: block;
+    padding: 16px 20px;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: background 0.2s;
+    font-size: 16px;
+}
+
+.mobile-menu-overlay nav a:hover {
+    background: var(--dark-card, #1e293b);
+}
+
+.mobile-menu-overlay nav a.active {
+    background: #3b82f6;
+}
+
+/* Mobile backdrop */
+.mobile-menu-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+}
+
+.mobile-menu-backdrop.active {
+    display: block;
+}
+
+/* ========================================
+   RESPONSIVE TABLES
+   ======================================== */
+
+@media (max-width: 767px) {
+    .responsive-table table,
+    .responsive-table thead,
+    .responsive-table tbody,
+    .responsive-table th,
+    .responsive-table td,
+    .responsive-table tr {
+        display: block;
+    }
+    
+    .responsive-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+    
+    .responsive-table tr {
+        margin-bottom: 15px;
+        border: 1px solid var(--dark-border, #334155);
+        border-radius: 8px;
+        padding: 10px;
+        background: var(--dark-card, #1e293b);
+    }
+    
+    .responsive-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        text-align: right;
+        position: relative;
+        border-bottom: 1px solid var(--dark-border, #334155);
+    }
+    
+    .responsive-table td:last-child {
+        border-bottom: none;
+    }
+    
+    .responsive-table td:before {
+        content: attr(data-label);
+        font-weight: 600;
+        text-align: left;
+        flex: 1;
+    }
+    
+    .responsive-table td:after {
+        content: '';
+        flex: 1;
+    }
+}
+
+/* ========================================
+   RESPONSIVE GRID LAYOUTS
+   ======================================== */
+
+@media (max-width: 767px) {
+    /* Stack grid items on mobile */
+    .grid,
+    .dashboard-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px;
+    }
+    
+    /* Full-width cards */
+    .card,
+    .widget {
+        width: 100%;
+        margin: 0 0 16px 0;
+    }
+    
+    /* Adjust padding for mobile */
+    .container,
+    .main-content {
+        padding: 12px !important;
+    }
+    
+    /* Hide elements on mobile */
+    .hide-mobile {
+        display: none !important;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    /* Tablet: 2 columns */
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    /* Desktop: 3-4 columns */
+    .dashboard-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+    
+    /* Hide mobile-only elements */
+    .mobile-only {
+        display: none !important;
+    }
+}
+
+/* ========================================
+   RESPONSIVE CHARTS
+   ======================================== */
+
+@media (max-width: 767px) {
+    .chart-container {
+        height: 250px !important;
+        margin: 16px 0;
+    }
+    
+    .chart-controls {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .chart-controls button,
+    .chart-controls select {
+        flex: 1 1 auto;
+        min-width: 80px;
+    }
+}
+
+/* ========================================
+   RESPONSIVE FORMS
+   ======================================== */
+
+@media (max-width: 767px) {
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    input,
+    select,
+    textarea {
+        width: 100% !important;
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    .form-row {
+        flex-direction: column;
+        gap: 16px;
+    }
+}
+
+/* ========================================
+   TOUCH GESTURES
+   ======================================== */
+
+.touch-enabled {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.swipeable {
+    position: relative;
+    overflow: hidden;
+}
+
+/* ========================================
+   MOBILE MODALS
+   ======================================== */
+
+@media (max-width: 767px) {
+    .modal,
+    .dialog {
+        width: 95% !important;
+        max-width: 95% !important;
+        max-height: 90vh;
+        margin: 5vh auto;
+    }
+    
+    .modal-content {
+        padding: 16px;
+    }
+}
+
+/* ========================================
+   RESPONSIVE TEXT
+   ======================================== */
+
+@media (max-width: 767px) {
+    h1 {
+        font-size: 24px;
+    }
+    
+    h2 {
+        font-size: 20px;
+    }
+    
+    h3 {
+        font-size: 18px;
+    }
+    
+    p {
+        font-size: 14px;
+    }
+    
+    .text-sm {
+        font-size: 12px;
+    }
+}
+
+/* ========================================
+   MOBILE UTILITIES
+   ======================================== */
+
+@media (max-width: 767px) {
+    /* Vertical spacing */
+    .section {
+        margin-bottom: 24px;
+    }
+    
+    /* Horizontal scrolling for overflow */
+    .scroll-x-mobile {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Bottom navigation spacing */
+    .content-with-bottom-nav {
+        padding-bottom: 80px;
+    }
+    
+    /* Fixed bottom actions */
+    .fixed-bottom-actions {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--dark-card, #1e293b);
+        padding: 12px 16px;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+    }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Focus visible for keyboard navigation */
+*:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
