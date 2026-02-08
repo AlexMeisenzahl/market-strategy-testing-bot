@@ -5,7 +5,7 @@ A beautiful, responsive web interface for monitoring and controlling
 the trading bot with comprehensive analytics and customization.
 """
 
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, render_template, jsonify, request, send_file, Response
 from flask_cors import CORS
 import yaml
 import os
@@ -14,6 +14,8 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import json
 import psutil  # For process monitoring
+import csv
+import io
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,6 +24,10 @@ from dashboard.services.data_parser import DataParser
 from dashboard.services.analytics import AnalyticsService
 from dashboard.services.chart_data import ChartDataService
 from dashboard.services.config_manager import ConfigManager
+from services.strategy_analytics import StrategyAnalytics
+from services.market_analytics import MarketAnalytics
+from services.time_analytics import TimeAnalytics
+from services.risk_metrics import RiskMetrics
 from logger import get_logger
 
 app = Flask(__name__)
@@ -38,6 +44,12 @@ config_manager = ConfigManager(CONFIG_PATH)
 data_parser = DataParser(LOGS_DIR)
 analytics = AnalyticsService(data_parser)
 chart_data = ChartDataService(data_parser)
+
+# Initialize new analytics services
+strategy_analytics = StrategyAnalytics(data_parser)
+market_analytics = MarketAnalytics(data_parser)
+time_analytics = TimeAnalytics(data_parser)
+risk_metrics = RiskMetrics(data_parser)
 
 # Global bot status (will be updated by bot)
 bot_status = {
@@ -1203,6 +1215,233 @@ def check_specific_price():
         })
     except Exception as e:
         logger.log_error(f"Error checking price: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/analytics')
+def analytics_page():
+    """Render analytics page"""
+    return render_template('analytics.html')
+
+
+# ========================
+# Analytics API Endpoints
+# ========================
+
+@app.route('/api/analytics/strategy_performance')
+def get_strategy_performance_analytics():
+    """Get comprehensive strategy performance metrics"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        strategies = strategy_analytics.get_all_strategies_performance(start_date, end_date)
+        
+        return jsonify({'strategies': strategies})
+    except Exception as e:
+        logger.log_error(f"Error getting strategy performance: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/market_performance')
+def get_market_performance_analytics():
+    """Get market performance analysis"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        min_trades = int(request.args.get('min_trades', 3))
+        sort_by = request.args.get('sort', 'total_pnl')
+        
+        markets = market_analytics.get_market_performance(
+            start_date=start_date,
+            end_date=end_date,
+            min_trades=min_trades
+        )
+        
+        # Sort by requested metric
+        if sort_by in ['total_pnl', 'win_rate', 'total_trades', 'frequency', 'success_score']:
+            markets.sort(key=lambda x: x.get(sort_by, 0), reverse=True)
+        
+        return jsonify({'markets': markets})
+    except Exception as e:
+        logger.log_error(f"Error getting market performance: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/market_performance/top')
+def get_top_markets():
+    """Get top N markets by specified metric"""
+    try:
+        n = int(request.args.get('n', 10))
+        metric = request.args.get('metric', 'total_pnl')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        markets = market_analytics.get_top_markets(
+            n=n,
+            metric=metric,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return jsonify({'markets': markets})
+    except Exception as e:
+        logger.log_error(f"Error getting top markets: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/market_performance/worst')
+def get_worst_markets():
+    """Get worst N markets by specified metric"""
+    try:
+        n = int(request.args.get('n', 10))
+        metric = request.args.get('metric', 'total_pnl')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        markets = market_analytics.get_worst_markets(
+            n=n,
+            metric=metric,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return jsonify({'markets': markets})
+    except Exception as e:
+        logger.log_error(f"Error getting worst markets: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/time/hour_analysis')
+def get_hour_analysis():
+    """Get hour of day analysis"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        analysis = time_analytics.get_hour_of_day_analysis(start_date, end_date)
+        
+        return jsonify(analysis)
+    except Exception as e:
+        logger.log_error(f"Error getting hour analysis: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/time/day_analysis')
+def get_day_analysis():
+    """Get day of week analysis"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        analysis = time_analytics.get_day_of_week_analysis(start_date, end_date)
+        
+        return jsonify(analysis)
+    except Exception as e:
+        logger.log_error(f"Error getting day analysis: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/time/monthly')
+def get_monthly_performance():
+    """Get monthly performance"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        months = time_analytics.get_monthly_performance(start_date, end_date)
+        
+        return jsonify({'months': months})
+    except Exception as e:
+        logger.log_error(f"Error getting monthly performance: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/time/best_times')
+def get_best_trading_times():
+    """Get best trading times"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        best_times = time_analytics.get_best_trading_times(start_date, end_date)
+        
+        return jsonify(best_times)
+    except Exception as e:
+        logger.log_error(f"Error getting best trading times: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/risk_metrics')
+def get_risk_metrics_analytics():
+    """Get comprehensive risk metrics"""
+    try:
+        strategy = request.args.get('strategy')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        metrics = risk_metrics.calculate_all_risk_metrics(
+            strategy_name=strategy,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return jsonify(metrics)
+    except Exception as e:
+        logger.log_error(f"Error getting risk metrics: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/drawdown_history')
+def get_drawdown_history():
+    """Get drawdown history for visualization"""
+    try:
+        strategy = request.args.get('strategy')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        history = risk_metrics.calculate_drawdown_history(
+            strategy_name=strategy,
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        return jsonify(history)
+    except Exception as e:
+        logger.log_error(f"Error getting drawdown history: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/export')
+def export_analytics():
+    """Export analytics data to CSV"""
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Get strategy performance data
+        strategies = strategy_analytics.get_all_strategies_performance(start_date, end_date)
+        
+        if not strategies:
+            return jsonify({'error': 'No data to export'}), 404
+        
+        # Create CSV
+        output = io.StringIO()
+        fieldnames = strategies[0].keys()
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(strategies)
+        
+        # Create response
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=analytics_export.csv'}
+        )
+        
+        return response
+    except Exception as e:
+        logger.log_error(f"Error exporting analytics: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 
