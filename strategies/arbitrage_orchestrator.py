@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from strategies.arbitrage_tracker import ArbitrageTracker
 from strategies.arbitrage_strategy import ArbitrageStrategy, ArbitrageOpportunity
+from strategies.arbitrage_executor import ArbitrageExecutor
 
 
 class ArbitrageOrchestrator:
@@ -29,6 +30,7 @@ class ArbitrageOrchestrator:
         self.config = config
         self.strategy = ArbitrageStrategy(config)
         self.tracker = ArbitrageTracker()
+        self.executor = ArbitrageExecutor()
     
     def detect_opportunity(self, market_data: Dict[str, Any],
                           price_data: Dict[str, float]) -> Optional[ArbitrageOpportunity]:
