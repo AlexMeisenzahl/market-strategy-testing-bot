@@ -115,7 +115,7 @@ def handle_api_error(default_return: Any = None) -> Callable:
                     status_code = e.response.status_code if e.response else 'unknown'
                     if status_code == 429:
                         logger.error(f"{func.__name__}: Rate limit exceeded")
-                    elif status_code and 500 <= int(status_code) < 600:
+                    elif isinstance(status_code, int) and 500 <= status_code < 600:
                         logger.error(f"{func.__name__}: Server error {status_code}")
                     else:
                         logger.error(f"{func.__name__}: HTTP error {status_code}: {e}")

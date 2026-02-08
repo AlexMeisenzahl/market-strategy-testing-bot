@@ -131,7 +131,7 @@ class NotificationService:
         if min_confidence:
             confidence = data.get('confidence', '')
             confidence_order = ['low', 'medium', 'high', 'very_high']
-            if confidence not in confidence_order:
+            if confidence not in confidence_order or min_confidence not in confidence_order:
                 return False
             data_conf_idx = confidence_order.index(confidence)
             min_conf_idx = confidence_order.index(min_confidence)

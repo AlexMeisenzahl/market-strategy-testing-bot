@@ -4,9 +4,12 @@
  */
 
 class SettingsManager {
+    // Default theme constant
+    static DEFAULT_THEME = 'dark';
+    
     constructor() {
         this.currentTab = 'notifications';
-        this.currentTheme = 'dark';
+        this.currentTheme = SettingsManager.DEFAULT_THEME;
         this.currentTradingMode = 'paper';
         this.settings = {};
     }
@@ -23,7 +26,7 @@ class SettingsManager {
         this.setupTradingModeSelector();
         
         // Load saved theme from localStorage
-        const savedTheme = localStorage.getItem('theme') || 'dark';
+        const savedTheme = localStorage.getItem('theme') || SettingsManager.DEFAULT_THEME;
         this.applyTheme(savedTheme);
         
         // Load settings from API
@@ -202,7 +205,7 @@ class SettingsManager {
                 }
             },
             display: {
-                theme: 'dark',
+                theme: SettingsManager.DEFAULT_THEME,
                 timezone: 'UTC',
                 currency: 'USD',
                 dateFormat: 'YYYY-MM-DD',

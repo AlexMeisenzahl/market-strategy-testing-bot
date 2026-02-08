@@ -24,7 +24,7 @@ def get_connection() -> sqlite3.Connection:
     """Get thread-local database connection."""
     if not hasattr(_thread_local, 'connection'):
         DB_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _thread_local.connection = sqlite3.connect(str(DB_FILE), check_same_thread=False)
+        _thread_local.connection = sqlite3.connect(str(DB_FILE))
         _thread_local.connection.row_factory = sqlite3.Row
     return _thread_local.connection
 
