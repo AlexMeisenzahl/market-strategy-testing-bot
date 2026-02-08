@@ -249,6 +249,53 @@ dashboard:
   opportunities_per_page: 50
 
 # ============================================================================
+# CRYPTO APIS CONFIGURATION
+# ============================================================================
+
+crypto_apis:
+  coingecko:
+    enabled: true
+    base_url: "https://api.coingecko.com/api/v3"
+    rate_limit_per_minute: 50
+    cache_duration_seconds: 60
+  
+  binance:
+    enabled: true
+    base_url: "https://api.binance.com"
+    rate_limit_per_minute: 1200
+    cache_duration_seconds: 30
+  
+  coinbase:
+    enabled: true
+    base_url: "https://api.coinbase.com"
+    rate_limit_per_minute: 10000
+    cache_duration_seconds: 30
+
+# Crypto symbols to track
+crypto_symbols: [BTC, ETH, SOL, XRP, ADA, DOT, AVAX, MATIC]
+
+# ============================================================================
+# PRICE ALERTS
+# ============================================================================
+
+price_alerts:
+  enabled: true
+  check_interval_seconds: 30
+  alerts:
+    - symbol: BTC
+      type: above
+      threshold: 100000
+      notification: true
+    - symbol: BTC
+      type: below
+      threshold: 95000
+      notification: true
+    - symbol: ETH
+      type: above
+      threshold: 4000
+      notification: true
+
+# ============================================================================
 # STRATEGIES CONFIGURATION
 # ============================================================================
 
@@ -269,6 +316,10 @@ strategies:
         enabled: true
       event_driven:
         enabled: true
+      reality_based:
+        enabled: true
+        min_profit_pct: 5.0
+        min_confidence: high  # Options: medium, high, very_high
   
   # Crypto Momentum Strategy
   crypto_momentum:
