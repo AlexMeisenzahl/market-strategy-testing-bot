@@ -4,6 +4,12 @@ Emergency Control Routes
 API routes for emergency kill switch and safety controls.
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to Python path FIRST
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 from flask import Blueprint, jsonify, request
 
 from services.emergency_kill_switch import kill_switch
