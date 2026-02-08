@@ -1710,6 +1710,153 @@ def api_health():
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
+@app.route('/api/health', methods=['GET'])
+def api_health_check():
+    """
+    API endpoint for comprehensive health checks.
+    Checks all external services and APIs.
+    """
+    try:
+        from services.health_check import health_service
+        health_status = health_service.check_all()
+        return jsonify(health_status), 200
+    except Exception as e:
+        logger.log_error(f"Error in API health check: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+
+@app.route('/api/settings/export', methods=['GET'])
+def export_settings():
+    """
+    Export all settings, channels, and preferences as JSON.
+    Returns as a downloadable file.
+    """
+    try:
+        user_id = int(request.args.get('user_id', 1))
+        
+        # Gather all settings
+        settings_data = {
+            'export_version': '1.0',
+            'export_timestamp': datetime.utcnow().isoformat(),
+            'user_settings': UserSettings.get(user_id),
+            'notification_channels': NotificationChannel.get_all(user_id),
+            'notification_preferences': NotificationPreference.get_all(user_id)
+        }
+        
+        # Remove sensitive data
+        for channel in settings_data['notification_channels']:
+            if 'api_key' in channel:
+                channel['api_key'] = '***REDACTED***'
+            if 'config_json' in channel:
+                try:
+                    config = json.loads(channel['config_json'])
+                    if 'smtp_password' in config:
+                        config['smtp_password'] = '***REDACTED***'
+                    if 'bot_token' in config:
+                        config['bot_token'] = '***REDACTED***'
+                    channel['config_json'] = json.dumps(config)
+                except:
+                    pass
+        
+        # Create response
+        filename = f"settings_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+        json_data = json.dumps(settings_data, indent=2)
+        
+        response = Response(json_data, mimetype='application/json')
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        return response
+        
+    except Exception as e:
+        logger.log_error(f"Error exporting settings: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/settings/import', methods=['POST'])
+def import_settings():
+    """
+    Import settings from JSON file.
+    Validates and applies the settings.
+    """
+    try:
+        # Get JSON data from request
+        if 'file' in request.files:
+            file = request.files['file']
+            data = json.loads(file.read().decode('utf-8'))
+        else:
+            data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Validate import version
+        if data.get('export_version') != '1.0':
+            return jsonify({'error': 'Unsupported export version'}), 400
+        
+        user_id = int(request.args.get('user_id', 1))
+        results = {
+            'user_settings': False,
+            'notification_channels': 0,
+            'notification_preferences': 0,
+            'errors': []
+        }
+        
+        # Import user settings
+        if 'user_settings' in data:
+            try:
+                settings = data['user_settings']
+                # Remove read-only fields
+                settings.pop('created_at', None)
+                settings.pop('updated_at', None)
+                UserSettings.update(user_id, settings)
+                results['user_settings'] = True
+            except Exception as e:
+                results['errors'].append(f"User settings: {str(e)}")
+        
+        # Import notification channels
+        if 'notification_channels' in data:
+            for channel in data['notification_channels']:
+                try:
+                    # Remove ID and timestamps
+                    channel.pop('id', None)
+                    channel.pop('created_at', None)
+                    channel.pop('updated_at', None)
+                    
+                    channel_type = channel.pop('channel_type')
+                    NotificationChannel.create_or_update(user_id, channel_type, channel)
+                    results['notification_channels'] += 1
+                except Exception as e:
+                    results['errors'].append(f"Channel {channel.get('channel_type', 'unknown')}: {str(e)}")
+        
+        # Import notification preferences
+        if 'notification_preferences' in data:
+            for pref in data['notification_preferences']:
+                try:
+                    # Remove ID and timestamps
+                    pref.pop('id', None)
+                    pref.pop('created_at', None)
+                    pref.pop('updated_at', None)
+                    
+                    notification_type = pref.pop('notification_type')
+                    channel_id = pref.pop('channel_id', None)
+                    NotificationPreference.create_or_update(user_id, notification_type, channel_id, pref)
+                    results['notification_preferences'] += 1
+                except Exception as e:
+                    results['errors'].append(f"Preference {pref.get('notification_type', 'unknown')}: {str(e)}")
+        
+        return jsonify({
+            'success': True,
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        logger.log_error(f"Error importing settings: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Check if config exists
     if not CONFIG_PATH.exists():

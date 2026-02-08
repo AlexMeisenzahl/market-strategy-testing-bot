@@ -374,10 +374,137 @@ class NotificationService:
         notification_type: str,
         data: Dict[str, Any]
     ) -> bool:
-        """Send notification via email."""
-        # Email sending not implemented - requires SMTP configuration
-        self.logger.info("Email notifications not yet implemented")
-        return False
+        """
+        Send notification via email with HTML formatting.
+        
+        Requires email configuration in channel config:
+        - smtp_server: SMTP server address
+        - smtp_port: SMTP port (usually 587 for TLS)
+        - smtp_username: SMTP username
+        - smtp_password: SMTP password/app password
+        - from_email: Sender email address
+        - to_email: Recipient email address
+        """
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        try:
+            # Get email config
+            config = channel.get('config', {})
+            smtp_server = config.get('smtp_server')
+            smtp_port = config.get('smtp_port', 587)
+            smtp_username = config.get('smtp_username')
+            smtp_password = config.get('smtp_password')
+            from_email = config.get('from_email', smtp_username)
+            to_email = channel.get('email_address') or config.get('to_email')
+            
+            if not all([smtp_server, smtp_username, smtp_password, to_email]):
+                self.logger.warning("Email configuration incomplete")
+                return False
+            
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = NotificationType.get_display_name(notification_type)
+            msg['From'] = from_email
+            msg['To'] = to_email
+            
+            # Generate HTML body
+            html_body = self._format_email_html(notification_type, data)
+            
+            # Attach HTML
+            html_part = MIMEText(html_body, 'html')
+            msg.attach(html_part)
+            
+            # Send email
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
+                server.starttls()
+                server.login(smtp_username, smtp_password)
+                server.send_message(msg)
+            
+            self.logger.debug(f"Email notification sent: {notification_type}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Email notification failed: {e}")
+            return False
+    
+    def _format_email_html(self, notification_type: str, data: Dict[str, Any]) -> str:
+        """
+        Format notification data as beautiful HTML email.
+        
+        Args:
+            notification_type: Type of notification
+            data: Notification data
+            
+        Returns:
+            HTML string
+        """
+        title = NotificationType.get_display_name(notification_type)
+        category = NotificationType.get_category(notification_type)
+        
+        # Choose color based on category
+        colors = {
+            NotificationCategory.OPPORTUNITIES: '#00FF00',
+            NotificationCategory.TRADES: '#0099FF',
+            NotificationCategory.PRICE_ALERTS: '#FFAA00',
+            NotificationCategory.SYSTEM: '#888888',
+            NotificationCategory.RISK: '#FF0000',
+            NotificationCategory.PERFORMANCE: '#9900FF',
+        }
+        color = colors.get(category, '#0099FF')
+        
+        # Build field rows
+        rows = []
+        if 'market' in data:
+            rows.append(f"<tr><td><strong>Market:</strong></td><td>{data['market']}</td></tr>")
+        if 'profit' in data:
+            rows.append(f"<tr><td><strong>Profit:</strong></td><td>${data['profit']:.2f}</td></tr>")
+        if 'confidence' in data:
+            conf = data['confidence'].replace('_', ' ').title()
+            rows.append(f"<tr><td><strong>Confidence:</strong></td><td>{conf}</td></tr>")
+        if 'strategy' in data:
+            rows.append(f"<tr><td><strong>Strategy:</strong></td><td>{data['strategy']}</td></tr>")
+        if 'arbitrage_type' in data:
+            rows.append(f"<tr><td><strong>Type:</strong></td><td>{data['arbitrage_type']}</td></tr>")
+        
+        message = data.get('message', '')
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 20px auto; padding: 20px; background: #f9f9f9; border-radius: 8px; }}
+                .header {{ background: {color}; color: white; padding: 15px; border-radius: 8px 8px 0 0; }}
+                .content {{ background: white; padding: 20px; border-radius: 0 0 8px 8px; }}
+                table {{ width: 100%; margin: 15px 0; }}
+                td {{ padding: 8px; }}
+                .message {{ background: #f0f0f0; padding: 15px; border-left: 4px solid {color}; margin: 15px 0; }}
+                .footer {{ text-align: center; color: #999; margin-top: 20px; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h2 style="margin: 0;">{title}</h2>
+                </div>
+                <div class="content">
+                    <table>
+                        {''.join(rows)}
+                    </table>
+                    {f'<div class="message">{message}</div>' if message else ''}
+                </div>
+                <div class="footer">
+                    Market Strategy Testing Bot • {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return html
     
     def _send_telegram(
         self,
@@ -385,10 +512,79 @@ class NotificationService:
         notification_type: str,
         data: Dict[str, Any]
     ) -> bool:
-        """Send notification to Telegram."""
-        # Telegram not implemented - requires bot token and chat ID
-        self.logger.info("Telegram notifications not yet implemented")
-        return False
+        """
+        Send notification to Telegram using Bot API.
+        
+        Requires configuration:
+        - bot_token: Telegram Bot API token
+        - chat_id: Chat ID to send messages to
+        """
+        try:
+            # Get Telegram config
+            config = channel.get('config', {})
+            bot_token = config.get('bot_token')
+            chat_id = config.get('chat_id')
+            
+            if not bot_token or not chat_id:
+                self.logger.warning("Telegram configuration incomplete")
+                return False
+            
+            # Format message with Markdown
+            message_text = self._format_telegram_text(notification_type, data)
+            
+            # Send via Telegram Bot API
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {
+                'chat_id': chat_id,
+                'text': message_text,
+                'parse_mode': 'Markdown'
+            }
+            
+            response = requests.post(url, json=payload, timeout=10)
+            response.raise_for_status()
+            
+            self.logger.debug(f"Telegram notification sent: {notification_type}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Telegram notification failed: {e}")
+            return False
+    
+    def _format_telegram_text(self, notification_type: str, data: Dict[str, Any]) -> str:
+        """
+        Format notification data as Telegram Markdown message.
+        
+        Args:
+            notification_type: Type of notification
+            data: Notification data
+            
+        Returns:
+            Markdown formatted string
+        """
+        title = NotificationType.get_display_name(notification_type)
+        
+        lines = [f"*{title}*", ""]
+        
+        if 'market' in data:
+            lines.append(f"📊 *Market:* {data['market']}")
+        if 'profit' in data:
+            lines.append(f"💰 *Profit:* ${data['profit']:.2f}")
+        if 'confidence' in data:
+            conf = data['confidence'].replace('_', ' ').title()
+            lines.append(f"🎯 *Confidence:* {conf}")
+        if 'strategy' in data:
+            lines.append(f"⚡ *Strategy:* {data['strategy']}")
+        if 'arbitrage_type' in data:
+            lines.append(f"🔄 *Type:* {data['arbitrage_type']}")
+        
+        if 'message' in data:
+            lines.append("")
+            lines.append(data['message'])
+        
+        lines.append("")
+        lines.append(f"_📅 {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC_")
+        
+        return "\n".join(lines)
     
     def _send_webhook(
         self,
