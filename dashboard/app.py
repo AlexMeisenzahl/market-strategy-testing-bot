@@ -1889,3 +1889,111 @@ if __name__ == '__main__':
         debug=debug_mode,
         use_reloader=debug_mode
     )
+
+
+# Production readiness endpoints
+
+@app.route('/metrics')
+def metrics_endpoint():
+    """Prometheus metrics endpoint"""
+    try:
+        # Import here to avoid circular dependency
+        from services.prometheus_metrics import metrics
+        from prometheus_client import CONTENT_TYPE_LATEST
+        
+        metrics_data = metrics.get_metrics()
+        return Response(metrics_data, mimetype=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        logger.log_error(f"Error generating metrics: {str(e)}")
+        return jsonify({'error': 'Failed to generate metrics'}), 500
+
+
+@app.route('/api/feature-flags')
+def get_feature_flags():
+    """Get all feature flags"""
+    try:
+        from services.feature_flags import feature_flags
+        return jsonify({
+            'feature_flags': feature_flags.get_all(),
+            'enabled_count': len(feature_flags.get_enabled()),
+            'disabled_count': len(feature_flags.get_disabled())
+        })
+    except Exception as e:
+        logger.log_error(f"Error getting feature flags: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/feature-flags/<flag>', methods=['POST'])
+def toggle_feature_flag(flag):
+    """Toggle a feature flag"""
+    try:
+        from services.feature_flags import feature_flags
+        from services.audit_logger import audit_logger
+        
+        action = request.json.get('action', 'toggle')
+        
+        if action == 'enable':
+            success = feature_flags.enable(flag)
+        elif action == 'disable':
+            success = feature_flags.disable(flag)
+        else:
+            return jsonify({'error': 'Invalid action'}), 400
+        
+        if success:
+            # Log audit entry
+            audit_logger.log_settings_change(
+                user_id='system',
+                setting_name=f'feature_flag_{flag}',
+                old_value=not feature_flags.is_enabled(flag),
+                new_value=feature_flags.is_enabled(flag),
+                ip_address=request.remote_addr
+            )
+            
+            return jsonify({
+                'success': True,
+                'flag': flag,
+                'enabled': feature_flags.is_enabled(flag)
+            })
+        else:
+            return jsonify({'error': 'Failed to toggle flag'}), 400
+            
+    except Exception as e:
+        logger.log_error(f"Error toggling feature flag: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/positions')
+def get_positions():
+    """Get all positions"""
+    try:
+        from services.position_tracker import position_tracker
+        
+        status_filter = request.args.get('status', 'all')
+        
+        if status_filter == 'open':
+            positions = position_tracker.get_open_positions()
+        elif status_filter == 'closed':
+            positions = position_tracker.get_closed_positions()
+        else:
+            positions = position_tracker.get_all_positions()
+        
+        return jsonify({
+            'positions': [p.to_dict() for p in positions],
+            'count': len(positions),
+            'stats': position_tracker.get_position_stats()
+        })
+    except Exception as e:
+        logger.log_error(f"Error getting positions: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/portfolio')
+def get_portfolio():
+    """Get portfolio information"""
+    try:
+        from services.portfolio_manager import portfolio_manager
+        
+        return jsonify(portfolio_manager.export_to_dict())
+    except Exception as e:
+        logger.log_error(f"Error getting portfolio: {str(e)}")
+        return jsonify({'error': str(e)}), 500

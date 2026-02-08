@@ -26,6 +26,13 @@ from paper_trader import PaperTrader
 from logger import get_logger
 from notifier import Notifier
 
+# Import new production services
+from services.prometheus_metrics import metrics
+from services.sentry_integration import sentry
+from services.feature_flags import feature_flags
+from services.position_tracker import position_tracker
+from services.portfolio_manager import portfolio_manager
+
 
 class ArbitrageBot:
     """Main arbitrage bot with real-time dashboard"""
@@ -40,6 +47,11 @@ class ArbitrageBot:
         self.console = Console()
         self.config = self._load_config(config_path)
         self.logger = get_logger()
+        
+        # Initialize Sentry for error tracking
+        if feature_flags.is_enabled('sentry_error_tracking'):
+            sentry.set_tag('component', 'bot')
+            sentry.add_breadcrumb('Bot initialization started', category='lifecycle')
         
         # Initialize components
         self.monitor = PolymarketMonitor(self.config)
@@ -58,9 +70,15 @@ class ArbitrageBot:
         self.activities = []
         self.alerts = []
         
+        # Set bot status in metrics
+        if feature_flags.is_enabled('prometheus_metrics'):
+            metrics.set_bot_status(True)
+        
         # Verify paper trading is enabled
         if not self.config.get('paper_trading', True):
             self.logger.log_critical("CRITICAL: Paper trading is disabled!")
+            if feature_flags.is_enabled('sentry_error_tracking'):
+                sentry.capture_message("Paper trading is disabled!", level='critical')
             raise ValueError("Paper trading must be enabled!")
     
     def _load_config(self, config_path: str) -> Dict[str, Any]:
@@ -238,10 +256,18 @@ class ArbitrageBot:
     def scan_markets(self) -> None:
         """Scan markets for arbitrage opportunities"""
         try:
+            # Track scan in Sentry
+            if feature_flags.is_enabled('sentry_error_tracking'):
+                transaction = sentry.start_transaction(name='market_scan', op='scan')
+            
             # Check connection health periodically
             if (datetime.now() - self.last_connection_check).total_seconds() > self.config.get('connection_check_interval', 10):
                 is_healthy = self.monitor.check_connection_health()
                 self.last_connection_check = datetime.now()
+                
+                # Update metrics
+                if feature_flags.is_enabled('prometheus_metrics'):
+                    metrics.update_connection_status('polymarket', is_healthy)
                 
                 if not is_healthy and self.config.get('auto_pause_on_connection_loss', True):
                     self.paused = True
@@ -255,7 +281,15 @@ class ArbitrageBot:
             prices_dict = {}
             for market in markets_to_scan:
                 market_id = market['id']
+                
+                # Record API call metrics
+                start_time = time.time()
                 prices = self.monitor.get_market_prices(market_id)
+                duration = time.time() - start_time
+                
+                if feature_flags.is_enabled('prometheus_metrics'):
+                    metrics.record_api_call('polymarket', 'get_prices', duration)
+                
                 if prices:
                     prices_dict[market_id] = prices
             
@@ -276,6 +310,10 @@ class ArbitrageBot:
                         # Get profit margin - handle both dict and object
                         profit_margin = opp.get('profit_margin', 0)
                         strategy_name = opp.get('strategy', 'Unknown')
+                        
+                        # Record opportunity in metrics
+                        if feature_flags.is_enabled('prometheus_metrics'):
+                            metrics.record_opportunity(strategy_name)
                         
                         # Opportunity found
                         self.add_activity(
@@ -302,23 +340,57 @@ class ArbitrageBot:
                                 )
                                 trade = self.trader.execute_paper_trade(opp_obj)
                                 if trade:
+                                    # Record trade in metrics
+                                    if feature_flags.is_enabled('prometheus_metrics'):
+                                        metrics.record_trade(strategy_name)
+                                        metrics.update_profit(self.trader.get_statistics()['total_profit'])
+                                        metrics.update_trades_count(self.trader.get_statistics()['trades_executed'])
+                                    
+                                    # Track in position tracker
+                                    position_tracker.open_position(
+                                        market_id=opp['market_id'],
+                                        market_name=opp['market_name'],
+                                        side='both',
+                                        entry_price_yes=opp['yes_price'],
+                                        entry_price_no=opp['no_price'],
+                                        size=self.config['max_trade_size'],
+                                        strategy=strategy_name,
+                                        expected_profit=trade.expected_profit
+                                    )
+                                    
                                     self.add_activity(
                                         f"           [PAPER] Bought ${self.config['max_trade_size']:.0f} YES + "
                                         f"${self.config['max_trade_size']:.0f} NO\n"
                                         f"           Expected profit: ${trade.expected_profit:.2f}"
                                     )
-                                    f"${self.config['max_trade_size']:.0f} NO\n"
-                                    f"           Expected profit: ${trade.expected_profit:.2f}"
-                                )
                     else:
                         # No opportunity
                         self.add_activity(f"✓ Scanned: {market['question']} (no opportunity)")
             
             self.last_update = datetime.now()
             
+            # Update last scan time
+            if feature_flags.is_enabled('prometheus_metrics'):
+                metrics.update_last_scan()
+            
+            # Complete Sentry transaction
+            if feature_flags.is_enabled('sentry_error_tracking') and transaction:
+                transaction.finish()
+            
         except Exception as e:
             self.logger.log_error(f"Error scanning markets: {str(e)}")
             self.add_alert(f"🚨 Error: {str(e)}")
+            
+            # Record error in metrics and Sentry
+            if feature_flags.is_enabled('prometheus_metrics'):
+                metrics.record_error('scan_error')
+            
+            if feature_flags.is_enabled('sentry_error_tracking'):
+                sentry.capture_exception(e, context={
+                    'scan': {
+                        'markets_count': len(markets_to_scan) if 'markets_to_scan' in locals() else 0
+                    }
+                })
     
     def _get_demo_markets(self) -> list:
         """Get demo markets for paper trading"""
