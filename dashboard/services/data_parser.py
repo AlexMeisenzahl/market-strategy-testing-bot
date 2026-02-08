@@ -591,3 +591,105 @@ class DataParser:
             'labels': [d.isoformat() for d in sorted_dates],
             'data': cumulative
         }
+    
+    def get_trades_by_strategy(self, strategy_name: str) -> List[Dict[str, Any]]:
+        """
+        Get all trades for a specific strategy
+        
+        Args:
+            strategy_name: Name of the strategy to filter by
+            
+        Returns:
+            List of trade dictionaries for the strategy
+        """
+        all_trades = self.get_all_trades()
+        return [t for t in all_trades if t.get('strategy', 'Unknown') == strategy_name]
+    
+    def get_all_strategy_names(self) -> List[str]:
+        """
+        Get list of all strategy names that have trades
+        
+        Returns:
+            List of unique strategy names
+        """
+        all_trades = self.get_all_trades()
+        all_opportunities = self.get_all_opportunities()
+        
+        strategies = set()
+        
+        # Collect from trades
+        for trade in all_trades:
+            strategy = trade.get('strategy', 'Unknown')
+            if strategy:
+                strategies.add(strategy)
+        
+        # Collect from opportunities
+        for opp in all_opportunities:
+            strategy = opp.get('strategy', 'Unknown')
+            if strategy:
+                strategies.add(strategy)
+        
+        return sorted(list(strategies))
+    
+    def get_strategy_performance(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get performance metrics for each strategy
+        
+        Returns:
+            Dictionary mapping strategy name to performance metrics using Decimal precision
+        """
+        all_trades = self.get_all_trades()
+        all_opportunities = self.get_all_opportunities()
+        
+        # Group trades by strategy
+        strategy_trades = defaultdict(list)
+        for trade in all_trades:
+            strategy = trade.get('strategy', 'Unknown')
+            strategy_trades[strategy].append(trade)
+        
+        # Count opportunities by strategy
+        strategy_opportunities = defaultdict(int)
+        for opp in all_opportunities:
+            strategy = opp.get('strategy', 'Unknown')
+            strategy_opportunities[strategy] += 1
+        
+        # Calculate metrics for each strategy
+        performance = {}
+        
+        for strategy, trades in strategy_trades.items():
+            if not trades:
+                continue
+            
+            # Calculate metrics using Decimal for precision
+            total_pnl = Decimal('0')
+            wins = 0
+            losses = 0
+            
+            for trade in trades:
+                pnl = Decimal(str(trade.get('pnl_usd', 0)))
+                total_pnl += pnl
+                
+                if pnl > 0:
+                    wins += 1
+                elif pnl < 0:
+                    losses += 1
+            
+            total_trades = len(trades)
+            opportunities = strategy_opportunities.get(strategy, 0)
+            
+            # Calculate win rate
+            win_rate = Decimal('0')
+            if total_trades > 0:
+                win_rate = (Decimal(str(wins)) / Decimal(str(total_trades))) * Decimal('100')
+            
+            performance[strategy] = {
+                'strategy': strategy,
+                'opportunities_found': opportunities,
+                'trades_executed': total_trades,
+                'wins': wins,
+                'losses': losses,
+                'win_rate': float(win_rate.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)),
+                'total_pnl': float(total_pnl.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+            }
+        
+        return performance

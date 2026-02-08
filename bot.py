@@ -21,7 +21,7 @@ from rich.text import Text
 from rich import box
 
 from monitor import PolymarketMonitor
-from detector import ArbitrageDetector
+from strategies.strategy_manager import StrategyManager
 from paper_trader import PaperTrader
 from logger import get_logger
 from notifier import Notifier
@@ -43,7 +43,7 @@ class ArbitrageBot:
         
         # Initialize components
         self.monitor = PolymarketMonitor(self.config)
-        self.detector = ArbitrageDetector(self.config)
+        self.strategy_manager = StrategyManager(self.config)
         self.trader = PaperTrader(self.config)
         self.notifier = Notifier(self.config)
         
@@ -165,13 +165,24 @@ class ArbitrageBot:
         
         # Trading activity
         trade_stats = self.trader.get_statistics()
-        detect_stats = self.detector.get_statistics()
+        
+        # Get strategy manager statistics
+        strategy_stats = {'opportunities_found': 0}
+        try:
+            all_strategy_stats = self.strategy_manager.get_strategy_statistics()
+            # Sum opportunities from all strategies
+            strategy_stats['opportunities_found'] = sum(
+                s.get('opportunities_found', 0) 
+                for s in all_strategy_stats.values()
+            )
+        except Exception:
+            pass
         
         trade_table = Table(show_header=False, box=None, padding=(0, 2))
         trade_table.add_column("Label", style="cyan")
         trade_table.add_column("Value")
         
-        trade_table.add_row("Opportunities Found:", str(detect_stats['opportunities_found']))
+        trade_table.add_row("Opportunities Found:", str(strategy_stats['opportunities_found']))
         trade_table.add_row("Paper Trades Executed:", str(trade_stats['trades_executed']))
         
         profit_text = f"+${trade_stats['total_profit']:.2f} ({trade_stats['return_percentage']:.1f}% return)" if trade_stats['total_profit'] > 0 else "$0.00 (0% return)"
@@ -249,7 +260,7 @@ class ArbitrageBot:
                     prices_dict[market_id] = prices
             
             # Find arbitrage opportunities
-            opportunities = self.detector.find_arbitrage_opportunities(markets_to_scan, prices_dict)
+            opportunities = self.strategy_manager.find_opportunities(markets_to_scan, prices_dict)
             
             # Log scanned markets
             for market in markets_to_scan:
@@ -259,24 +270,43 @@ class ArbitrageBot:
                     price_sum = prices['yes'] + prices['no']
                     
                     # Check if opportunity exists
-                    opp = next((o for o in opportunities if o.market_id == market_id), None)
+                    opp = next((o for o in opportunities if o.get('market_id') == market_id), None)
                     
                     if opp:
+                        # Get profit margin - handle both dict and object
+                        profit_margin = opp.get('profit_margin', 0)
+                        strategy_name = opp.get('strategy', 'Unknown')
+                        
                         # Opportunity found
                         self.add_activity(
-                            f"⚠️ OPPORTUNITY: {market['question']}\n"
+                            f"⚠️ [{strategy_name}] OPPORTUNITY: {market['question']}\n"
                             f"           YES: ${prices['yes']:.2f}  NO: ${prices['no']:.2f}  "
-                            f"SUM: ${price_sum:.2f} ({opp.profit_margin:.1f}% profit)"
+                            f"SUM: ${price_sum:.2f} ({profit_margin:.1f}% profit)"
                         )
                         
                         # Add alert for opportunity
                         if self.config.get("alert_on_opportunities", True):
-                            self.add_alert(f"💰 {market['question'][:40]}... ({opp.profit_margin:.1f}% profit)")
-                            self.notifier.alert_opportunity_found(market['question'], opp.profit_margin)
-                            trade = self.trader.execute_paper_trade(opp)
-                            if trade:
-                                self.add_activity(
-                                    f"           [PAPER] Bought ${self.config['max_trade_size']:.0f} YES + "
+                            self.add_alert(f"💰 {market['question'][:40]}... ({profit_margin:.1f}% profit)")
+                            self.notifier.alert_opportunity_found(market['question'], profit_margin)
+                            
+                            # Convert dict opportunity back to object for paper trader
+                            # For now, we'll skip trading for non-arbitrage opportunities
+                            if opp.get('opportunity_type') == 'arbitrage':
+                                # Import here to avoid circular dependency
+                                from detector import ArbitrageOpportunity
+                                opp_obj = ArbitrageOpportunity(
+                                    market_id=opp['market_id'],
+                                    market_name=opp['market_name'],
+                                    yes_price=opp['yes_price'],
+                                    no_price=opp['no_price']
+                                )
+                                trade = self.trader.execute_paper_trade(opp_obj)
+                                if trade:
+                                    self.add_activity(
+                                        f"           [PAPER] Bought ${self.config['max_trade_size']:.0f} YES + "
+                                        f"${self.config['max_trade_size']:.0f} NO\n"
+                                        f"           Expected profit: ${trade.expected_profit:.2f}"
+                                    )
                                     f"${self.config['max_trade_size']:.0f} NO\n"
                                     f"           Expected profit: ${trade.expected_profit:.2f}"
                                 )
@@ -394,6 +424,12 @@ class ArbitrageBot:
         self.console.clear()
         self.console.print("[bold cyan]Starting Polymarket Arbitrage Bot...[/bold cyan]")
         self.console.print("[yellow]Paper Trading Mode - NO REAL MONEY[/yellow]")
+        
+        # Log enabled strategies
+        enabled_strategies = self.strategy_manager.get_enabled_strategies()
+        if enabled_strategies:
+            self.console.print(f"[green]Enabled strategies: {', '.join(enabled_strategies)}[/green]")
+        
         time.sleep(2)
         
         layout = self.create_dashboard()

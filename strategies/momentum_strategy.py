@@ -146,6 +146,8 @@ class MomentumOpportunity:
             'price_change_15m': self.price_change_15m,
             'volume_change': self.volume_change,
             'opportunity_type': self.opportunity_type,
+            'strategy': 'crypto_momentum',
+            'arbitrage_type': 'N/A',
             'detected_at': self.detected_at.isoformat()
         }
 
@@ -179,7 +181,7 @@ class MomentumStrategy:
         """
         self.config = config
         self.logger = get_logger()
-        self.strategy_name = "momentum"
+        self.strategy_name = "crypto_momentum"
         
         # Strategy parameters
         self.min_price_change_5m = config.get('momentum_min_price_change_5m', 2.0)  # 2%
@@ -593,3 +595,12 @@ class MomentumStrategy:
         self.opportunities_taken = 0
         self.total_profit = 0.0
         self.total_loss = 0.0
+    
+    def get_name(self) -> str:
+        """
+        Get strategy name
+        
+        Returns:
+            Strategy name string
+        """
+        return self.strategy_name

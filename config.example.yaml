@@ -247,3 +247,64 @@ dashboard:
   # Pagination settings
   trades_per_page: 25
   opportunities_per_page: 50
+
+# ============================================================================
+# STRATEGIES CONFIGURATION
+# ============================================================================
+
+strategies:
+  # Polymarket Arbitrage Strategy
+  polymarket_arbitrage:
+    enabled: true
+    min_profit_margin: 2.0  # Minimum profit margin percentage
+    arbitrage_types:
+      simple:
+        enabled: true
+      cross_exchange:
+        enabled: true
+        min_similarity_score: 0.85
+      correlated_markets:
+        enabled: true
+      time_based:
+        enabled: true
+      event_driven:
+        enabled: true
+  
+  # Crypto Momentum Strategy
+  crypto_momentum:
+    enabled: false
+    symbols: [BTC, ETH, SOL, XRP]
+    min_price_change_5m: 2.0
+    min_volume_change: 50.0
+    min_score: 70.0
+  
+  # Crypto News Strategy
+  crypto_news:
+    enabled: false
+    volume_spike_threshold: 300.0
+    min_price_movement: 5.0
+    min_confidence: 70.0
+  
+  # Crypto Statistical Arbitrage Strategy
+  crypto_statistical_arb:
+    enabled: false
+    min_correlation: 0.7
+    z_score_threshold: 2.0
+    max_holding_time: 3600
+
+# ============================================================================
+# EXCHANGES CONFIGURATION
+# ============================================================================
+
+exchanges:
+  polymarket:
+    enabled: true
+  
+  predictit:
+    enabled: false
+  
+  kalshi:
+    enabled: false
+    api_key: "${KALSHI_API_KEY}"
+    base_url: "https://trading-api.kalshi.com/trade-api/v2"
+

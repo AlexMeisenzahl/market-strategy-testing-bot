@@ -42,8 +42,11 @@ class Logger:
                 writer = csv.writer(f)
                 writer.writerow([
                     'timestamp', 'market', 'yes_price', 'no_price', 
-                    'sum', 'profit_pct', 'profit_usd', 'status'
+                    'sum', 'profit_pct', 'profit_usd', 'status', 'strategy', 'arbitrage_type'
                 ])
+        else:
+            # Check if file needs migration (add new columns if missing)
+            self._migrate_trades_csv(trades_file)
         
         # Initialize opportunities.csv
         opportunities_file = self.log_dir / "opportunities.csv"
@@ -52,11 +55,83 @@ class Logger:
                 writer = csv.writer(f)
                 writer.writerow([
                     'timestamp', 'market', 'yes_price', 'no_price',
-                    'sum', 'profit_pct', 'action_taken'
+                    'sum', 'profit_pct', 'action_taken', 'strategy', 'arbitrage_type'
                 ])
+        else:
+            # Check if file needs migration
+            self._migrate_opportunities_csv(opportunities_file)
+    
+    def _migrate_trades_csv(self, trades_file: Path) -> None:
+        """Add strategy and arbitrage_type columns to existing trades.csv"""
+        try:
+            # Read existing data
+            with open(trades_file, 'r', newline='') as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+                fieldnames = reader.fieldnames or []
+            
+            # Check if migration needed
+            if 'strategy' in fieldnames and 'arbitrage_type' in fieldnames:
+                return  # Already migrated
+            
+            # Add new columns with default values
+            new_fieldnames = list(fieldnames)
+            if 'strategy' not in new_fieldnames:
+                new_fieldnames.append('strategy')
+            if 'arbitrage_type' not in new_fieldnames:
+                new_fieldnames.append('arbitrage_type')
+            
+            # Rewrite file with new columns
+            with open(trades_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=new_fieldnames)
+                writer.writeheader()
+                for row in rows:
+                    if 'strategy' not in row:
+                        row['strategy'] = 'Unknown'
+                    if 'arbitrage_type' not in row:
+                        row['arbitrage_type'] = 'Unknown'
+                    writer.writerow(row)
+        except Exception as e:
+            # If migration fails, just log it and continue
+            print(f"Warning: Could not migrate trades.csv: {e}")
+    
+    def _migrate_opportunities_csv(self, opportunities_file: Path) -> None:
+        """Add strategy and arbitrage_type columns to existing opportunities.csv"""
+        try:
+            # Read existing data
+            with open(opportunities_file, 'r', newline='') as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+                fieldnames = reader.fieldnames or []
+            
+            # Check if migration needed
+            if 'strategy' in fieldnames and 'arbitrage_type' in fieldnames:
+                return  # Already migrated
+            
+            # Add new columns with default values
+            new_fieldnames = list(fieldnames)
+            if 'strategy' not in new_fieldnames:
+                new_fieldnames.append('strategy')
+            if 'arbitrage_type' not in new_fieldnames:
+                new_fieldnames.append('arbitrage_type')
+            
+            # Rewrite file with new columns
+            with open(opportunities_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=new_fieldnames)
+                writer.writeheader()
+                for row in rows:
+                    if 'strategy' not in row:
+                        row['strategy'] = 'Unknown'
+                    if 'arbitrage_type' not in row:
+                        row['arbitrage_type'] = 'Unknown'
+                    writer.writerow(row)
+        except Exception as e:
+            # If migration fails, just log it and continue
+            print(f"Warning: Could not migrate opportunities.csv: {e}")
     
     def log_trade(self, market: str, yes_price: float, no_price: float, 
-                  profit_usd: float, status: str = "executed") -> None:
+                  profit_usd: float, status: str = "executed",
+                  strategy: str = "Unknown", arbitrage_type: str = "Unknown") -> None:
         """
         Log a paper trade execution
         
@@ -66,6 +141,8 @@ class Logger:
             no_price: NO contract price
             profit_usd: Expected profit in USD
             status: Trade status (executed, failed, etc.)
+            strategy: Strategy name (e.g., 'polymarket_arbitrage')
+            arbitrage_type: Type of arbitrage (e.g., 'Simple', 'Cross-Exchange')
         """
         trades_file = self.log_dir / "trades.csv"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -76,11 +153,13 @@ class Logger:
             writer = csv.writer(f)
             writer.writerow([
                 timestamp, market, f"{yes_price:.3f}", f"{no_price:.3f}",
-                f"{price_sum:.3f}", f"{profit_pct:.1f}", f"{profit_usd:.2f}", status
+                f"{price_sum:.3f}", f"{profit_pct:.1f}", f"{profit_usd:.2f}", 
+                status, strategy, arbitrage_type
             ])
     
     def log_opportunity(self, market: str, yes_price: float, no_price: float,
-                       action_taken: str) -> None:
+                       action_taken: str, strategy: str = "Unknown", 
+                       arbitrage_type: str = "Unknown") -> None:
         """
         Log an arbitrage opportunity (traded or skipped)
         
@@ -89,6 +168,8 @@ class Logger:
             yes_price: YES contract price
             no_price: NO contract price
             action_taken: What action was taken (traded, skipped_low_profit, etc.)
+            strategy: Strategy name (e.g., 'polymarket_arbitrage')
+            arbitrage_type: Type of arbitrage (e.g., 'Simple', 'Cross-Exchange')
         """
         opportunities_file = self.log_dir / "opportunities.csv"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -99,7 +180,7 @@ class Logger:
             writer = csv.writer(f)
             writer.writerow([
                 timestamp, market, f"{yes_price:.3f}", f"{no_price:.3f}",
-                f"{price_sum:.3f}", f"{profit_pct:.1f}", action_taken
+                f"{price_sum:.3f}", f"{profit_pct:.1f}", action_taken, strategy, arbitrage_type
             ])
     
     def log_error(self, message: str, level: str = "ERROR") -> None:

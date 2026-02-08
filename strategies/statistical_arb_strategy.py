@@ -159,6 +159,8 @@ class StatisticalArbOpportunity:
             'price_1': self.price_1,
             'price_2': self.price_2,
             'opportunity_type': self.opportunity_type,
+            'strategy': 'crypto_statistical_arb',
+            'arbitrage_type': 'N/A',
             'detected_at': self.detected_at.isoformat()
         }
 
@@ -198,7 +200,7 @@ class StatisticalArbStrategy:
         """
         self.config = config
         self.logger = get_logger()
-        self.strategy_name = "statistical_arb"
+        self.strategy_name = "crypto_statistical_arb"
         
         # Strategy parameters
         self.min_correlation = config.get('stat_arb_min_correlation', 0.7)
@@ -663,3 +665,12 @@ class StatisticalArbStrategy:
         self.opportunities_taken = 0
         self.total_profit = 0.0
         self.total_loss = 0.0
+    
+    def get_name(self) -> str:
+        """
+        Get strategy name
+        
+        Returns:
+            Strategy name string
+        """
+        return self.strategy_name

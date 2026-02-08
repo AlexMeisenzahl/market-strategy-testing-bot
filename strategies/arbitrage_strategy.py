@@ -14,7 +14,7 @@ class ArbitrageOpportunity:
     """Represents a single arbitrage opportunity"""
     
     def __init__(self, market_id: str, market_name: str, 
-                 yes_price: float, no_price: float):
+                 yes_price: float, no_price: float, arbitrage_type: str = "Simple"):
         """
         Initialize arbitrage opportunity
         
@@ -23,6 +23,7 @@ class ArbitrageOpportunity:
             market_name: Human-readable market name
             yes_price: Price of YES contract
             no_price: Price of NO contract
+            arbitrage_type: Type of arbitrage (Simple, Cross-Exchange, etc.)
         """
         self.market_id = market_id
         self.market_name = market_name
@@ -31,6 +32,7 @@ class ArbitrageOpportunity:
         self.price_sum = yes_price + no_price
         self.detected_at = datetime.now()
         self.opportunity_type = "arbitrage"
+        self.arbitrage_type = arbitrage_type
     
     @property
     def profit_margin(self) -> float:
@@ -67,6 +69,7 @@ class ArbitrageOpportunity:
             'price_sum': self.price_sum,
             'profit_margin': self.profit_margin,
             'opportunity_type': self.opportunity_type,
+            'arbitrage_type': self.arbitrage_type,
             'detected_at': self.detected_at.isoformat()
         }
 
@@ -89,12 +92,15 @@ class ArbitrageStrategy:
         """
         self.config = config
         self.logger = get_logger()
-        self.strategy_name = "arbitrage"
+        self.strategy_name = "polymarket_arbitrage"
         
         # Strategy parameters
         self.min_profit_margin = config.get('min_profit_margin', 0.02)  # 2%
         self.max_trade_size = config.get('max_trade_size', 10)
         self.max_price_sum = config.get('max_price_sum', 0.98)  # Only consider if sum < 0.98
+        
+        # Arbitrage types configuration
+        self.arbitrage_types_config = config.get('arbitrage_types', {})
         
         # Statistics tracking
         self.opportunities_found = 0
@@ -148,7 +154,9 @@ class ArbitrageStrategy:
                 market=market_name,
                 yes_price=yes_price,
                 no_price=no_price,
-                action_taken=f"{self.strategy_name}_detected"
+                action_taken=f"{self.strategy_name}_detected",
+                strategy=self.strategy_name,
+                arbitrage_type=getattr(opportunity, 'arbitrage_type', 'Simple')
             )
             
             return opportunity
@@ -285,7 +293,9 @@ class ArbitrageStrategy:
             yes_price=opportunity.yes_price,
             no_price=opportunity.no_price,
             profit_usd=expected_profit,
-            status=f"{self.strategy_name}_entered"
+            status=f"{self.strategy_name}_entered",
+            strategy=self.strategy_name,
+            arbitrage_type=getattr(opportunity, 'arbitrage_type', 'Simple')
         )
         
         return position
@@ -325,7 +335,9 @@ class ArbitrageStrategy:
             yes_price=exit_prices['yes'],
             no_price=exit_prices['no'],
             profit_usd=actual_profit,
-            status=f"{self.strategy_name}_exited_{reason}"
+            status=f"{self.strategy_name}_exited_{reason}",
+            strategy=self.strategy_name,
+            arbitrage_type='Simple'  # Default for now
         )
         
         # Create exit record
@@ -412,3 +424,169 @@ class ArbitrageStrategy:
         self.opportunities_taken = 0
         self.total_expected_profit = 0.0
         self.total_actual_profit = 0.0
+    
+    def get_name(self) -> str:
+        """
+        Get strategy name
+        
+        Returns:
+            Strategy name string
+        """
+        return self.strategy_name
+    
+    def _detect_arbitrage_type(self, market_data: Dict[str, Any], 
+                                yes_price: float, no_price: float) -> str:
+        """
+        Detect the type of arbitrage opportunity
+        
+        Args:
+            market_data: Market information
+            yes_price: YES price
+            no_price: NO price
+            
+        Returns:
+            Arbitrage type string
+        """
+        # Type 1: Simple Arbitrage - YES + NO < 1.0
+        if yes_price + no_price < 1.0:
+            return "Simple"
+        
+        # For now, other types require additional data not yet available
+        # They will be implemented as we add exchange integration
+        return "Simple"
+    
+    def detect_correlated_markets_arbitrage(self, markets: List[Dict[str, Any]],
+                                           prices_dict: Dict[str, Dict[str, float]]) -> List[ArbitrageOpportunity]:
+        """
+        Type 3: Detect correlated markets arbitrage
+        
+        Detects logical impossibilities like:
+        - "BTC > 100k" priced higher than "BTC > 95k"
+        
+        Args:
+            markets: List of market information
+            prices_dict: Dictionary mapping market_id to price data
+            
+        Returns:
+            List of correlated markets arbitrage opportunities
+        """
+        opportunities = []
+        
+        # Look for related markets (simplified implementation)
+        # In production, would use more sophisticated matching
+        market_pairs = []
+        for i, market1 in enumerate(markets):
+            for market2 in markets[i+1:]:
+                # Check if markets are related (e.g., same asset, different thresholds)
+                if self._markets_are_related(market1, market2):
+                    market_pairs.append((market1, market2))
+        
+        # Check each pair for logical inconsistencies
+        for market1, market2 in market_pairs:
+            market_id_1 = market1.get('id', '')
+            market_id_2 = market2.get('id', '')
+            
+            prices_1 = prices_dict.get(market_id_1, {})
+            prices_2 = prices_dict.get(market_id_2, {})
+            
+            if not prices_1 or not prices_2:
+                continue
+            
+            # Example: If "BTC > 100k" has higher YES price than "BTC > 95k", there's an opportunity
+            # This is a simplified check - production would need more sophisticated logic
+            yes_1 = prices_1.get('yes', 0)
+            yes_2 = prices_2.get('yes', 0)
+            
+            # Check if there's a logical inconsistency
+            if self._is_correlated_inconsistency(market1, market2, yes_1, yes_2):
+                # Create opportunity (simplified - would need more complex structure)
+                opportunity = ArbitrageOpportunity(
+                    market_id=f"{market_id_1}_{market_id_2}",
+                    market_name=f"Correlated: {market1.get('question', '')} vs {market2.get('question', '')}",
+                    yes_price=yes_1,
+                    no_price=1 - yes_1,
+                    arbitrage_type="Correlated Markets"
+                )
+                opportunities.append(opportunity)
+        
+        return opportunities
+    
+    def _markets_are_related(self, market1: Dict[str, Any], market2: Dict[str, Any]) -> bool:
+        """Check if two markets are related (same asset, different thresholds)"""
+        # Simplified: Check if they share keywords
+        q1 = market1.get('question', '').lower()
+        q2 = market2.get('question', '').lower()
+        
+        # Check for common assets
+        assets = ['btc', 'eth', 'sol', 'bitcoin', 'ethereum', 'solana']
+        for asset in assets:
+            if asset in q1 and asset in q2:
+                return True
+        
+        return False
+    
+    def _is_correlated_inconsistency(self, market1: Dict[str, Any], market2: Dict[str, Any],
+                                     price1: float, price2: float) -> bool:
+        """Check if there's a logical inconsistency in correlated markets"""
+        # Simplified implementation
+        # In production, would parse thresholds and check logical consistency
+        
+        # Example: Extract numbers from market questions
+        import re
+        
+        q1 = market1.get('question', '')
+        q2 = market2.get('question', '')
+        
+        # Find numbers in questions
+        nums1 = re.findall(r'\d+', q1)
+        nums2 = re.findall(r'\d+', q2)
+        
+        if not nums1 or not nums2:
+            return False
+        
+        # Simple check: if first market has higher threshold but higher probability
+        # This is a placeholder - real implementation would need more context
+        try:
+            threshold1 = float(nums1[0])
+            threshold2 = float(nums2[0])
+            
+            # If threshold1 > threshold2 but price1 > price2, that's inconsistent
+            if threshold1 > threshold2 and price1 > price2:
+                # Require significant difference to avoid noise
+                if price1 - price2 > 0.05:  # 5% difference
+                    return True
+        except (ValueError, IndexError):
+            pass
+        
+        return False
+    
+    def detect_time_based_arbitrage(self, markets: List[Dict[str, Any]],
+                                   prices_dict: Dict[str, Dict[str, float]]) -> List[ArbitrageOpportunity]:
+        """
+        Type 4: Detect time-based arbitrage
+        
+        Detects when shorter timeframe has higher probability than longer timeframe
+        
+        Args:
+            markets: List of market information
+            prices_dict: Dictionary mapping market_id to price data
+            
+        Returns:
+            List of time-based arbitrage opportunities
+        """
+        opportunities = []
+        
+        # Group markets by similar questions with different timeframes
+        # Simplified implementation - production would use date parsing
+        
+        for market in markets:
+            question = market.get('question', '').lower()
+            
+            # Look for time-related keywords
+            if 'by' in question or 'before' in question or '2024' in question or '2025' in question:
+                # This is a placeholder - real implementation would match related markets
+                # and check if near-term has higher probability than long-term
+                pass
+        
+        # For now, return empty list - full implementation requires date parsing
+        return opportunities
