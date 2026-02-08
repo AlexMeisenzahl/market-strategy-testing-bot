@@ -1,0 +1,266 @@
+/**
+ * Theme System - Dark and Light Themes
+ * 
+ * Provides CSS variables for dark and light themes.
+ * Switch themes by setting data-theme="dark" or data-theme="light" on <html> element.
+ */
+
+/* Dark Theme (Default) */
+:root,
+html[data-theme="dark"] {
+    /* Background colors */
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-tertiary: #0f3460;
+    --bg-hover: #1f4068;
+    --bg-card: #16213e;
+    
+    /* Text colors */
+    --text-primary: #ffffff;
+    --text-secondary: #b8b8b8;
+    --text-muted: #888888;
+    --text-inverse: #000000;
+    
+    /* Accent and brand colors */
+    --accent-color: #00d4ff;
+    --accent-hover: #00b8e6;
+    --brand-color: #00d4ff;
+    
+    /* Status colors */
+    --success-color: #4caf50;
+    --success-light: #66bb6a;
+    --warning-color: #ff9800;
+    --warning-light: #ffb74d;
+    --error-color: #f44336;
+    --error-light: #ef5350;
+    --info-color: #2196f3;
+    --info-light: #42a5f5;
+    
+    /* Border and divider colors */
+    --border-color: #2d3748;
+    --divider-color: #374151;
+    
+    /* Input and form colors */
+    --input-bg: #0f3460;
+    --input-border: #2d3748;
+    --input-focus-border: #00d4ff;
+    
+    /* Shadow */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+    
+    /* Chart colors */
+    --chart-grid: #2d3748;
+    --chart-text: #b8b8b8;
+}
+
+/* Light Theme */
+html[data-theme="light"] {
+    /* Background colors */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f5;
+    --bg-tertiary: #e0e0e0;
+    --bg-hover: #eeeeee;
+    --bg-card: #ffffff;
+    
+    /* Text colors */
+    --text-primary: #000000;
+    --text-secondary: #666666;
+    --text-muted: #999999;
+    --text-inverse: #ffffff;
+    
+    /* Accent and brand colors */
+    --accent-color: #2196f3;
+    --accent-hover: #1976d2;
+    --brand-color: #2196f3;
+    
+    /* Status colors */
+    --success-color: #4caf50;
+    --success-light: #81c784;
+    --warning-color: #ff9800;
+    --warning-light: #ffb74d;
+    --error-color: #f44336;
+    --error-light: #e57373;
+    --info-color: #2196f3;
+    --info-light: #64b5f6;
+    
+    /* Border and divider colors */
+    --border-color: #e0e0e0;
+    --divider-color: #bdbdbd;
+    
+    /* Input and form colors */
+    --input-bg: #ffffff;
+    --input-border: #cccccc;
+    --input-focus-border: #2196f3;
+    
+    /* Shadow */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.15);
+    
+    /* Chart colors */
+    --chart-grid: #e0e0e0;
+    --chart-text: #666666;
+}
+
+/* Apply theme variables to common elements */
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Cards and panels */
+.card,
+.panel,
+.stats-card,
+.info-card,
+.metric-card,
+.channel-card,
+.source-card {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-md);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Tables */
+table {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+table thead {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+table tbody tr {
+    border-color: var(--border-color);
+}
+
+table tbody tr:hover {
+    background-color: var(--bg-hover);
+}
+
+/* Buttons */
+button,
+.btn {
+    color: var(--text-primary);
+    border-color: var(--border-color);
+    transition: all 0.3s ease;
+}
+
+button:hover,
+.btn:hover {
+    background-color: var(--bg-hover);
+}
+
+.btn-primary {
+    background-color: var(--accent-color);
+    color: var(--text-inverse);
+    border-color: var(--accent-color);
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+/* Inputs */
+input,
+textarea,
+select {
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+    border-color: var(--input-border);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-color: var(--input-focus-border);
+    outline: none;
+}
+
+/* Links */
+a {
+    color: var(--accent-color);
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: var(--accent-hover);
+}
+
+/* Status badges */
+.badge-success {
+    background-color: var(--success-color);
+    color: var(--text-inverse);
+}
+
+.badge-warning {
+    background-color: var(--warning-color);
+    color: var(--text-inverse);
+}
+
+.badge-error,
+.badge-danger {
+    background-color: var(--error-color);
+    color: var(--text-inverse);
+}
+
+.badge-info {
+    background-color: var(--info-color);
+    color: var(--text-inverse);
+}
+
+/* Dividers */
+hr {
+    border-color: var(--divider-color);
+}
+
+/* Modals and overlays */
+.modal-content,
+.dropdown-menu {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+/* Scrollbars (WebKit) */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--bg-hover);
+}
+
+/* Smooth transitions for theme switching */
+* {
+    transition-property: background-color, border-color, color;
+    transition-duration: 0.3s;
+    transition-timing-function: ease;
+}
+
+/* Preserve transitions for interactive elements */
+button,
+a,
+input,
+.btn {
+    transition-property: all;
+}

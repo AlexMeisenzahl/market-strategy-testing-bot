@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Market Strategy Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Navigation -->
+            <nav class="col-md-2 d-md-block bg-dark sidebar">
+                <div class="position-sticky">
+                    <div class="nav-header">
+                        <h4><i class="bi bi-graph-up"></i> Market Bot</h4>
+                    </div>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/opportunities">
+                                <i class="bi bi-lightning"></i> Opportunities
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/trades">
+                                <i class="bi bi-arrow-left-right"></i> Trades
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/analytics">
+                                <i class="bi bi-bar-chart"></i> Analytics
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/settings">
+                                <i class="bi bi-gear"></i> Settings
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="col-md-10 ms-sm-auto px-md-4">
+                <div class="settings-container">
+                    <div class="settings-header">
+                        <h1><i class="bi bi-gear"></i> Settings</h1>
+                        <p class="text-muted">Configure your trading bot and notification preferences</p>
+                    </div>
+
+                    <!-- Tabs Navigation -->
+                    <div class="settings-tabs">
+                        <button class="tab-button active" data-tab="notifications">
+                            <i class="bi bi-bell"></i> Notifications
+                        </button>
+                        <button class="tab-button" data-tab="display">
+                            <i class="bi bi-palette"></i> Display
+                        </button>
+                        <button class="tab-button" data-tab="strategies">
+                            <i class="bi bi-diagram-3"></i> Strategies
+                        </button>
+                        <button class="tab-button" data-tab="data-sources">
+                            <i class="bi bi-database"></i> Data Sources
+                        </button>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="settings-content">
+                        
+                        <!-- Notifications Tab -->
+                        <div class="tab-panel active" id="notifications-tab">
+                            <!-- Global Settings -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Global Settings</h3>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="enableNotifications" checked>
+                                            <label class="form-check-label" for="enableNotifications">
+                                                Enable Notifications
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="notificationSound" checked>
+                                            <label class="form-check-label" for="notificationSound">
+                                                Notification Sound
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notification Channels -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Notification Channels</h3>
+                                
+                                <!-- Discord -->
+                                <div class="channel-card">
+                                    <div class="channel-header">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="discordEnabled">
+                                            <label class="form-check-label" for="discordEnabled">
+                                                <i class="bi bi-discord"></i> Discord
+                                            </label>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="testChannel('discord')">
+                                            <i class="bi bi-send"></i> Test
+                                        </button>
+                                    </div>
+                                    <div class="channel-config">
+                                        <input type="url" class="form-control" id="discordWebhook" 
+                                               placeholder="Discord Webhook URL">
+                                    </div>
+                                </div>
+
+                                <!-- Slack -->
+                                <div class="channel-card">
+                                    <div class="channel-header">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="slackEnabled">
+                                            <label class="form-check-label" for="slackEnabled">
+                                                <i class="bi bi-slack"></i> Slack
+                                            </label>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="testChannel('slack')">
+                                            <i class="bi bi-send"></i> Test
+                                        </button>
+                                    </div>
+                                    <div class="channel-config">
+                                        <input type="url" class="form-control" id="slackWebhook" 
+                                               placeholder="Slack Webhook URL">
+                                    </div>
+                                </div>
+
+                                <!-- Email -->
+                                <div class="channel-card">
+                                    <div class="channel-header">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="emailEnabled">
+                                            <label class="form-check-label" for="emailEnabled">
+                                                <i class="bi bi-envelope"></i> Email
+                                            </label>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="testChannel('email')">
+                                            <i class="bi bi-send"></i> Test
+                                        </button>
+                                    </div>
+                                    <div class="channel-config">
+                                        <input type="email" class="form-control" id="emailAddress" 
+                                               placeholder="Email Address">
+                                    </div>
+                                </div>
+
+                                <!-- Telegram -->
+                                <div class="channel-card">
+                                    <div class="channel-header">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="telegramEnabled">
+                                            <label class="form-check-label" for="telegramEnabled">
+                                                <i class="bi bi-telegram"></i> Telegram
+                                            </label>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="testChannel('telegram')">
+                                            <i class="bi bi-send"></i> Test
+                                        </button>
+                                    </div>
+                                    <div class="channel-config">
+                                        <input type="text" class="form-control" id="telegramApiKey" 
+                                               placeholder="Telegram Bot API Key">
+                                        <input type="text" class="form-control mt-2" id="telegramChatId" 
+                                               placeholder="Chat ID">
+                                    </div>
+                                </div>
+
+                                <!-- Webhook -->
+                                <div class="channel-card">
+                                    <div class="channel-header">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="webhookEnabled">
+                                            <label class="form-check-label" for="webhookEnabled">
+                                                <i class="bi bi-link-45deg"></i> Custom Webhook
+                                            </label>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="testChannel('webhook')">
+                                            <i class="bi bi-send"></i> Test
+                                        </button>
+                                    </div>
+                                    <div class="channel-config">
+                                        <input type="url" class="form-control" id="webhookUrl" 
+                                               placeholder="Webhook URL">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notification Types -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Notification Types</h3>
+                                
+                                <!-- Opportunities -->
+                                <div class="notification-category">
+                                    <h4 class="category-title">
+                                        <i class="bi bi-lightning-fill text-warning"></i> Opportunities
+                                    </h4>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-new-opportunity" checked>
+                                                <label class="form-check-label" for="notif-new-opportunity">
+                                                    New Opportunity Detected
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-high-confidence" checked>
+                                                <label class="form-check-label" for="notif-high-confidence">
+                                                    High Confidence Signal
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-arbitrage" checked>
+                                                <label class="form-check-label" for="notif-arbitrage">
+                                                    Arbitrage Opportunity
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-momentum">
+                                                <label class="form-check-label" for="notif-momentum">
+                                                    Momentum Signal
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-reversal">
+                                                <label class="form-check-label" for="notif-reversal">
+                                                    Reversal Pattern
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-volume-spike">
+                                                <label class="form-check-label" for="notif-volume-spike">
+                                                    Volume Spike
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-news-event">
+                                                <label class="form-check-label" for="notif-news-event">
+                                                    News Event Impact
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-market-trend">
+                                                <label class="form-check-label" for="notif-market-trend">
+                                                    Market Trend Change
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-correlation">
+                                                <label class="form-check-label" for="notif-correlation">
+                                                    Correlation Signal
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-liquidity">
+                                                <label class="form-check-label" for="notif-liquidity">
+                                                    Liquidity Alert
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-expiring-soon">
+                                                <label class="form-check-label" for="notif-expiring-soon">
+                                                    Market Expiring Soon
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-new-market">
+                                                <label class="form-check-label" for="notif-new-market">
+                                                    New Market Listed
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Trades -->
+                                <div class="notification-category">
+                                    <h4 class="category-title">
+                                        <i class="bi bi-arrow-left-right text-primary"></i> Trades
+                                    </h4>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-trade-executed" checked>
+                                                <label class="form-check-label" for="notif-trade-executed">
+                                                    Trade Executed
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-trade-closed" checked>
+                                                <label class="form-check-label" for="notif-trade-closed">
+                                                    Trade Closed
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-trade-profit" checked>
+                                                <label class="form-check-label" for="notif-trade-profit">
+                                                    Profitable Trade
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-trade-loss" checked>
+                                                <label class="form-check-label" for="notif-trade-loss">
+                                                    Loss Trade
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-trade-failed">
+                                                <label class="form-check-label" for="notif-trade-failed">
+                                                    Trade Failed
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-trade-pending">
+                                                <label class="form-check-label" for="notif-trade-pending">
+                                                    Trade Pending
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-partial-fill">
+                                                <label class="form-check-label" for="notif-partial-fill">
+                                                    Partial Fill
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-order-cancelled">
+                                                <label class="form-check-label" for="notif-order-cancelled">
+                                                    Order Cancelled
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Price Alerts -->
+                                <div class="notification-category">
+                                    <h4 class="category-title">
+                                        <i class="bi bi-graph-up text-success"></i> Price Alerts
+                                    </h4>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-price-target">
+                                                <label class="form-check-label" for="notif-price-target">
+                                                    Price Target Reached
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-stop-loss">
+                                                <label class="form-check-label" for="notif-stop-loss">
+                                                    Stop Loss Triggered
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-price-drop">
+                                                <label class="form-check-label" for="notif-price-drop">
+                                                    Significant Price Drop
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-price-rise">
+                                                <label class="form-check-label" for="notif-price-rise">
+                                                    Significant Price Rise
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-volatility">
+                                                <label class="form-check-label" for="notif-volatility">
+                                                    High Volatility
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-spread-change">
+                                                <label class="form-check-label" for="notif-spread-change">
+                                                    Spread Change
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- System -->
+                                <div class="notification-category">
+                                    <h4 class="category-title">
+                                        <i class="bi bi-cpu text-info"></i> System
+                                    </h4>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-bot-started" checked>
+                                                <label class="form-check-label" for="notif-bot-started">
+                                                    Bot Started
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-bot-stopped" checked>
+                                                <label class="form-check-label" for="notif-bot-stopped">
+                                                    Bot Stopped
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-api-error" checked>
+                                                <label class="form-check-label" for="notif-api-error">
+                                                    API Error
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-connection-lost" checked>
+                                                <label class="form-check-label" for="notif-connection-lost">
+                                                    Connection Lost
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-connection-restored">
+                                                <label class="form-check-label" for="notif-connection-restored">
+                                                    Connection Restored
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-rate-limit">
+                                                <label class="form-check-label" for="notif-rate-limit">
+                                                    Rate Limit Warning
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-update-available">
+                                                <label class="form-check-label" for="notif-update-available">
+                                                    Update Available
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-backup-completed">
+                                                <label class="form-check-label" for="notif-backup-completed">
+                                                    Backup Completed
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Risk -->
+                                <div class="notification-category">
+                                    <h4 class="category-title">
+                                        <i class="bi bi-shield-exclamation text-danger"></i> Risk
+                                    </h4>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-risk-limit" checked>
+                                                <label class="form-check-label" for="notif-risk-limit">
+                                                    Risk Limit Reached
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-drawdown" checked>
+                                                <label class="form-check-label" for="notif-drawdown">
+                                                    Drawdown Alert
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-exposure-high" checked>
+                                                <label class="form-check-label" for="notif-exposure-high">
+                                                    High Exposure Warning
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-margin-call">
+                                                <label class="form-check-label" for="notif-margin-call">
+                                                    Margin Call Warning
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-balance-low">
+                                                <label class="form-check-label" for="notif-balance-low">
+                                                    Low Balance Alert
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-unusual-activity">
+                                                <label class="form-check-label" for="notif-unusual-activity">
+                                                    Unusual Activity Detected
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Performance -->
+                                <div class="notification-category">
+                                    <h4 class="category-title">
+                                        <i class="bi bi-trophy text-warning"></i> Performance
+                                    </h4>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-daily-summary">
+                                                <label class="form-check-label" for="notif-daily-summary">
+                                                    Daily Summary
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-weekly-report">
+                                                <label class="form-check-label" for="notif-weekly-report">
+                                                    Weekly Report
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-monthly-report">
+                                                <label class="form-check-label" for="notif-monthly-report">
+                                                    Monthly Report
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-profit-milestone">
+                                                <label class="form-check-label" for="notif-profit-milestone">
+                                                    Profit Milestone
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-win-streak">
+                                                <label class="form-check-label" for="notif-win-streak">
+                                                    Win Streak
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="notif-loss-streak">
+                                                <label class="form-check-label" for="notif-loss-streak">
+                                                    Loss Streak
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Filters -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Notification Filters</h3>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Minimum Profit Threshold</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="minProfitThreshold" 
+                                                   placeholder="0" min="0" step="0.01">
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Minimum Confidence</label>
+                                        <select class="form-select" id="minConfidence">
+                                            <option value="0">Any</option>
+                                            <option value="50">50%+</option>
+                                            <option value="60">60%+</option>
+                                            <option value="70" selected>70%+</option>
+                                            <option value="80">80%+</option>
+                                            <option value="90">90%+</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Strategy Filter</label>
+                                        <input type="text" class="form-control" id="strategyFilter" 
+                                               placeholder="All strategies">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Display Tab -->
+                        <div class="tab-panel" id="display-tab">
+                            <!-- Theme -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Theme</h3>
+                                <div class="theme-selector">
+                                    <button class="theme-option active" data-theme="dark">
+                                        <i class="bi bi-moon-stars"></i>
+                                        <span>Dark</span>
+                                    </button>
+                                    <button class="theme-option" data-theme="light">
+                                        <i class="bi bi-sun"></i>
+                                        <span>Light</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Localization -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Localization</h3>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Timezone</label>
+                                        <select class="form-select" id="timezone">
+                                            <option value="UTC" selected>UTC</option>
+                                            <option value="America/New_York">America/New York (EST/EDT)</option>
+                                            <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                                            <option value="America/Los_Angeles">America/Los Angeles (PST/PDT)</option>
+                                            <option value="Europe/London">Europe/London (GMT/BST)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Currency</label>
+                                        <select class="form-select" id="currency">
+                                            <option value="USD" selected>USD ($)</option>
+                                            <option value="EUR">EUR (€)</option>
+                                            <option value="GBP">GBP (£)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Date & Time Format -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Date & Time Format</h3>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Date Format</label>
+                                        <select class="form-select" id="dateFormat">
+                                            <option value="YYYY-MM-DD" selected>YYYY-MM-DD (2024-01-15)</option>
+                                            <option value="MM/DD/YYYY">MM/DD/YYYY (01/15/2024)</option>
+                                            <option value="DD/MM/YYYY">DD/MM/YYYY (15/01/2024)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Time Format</label>
+                                        <select class="form-select" id="timeFormat">
+                                            <option value="24h" selected>24-hour (14:30)</option>
+                                            <option value="12h">12-hour (2:30 PM)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Dashboard Settings -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Dashboard Settings</h3>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Default Timeframe</label>
+                                        <select class="form-select" id="defaultTimeframe">
+                                            <option value="1h">1 Hour</option>
+                                            <option value="4h">4 Hours</option>
+                                            <option value="24h" selected>24 Hours</option>
+                                            <option value="7d">7 Days</option>
+                                            <option value="30d">30 Days</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Auto-Refresh Interval</label>
+                                        <select class="form-select" id="refreshInterval">
+                                            <option value="5">5 seconds</option>
+                                            <option value="10">10 seconds</option>
+                                            <option value="30" selected>30 seconds</option>
+                                            <option value="60">1 minute</option>
+                                            <option value="300">5 minutes</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Notifications</label>
+                                        <div class="form-check form-switch mt-2">
+                                            <input class="form-check-input" type="checkbox" id="showNotifications" checked>
+                                            <label class="form-check-label" for="showNotifications">
+                                                Show Dashboard Notifications
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Strategies Tab -->
+                        <div class="tab-panel" id="strategies-tab">
+                            <!-- Trading Mode -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Trading Mode</h3>
+                                <div class="trading-mode-selector">
+                                    <button class="mode-option mode-paper active" data-mode="paper">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                        <span>Paper Trading</span>
+                                        <small>Simulated trading with no real money</small>
+                                    </button>
+                                    <button class="mode-option mode-live" data-mode="live">
+                                        <i class="bi bi-cash-coin"></i>
+                                        <span>Live Trading</span>
+                                        <small>Real money trading</small>
+                                    </button>
+                                </div>
+
+                                <!-- Live Trading Confirmation Panel -->
+                                <div class="live-trading-confirmation" id="liveTradingConfirm" style="display: none;">
+                                    <div class="alert alert-danger">
+                                        <h5><i class="bi bi-exclamation-triangle-fill"></i> Warning: Live Trading</h5>
+                                        <p>You are about to enable LIVE TRADING mode. This means:</p>
+                                        <ul>
+                                            <li>All trades will use REAL MONEY from your connected exchanges</li>
+                                            <li>You can LOSE money if trades are unsuccessful</li>
+                                            <li>Automated strategies will execute trades without manual confirmation</li>
+                                            <li>You are responsible for all trades and their outcomes</li>
+                                        </ul>
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" id="liveConfirmCheck">
+                                            <label class="form-check-label" for="liveConfirmCheck">
+                                                <strong>I understand I am trading with REAL MONEY and accept all risks</strong>
+                                            </label>
+                                        </div>
+                                        <button class="btn btn-danger" onclick="enableLiveTrading()" disabled id="confirmLiveBtn">
+                                            <i class="bi bi-shield-fill-exclamation"></i> Enable Live Trading
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="document.getElementById('liveTradingConfirm').style.display='none'">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Strategy Settings -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Strategy Settings</h3>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="requireConfirmation">
+                                    <label class="form-check-label" for="requireConfirmation">
+                                        Require manual confirmation before executing trades
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Strategy Configuration -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Strategy Configuration</h3>
+                                <div class="strategy-cards">
+                                    <div class="strategy-card">
+                                        <div class="strategy-header">
+                                            <h5>Arbitrage Strategy</h5>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="strategy-arbitrage" checked>
+                                            </div>
+                                        </div>
+                                        <p class="text-muted">Exploits price differences across markets</p>
+                                        <button class="btn btn-sm btn-outline-primary">Configure</button>
+                                    </div>
+                                    <div class="strategy-card">
+                                        <div class="strategy-header">
+                                            <h5>Momentum Strategy</h5>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="strategy-momentum">
+                                            </div>
+                                        </div>
+                                        <p class="text-muted">Follows market momentum trends</p>
+                                        <button class="btn btn-sm btn-outline-primary">Configure</button>
+                                    </div>
+                                    <div class="strategy-card">
+                                        <div class="strategy-header">
+                                            <h5>Mean Reversion</h5>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="strategy-reversion">
+                                            </div>
+                                        </div>
+                                        <p class="text-muted">Trades based on price reversions to mean</p>
+                                        <button class="btn btn-sm btn-outline-primary">Configure</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Sources Tab -->
+                        <div class="tab-panel" id="data-sources-tab">
+                            <!-- Prediction Markets -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Prediction Markets</h3>
+                                
+                                <div class="source-card">
+                                    <div class="source-header">
+                                        <div class="source-info">
+                                            <h5><i class="bi bi-graph-up-arrow"></i> Polymarket</h5>
+                                            <span class="badge bg-success">Connected</span>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="polymarket-enabled" checked>
+                                        </div>
+                                    </div>
+                                    <div class="source-config">
+                                        <input type="text" class="form-control" id="polymarket-api-key" 
+                                               placeholder="API Key">
+                                    </div>
+                                </div>
+
+                                <div class="source-card">
+                                    <div class="source-header">
+                                        <div class="source-info">
+                                            <h5><i class="bi bi-graph-up-arrow"></i> PredictIt</h5>
+                                            <span class="badge bg-secondary">Disconnected</span>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="predictit-enabled">
+                                        </div>
+                                    </div>
+                                    <div class="source-config">
+                                        <input type="text" class="form-control" id="predictit-api-key" 
+                                               placeholder="API Key">
+                                    </div>
+                                </div>
+
+                                <div class="source-card">
+                                    <div class="source-header">
+                                        <div class="source-info">
+                                            <h5><i class="bi bi-graph-up-arrow"></i> Kalshi</h5>
+                                            <span class="badge bg-secondary">Disconnected</span>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="kalshi-enabled">
+                                        </div>
+                                    </div>
+                                    <div class="source-config">
+                                        <input type="text" class="form-control" id="kalshi-api-key" 
+                                               placeholder="API Key">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Crypto Price Sources -->
+                            <div class="settings-section">
+                                <h3 class="section-title">Crypto Price Sources</h3>
+                                
+                                <div class="source-card">
+                                    <div class="source-header">
+                                        <div class="source-info">
+                                            <h5><i class="bi bi-coin"></i> CoinGecko</h5>
+                                            <span class="badge bg-success">Active</span>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="coingecko-enabled" checked>
+                                        </div>
+                                    </div>
+                                    <div class="source-stats">
+                                        <small class="text-muted">Rate Limit: 50 calls/minute (Free tier)</small>
+                                    </div>
+                                </div>
+
+                                <div class="source-card">
+                                    <div class="source-header">
+                                        <div class="source-info">
+                                            <h5><i class="bi bi-coin"></i> Binance</h5>
+                                            <span class="badge bg-success">Active</span>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="binance-enabled" checked>
+                                        </div>
+                                    </div>
+                                    <div class="source-stats">
+                                        <small class="text-muted">Rate Limit: 1200 requests/minute</small>
+                                    </div>
+                                </div>
+
+                                <div class="source-card">
+                                    <div class="source-header">
+                                        <div class="source-info">
+                                            <h5><i class="bi bi-coin"></i> Coinbase</h5>
+                                            <span class="badge bg-warning">Limited</span>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="coinbase-enabled">
+                                        </div>
+                                    </div>
+                                    <div class="source-stats">
+                                        <small class="text-muted">Rate Limit: 10 requests/second</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="settings-actions">
+                        <button class="btn btn-primary btn-lg" onclick="saveSettings()">
+                            <i class="bi bi-check-circle"></i> Save Settings
+                        </button>
+                        <button class="btn btn-outline-secondary btn-lg" onclick="resetSettings()">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset to Defaults
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-bell-fill me-2"></i>
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+    <script>
+        // Enable live confirmation checkbox listener
+        document.getElementById('liveConfirmCheck').addEventListener('change', function() {
+            document.getElementById('confirmLiveBtn').disabled = !this.checked;
+        });
+
+        // Initialize settings manager on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            window.settingsManager = new SettingsManager();
+            settingsManager.init();
+        });
+    </script>
+</body>
+</html>
