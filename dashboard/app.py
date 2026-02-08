@@ -149,7 +149,7 @@ def manifest():
     """Serve PWA manifest file"""
     return send_file(
         BASE_DIR / "dashboard" / "static" / "manifest.json",
-        mimetype="application/manifest+json"
+        mimetype="application/manifest+json",
     )
 
 
@@ -158,7 +158,7 @@ def service_worker():
     """Serve service worker file"""
     return send_file(
         BASE_DIR / "dashboard" / "static" / "service-worker.js",
-        mimetype="application/javascript"
+        mimetype="application/javascript",
     )
 
 
