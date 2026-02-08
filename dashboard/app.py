@@ -5,21 +5,22 @@ A beautiful, responsive web interface for monitoring and controlling
 the trading bot with comprehensive analytics and customization.
 """
 
+import sys
+from pathlib import Path
+
+# Add parent directory to path FIRST, before any other imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from flask import Flask, render_template, jsonify, request, send_file, Response
 from flask_cors import CORS
 import yaml
 import os
-import sys
 import shutil
-from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import json
 import psutil  # For process monitoring
 import csv
 import io
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dashboard.services.data_parser import DataParser
 from dashboard.services.analytics import AnalyticsService
@@ -41,9 +42,6 @@ from services.realtime_server import init_realtime_server
 from dashboard.routes.config_api import config_api
 from dashboard.routes.leaderboard import leaderboard_bp
 from dashboard.routes.emergency import emergency_bp
-
-# Import update system services
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from version_manager import VersionManager
 from services.update_service import UpdateService
 from services.process_manager import ProcessManager

@@ -10,6 +10,10 @@ import os
 from pathlib import Path
 import subprocess
 
+# Add project root to Python path FIRST
+project_root = Path(__file__).resolve().parent
+sys.path.insert(0, str(project_root))
+
 
 def print_banner():
     """Print welcome banner"""
@@ -105,16 +109,16 @@ def start_dashboard():
     print("\n🎯 Starting dashboard server...")
     print("\n" + "-" * 70)
 
-    # Change to dashboard directory
-    os.chdir("dashboard")
-
     try:
-        # Run Flask app
-        subprocess.run([sys.executable, "app.py"])
+        # Import and run dashboard
+        from dashboard.app import app
+        app.run(host='0.0.0.0', port=5000, debug=False)
     except KeyboardInterrupt:
         print("\n\n👋 Dashboard stopped by user")
     except Exception as e:
         print(f"\n❌ Error starting dashboard: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
     return True

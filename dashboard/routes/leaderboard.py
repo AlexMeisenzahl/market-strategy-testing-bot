@@ -4,6 +4,12 @@ Leaderboard Routes
 API routes for strategy competition leaderboard.
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to Python path FIRST
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 from flask import Blueprint, jsonify, request
 
 from services.strategy_competition import competition
