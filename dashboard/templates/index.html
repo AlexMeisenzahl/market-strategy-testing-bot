@@ -129,8 +129,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <i class="fas fa-chart-line text-2xl text-blue-500 mr-3"></i>
-                    <h1 class="text-xl font-bold">Market Strategy Bot</h1>
+                    <h1 class="text-xl font-bold">📊 Market Strategy Bot</h1>
                 </div>
                 
                 <div class="flex items-center space-x-6">
@@ -140,9 +139,9 @@
                     <button onclick="showPage('trades', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
                         <i class="fas fa-exchange-alt mr-2"></i>Trades
                     </button>
-                    <a href="/opportunities" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                    <button onclick="showPage('opportunities', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
                         <i class="fas fa-lightbulb mr-2"></i>Opportunities
-                    </a>
+                    </button>
                     <button onclick="showPage('settings', event)" class="nav-link text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
                         <i class="fas fa-cog mr-2"></i>Settings
                     </button>
@@ -192,7 +191,7 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     <label class="flex items-center cursor-pointer">
-                        <span class="text-sm text-gray-400 mr-2">Auto-refresh (30s)</span>
+                        <span class="text-sm text-gray-400 mr-2">Auto-refresh (<span id="refresh-interval-display">5s</span>)</span>
                         <input type="checkbox" id="auto-refresh-toggle" class="sr-only peer" checked>
                         <div class="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
@@ -376,13 +375,72 @@
         <!-- Opportunities Page -->
         <div id="page-opportunities" class="page-content hidden">
             <div class="mb-8">
-                <h2 class="text-3xl font-bold mb-2">Opportunities</h2>
-                <p class="text-gray-400">Track detected opportunities and conversion rates</p>
+                <h2 class="text-3xl font-bold mb-2">Trading Opportunities</h2>
+                <p class="text-gray-400">Real-time detected trading opportunities across all strategies</p>
             </div>
-            
-            <div class="text-center py-20">
-                <i class="fas fa-lightbulb text-6xl text-gray-600 mb-4"></i>
-                <p class="text-xl text-gray-400">Opportunities tracking coming soon</p>
+
+            <!-- Filters -->
+            <div class="card bg-dark-card rounded-xl p-6 border border-dark-border mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Strategy</label>
+                        <select id="opp-filter-strategy" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                            <option value="">All Strategies</option>
+                            <option value="RSI Scalp">RSI Scalp</option>
+                            <option value="Momentum">Momentum</option>
+                            <option value="MACD Trend">MACD Trend</option>
+                            <option value="Arbitrage">Arbitrage</option>
+                            <option value="Mean Reversion">Mean Reversion</option>
+                            <option value="Breakout">Breakout</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Symbol</label>
+                        <input type="text" id="opp-filter-symbol" placeholder="e.g., AAPL" 
+                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">Status</label>
+                        <select id="opp-filter-status" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="executed">Executed</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="opp-apply-filters-btn" 
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition">
+                            <i class="fas fa-filter mr-2"></i>Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Opportunities Table -->
+            <div class="card bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-800">
+                            <tr>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Timestamp</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Symbol</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Strategy</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Signal</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Confidence</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Price</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="opportunities-table-body" class="divide-y divide-gray-700">
+                            <!-- Opportunities will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 bg-gray-800 text-sm text-gray-400" id="opportunities-count">
+                    Loading opportunities...
+                </div>
             </div>
         </div>
         

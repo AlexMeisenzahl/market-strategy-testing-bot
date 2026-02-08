@@ -162,6 +162,8 @@ async function refreshCurrentPage() {
         await loadOverviewData();
     } else if (currentPage === 'trades') {
         await loadTradesData();
+    } else if (currentPage === 'opportunities') {
+        await loadOpportunitiesData();
     } else if (currentPage === 'settings') {
         await loadSettings();
     }
@@ -195,6 +197,8 @@ function showPage(pageName, event) {
     // Load page-specific data
     if (pageName === 'trades') {
         loadTradesData();
+    } else if (pageName === 'opportunities') {
+        loadOpportunitiesData();
     } else if (pageName === 'settings') {
         loadSettings();
     }
@@ -473,14 +477,11 @@ async function loadBotStatus() {
         const statusPing = document.getElementById('status-ping');
         
         if (data.running) {
-            statusText.textContent = data.status_emoji + ' Running';
+            // Format: "🟢 Running | Paper Mode" (no PID)
+            const mode = data.mode === 'paper' ? 'Paper Mode' : 'Live Mode';
+            statusText.textContent = `${data.status_emoji} Running | ${mode}`;
             statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-green-500';
             statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75';
-            
-            // Add PID and uptime if available
-            if (data.pid) {
-                statusText.textContent += ` (PID: ${data.pid})`;
-            }
             
             // Update data source to Live when bot is running
             updateDataSourceIndicator('live', data.mode || 'paper');
@@ -814,3 +815,134 @@ function showToast(message, type = 'info') {
         toast.classList.add('hidden');
     }, 3000);
 }
+
+// Opportunities Page Functions
+let currentOpportunities = [];
+
+async function loadOpportunitiesData() {
+    try {
+        const strategy = document.getElementById('opp-filter-strategy')?.value || '';
+        const symbol = document.getElementById('opp-filter-symbol')?.value || '';
+        const status = document.getElementById('opp-filter-status')?.value || '';
+        
+        const params = new URLSearchParams();
+        if (strategy) params.append('strategy', strategy);
+        if (symbol) params.append('symbol', symbol);
+        if (status) params.append('status', status);
+        
+        const response = await fetch(`${API_BASE}/api/opportunities?${params.toString()}`);
+        const data = await response.json();
+        
+        // Handle both array and object responses
+        const opportunities = Array.isArray(data) ? data : (data.opportunities || []);
+        currentOpportunities = opportunities;
+        renderOpportunities(opportunities);
+    } catch (error) {
+        console.error('Error loading opportunities:', error);
+        showToast('Error loading opportunities', 'error');
+    }
+}
+
+function renderOpportunities(opportunities) {
+    const tbody = document.getElementById('opportunities-table-body');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (!opportunities || opportunities.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="px-6 py-8 text-center text-gray-400">
+                    <i class="fas fa-search text-3xl mb-2"></i>
+                    <p>No opportunities found</p>
+                </td>
+            </tr>
+        `;
+        document.getElementById('opportunities-count').textContent = 'No opportunities';
+        return;
+    }
+    
+    opportunities.forEach(opp => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-800 transition cursor-pointer';
+        row.dataset.opportunity = JSON.stringify(opp);
+        
+        // Format timestamp
+        const timestamp = new Date(opp.timestamp).toLocaleString();
+        
+        // Status badge
+        let statusBadge = '';
+        let status = opp.status || (opp.action_taken ? 'executed' : 'pending');
+        if (status === 'executed' || opp.action_taken) {
+            statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-green-900/20 text-green-400">Executed</span>';
+        } else if (status === 'pending') {
+            statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-yellow-900/20 text-yellow-400">Pending</span>';
+        } else {
+            statusBadge = '<span class="px-2 py-1 text-xs font-semibold rounded bg-red-900/20 text-red-400">Rejected</span>';
+        }
+        
+        // Confidence color
+        const confidence = parseFloat(opp.confidence) || 0;
+        let confidenceColor = 'text-gray-400';
+        if (confidence >= 85) confidenceColor = 'text-green-400';
+        else if (confidence >= 70) confidenceColor = 'text-yellow-400';
+        else confidenceColor = 'text-red-400';
+        
+        // Signal type
+        const signal = opp.signal || opp.signal_type || 'BUY';
+        
+        // Price display
+        const price = opp.price;
+        let priceDisplay = 'N/A';
+        if (price !== null && price !== undefined && !isNaN(price)) {
+            priceDisplay = `$${parseFloat(price).toFixed(2)}`;
+        }
+        
+        row.innerHTML = `
+            <td class="px-6 py-4 text-sm text-gray-400">${timestamp}</td>
+            <td class="px-6 py-4 text-sm font-medium">${opp.symbol}</td>
+            <td class="px-6 py-4 text-sm">${opp.strategy}</td>
+            <td class="px-6 py-4 text-sm">
+                <span class="px-2 py-1 text-xs font-semibold rounded ${signal === 'BUY' ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}">
+                    ${signal}
+                </span>
+            </td>
+            <td class="px-6 py-4 text-sm font-medium ${confidenceColor}">${confidence}%</td>
+            <td class="px-6 py-4 text-sm">${priceDisplay}</td>
+            <td class="px-6 py-4 text-sm">${statusBadge}</td>
+            <td class="px-6 py-4 text-sm">
+                <button class="text-blue-400 hover:text-blue-300 view-details-btn">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        `;
+        
+        // Add click event listener
+        row.addEventListener('click', function() {
+            const oppData = JSON.parse(this.dataset.opportunity);
+            viewOpportunityDetails(oppData);
+        });
+        
+        tbody.appendChild(row);
+    });
+    
+    document.getElementById('opportunities-count').textContent = 
+        `Showing ${opportunities.length} opportunit${opportunities.length === 1 ? 'y' : 'ies'}`;
+}
+
+function applyOpportunityFilters() {
+    loadOpportunitiesData();
+    showToast('Filters applied', 'success');
+}
+
+function viewOpportunityDetails(opp) {
+    alert(`Opportunity Details:\n\nSymbol: ${opp.symbol}\nStrategy: ${opp.strategy}\nSignal: ${opp.signal}\nConfidence: ${opp.confidence}%\nPrice: $${opp.price}\nStatus: ${opp.status}\nNotes: ${opp.notes || 'N/A'}`);
+}
+
+// Initialize opportunities page
+document.addEventListener('DOMContentLoaded', function() {
+    const oppFilterBtn = document.getElementById('opp-apply-filters-btn');
+    if (oppFilterBtn) {
+        oppFilterBtn.addEventListener('click', applyOpportunityFilters);
+    }
+});
