@@ -29,6 +29,8 @@ from services.market_analytics import MarketAnalytics
 from services.time_analytics import TimeAnalytics
 from services.risk_metrics import RiskMetrics
 from logger import get_logger
+from database.settings_models import UserSettings, NotificationChannel, NotificationPreference, init_db
+from services.notification_service import notification_service
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for API access
@@ -50,6 +52,9 @@ strategy_analytics = StrategyAnalytics(data_parser)
 market_analytics = MarketAnalytics(data_parser)
 time_analytics = TimeAnalytics(data_parser)
 risk_metrics = RiskMetrics(data_parser)
+
+# Initialize database
+init_db()
 
 # Global bot status (will be updated by bot)
 bot_status = {
@@ -1443,6 +1448,119 @@ def export_analytics():
     except Exception as e:
         logger.log_error(f"Error exporting analytics: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+# ==================== SETTINGS & NOTIFICATIONS API ====================
+
+@app.route('/settings')
+def settings_page():
+    """Render settings page"""
+    return render_template('settings.html')
+
+
+@app.route('/api/settings', methods=['GET', 'POST'])
+def manage_settings():
+    """
+    Manage user settings.
+    
+    GET: Return current settings
+    POST: Save new settings
+    """
+    try:
+        user_id = 1  # Default user
+        
+        if request.method == 'GET':
+            # Get current settings
+            settings = UserSettings.get(user_id)
+            
+            # Get notification channels
+            channels = NotificationChannel.get_all(user_id)
+            
+            # Get notification preferences
+            preferences = NotificationPreference.get_all(user_id)
+            
+            return jsonify({
+                'success': True,
+                'settings': settings,
+                'channels': channels,
+                'preferences': preferences
+            })
+        
+        elif request.method == 'POST':
+            # Save settings
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({'success': False, 'error': 'No data provided'}), 400
+            
+            # Update user settings
+            if 'settings' in data:
+                UserSettings.update(user_id, data['settings'])
+            
+            # Update notification channels
+            if 'channels' in data:
+                for channel_data in data['channels']:
+                    NotificationChannel.create_or_update(
+                        user_id,
+                        channel_data['channel_type'],
+                        channel_data
+                    )
+            
+            # Update notification preferences
+            if 'preferences' in data:
+                NotificationPreference.bulk_update(user_id, data['preferences'])
+            
+            return jsonify({'success': True, 'message': 'Settings saved successfully'})
+    
+    except Exception as e:
+        logger.error(f"Error managing settings: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/settings/reset', methods=['POST'])
+def reset_settings():
+    """Reset user settings to defaults"""
+    try:
+        user_id = 1  # Default user
+        
+        # Reset user settings
+        UserSettings.reset(user_id)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Settings reset to defaults'
+        })
+    
+    except Exception as e:
+        logger.error(f"Error resetting settings: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/notifications/test/<channel_type>', methods=['POST'])
+def test_notification(channel_type):
+    """
+    Send a test notification to a specific channel.
+    
+    Args:
+        channel_type: Type of channel (discord, slack, email, telegram, webhook)
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'No configuration provided'}), 400
+        
+        # Test the channel
+        result = notification_service.test_channel(channel_type, data)
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        logger.error(f"Error testing notification channel: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 if __name__ == '__main__':
