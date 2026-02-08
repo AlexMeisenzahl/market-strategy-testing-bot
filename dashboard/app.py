@@ -36,9 +36,14 @@ from database.settings_models import (
     init_db,
 )
 from services.notification_service import notification_service
+from services.realtime_server import init_realtime_server
+from dashboard.routes.config_api import config_api
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for API access
+
+# Register blueprints
+app.register_blueprint(config_api)
 
 # Configuration
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -51,6 +56,9 @@ config_manager = ConfigManager(CONFIG_PATH)
 data_parser = DataParser(LOGS_DIR)
 analytics = AnalyticsService(data_parser)
 chart_data = ChartDataService(data_parser)
+
+# Initialize WebSocket server for real-time updates
+realtime_server = init_realtime_server(app, logger)
 
 # Initialize new analytics services
 strategy_analytics = StrategyAnalytics(data_parser)
@@ -1556,6 +1564,12 @@ def settings_page():
     return render_template("settings.html")
 
 
+@app.route("/settings/advanced")
+def advanced_settings_page():
+    """Render advanced settings page"""
+    return render_template("advanced_settings.html")
+
+
 @app.route("/api/settings", methods=["GET", "POST"])
 def manage_settings():
     """
@@ -2102,3 +2116,30 @@ def get_portfolio():
     except Exception as e:
         logger.log_error(f"Error getting portfolio: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/realtime/status")
+def get_realtime_status():
+    """Get WebSocket server status and statistics"""
+    try:
+        if realtime_server:
+            stats = realtime_server.get_connection_stats()
+            return jsonify({"enabled": True, "stats": stats})
+        else:
+            return jsonify(
+                {"enabled": False, "message": "WebSocket server not initialized"}
+            )
+    except Exception as e:
+        logger.log_error(f"Error getting realtime status: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    # Run with WebSocket support
+    port = config_manager.get("dashboard", {}).get("port", 5000)
+    debug = config_manager.get("dashboard", {}).get("debug", False)
+
+    logger.log_event(f"Starting dashboard with WebSocket support on port {port}")
+
+    # Use SocketIO's run method instead of Flask's
+    realtime_server.run(host="0.0.0.0", port=port, debug=debug)

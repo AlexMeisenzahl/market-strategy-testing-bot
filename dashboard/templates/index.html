@@ -1115,8 +1115,12 @@
         </div>
     </div>
     
-    <!-- Load utilities first, then dashboard -->
+    <!-- Socket.IO for WebSocket support -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- Load utilities first, then realtime client, then dashboard -->
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/realtime_client.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script src="{{ url_for('static', filename='js/crypto_ticker.js') }}"></script>
     

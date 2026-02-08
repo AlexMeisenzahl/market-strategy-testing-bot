@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a0e1a">
+    <title>Professional Trading Dashboard</title>
+    
+    <!-- Professional CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body class="professional-theme">
+    
+    <!-- Sidebar -->
+    <aside class="pro-sidebar">
+        <div class="pro-sidebar-header">
+            <h1 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0;">
+                <i class="fas fa-chart-line" style="color: var(--accent-primary);"></i>
+                Trading Bot
+            </h1>
+        </div>
+        
+        <nav class="pro-sidebar-nav">
+            <div class="pro-sidebar-item active">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </div>
+            <div class="pro-sidebar-item">
+                <i class="fas fa-chart-candlestick"></i>
+                <span>Markets</span>
+            </div>
+            <div class="pro-sidebar-item">
+                <i class="fas fa-briefcase"></i>
+                <span>Portfolio</span>
+            </div>
+            <div class="pro-sidebar-item">
+                <i class="fas fa-bolt"></i>
+                <span>Opportunities</span>
+            </div>
+            <div class="pro-sidebar-item">
+                <i class="fas fa-brain"></i>
+                <span>Strategies</span>
+            </div>
+            <div class="pro-sidebar-item">
+                <i class="fas fa-history"></i>
+                <span>Trade History</span>
+            </div>
+            <div class="pro-sidebar-item">
+                <i class="fas fa-chart-bar"></i>
+                <span>Analytics</span>
+            </div>
+            <div class="pro-sidebar-item">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </div>
+        </nav>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="pro-main">
+        
+        <!-- Header Bar -->
+        <header class="pro-header">
+            <div class="pro-header-left">
+                <button class="pro-btn-secondary" id="sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <span class="pro-text-muted" style="font-size: 13px;">
+                    Last Updated: <span id="last-update-time">--:--:--</span>
+                </span>
+            </div>
+            
+            <div class="pro-header-right">
+                <div class="status-badge active">
+                    <i class="fas fa-circle" style="font-size: 8px;"></i>
+                    Live
+                </div>
+                <div class="status-badge" id="connection-status">
+                    <i class="fas fa-wifi"></i>
+                    Connected
+                </div>
+                <button class="pro-btn-secondary">
+                    <i class="fas fa-bell"></i>
+                </button>
+                <button class="pro-btn-secondary">
+                    <i class="fas fa-user"></i>
+                </button>
+            </div>
+        </header>
+        
+        <!-- Stats Grid -->
+        <div class="pro-stats-grid">
+            <div class="pro-stat-card">
+                <div class="pro-stat-label">Portfolio Value</div>
+                <div class="pro-stat-value" id="portfolio-value">$10,000.00</div>
+                <div class="pro-stat-change">
+                    <span class="change-indicator positive">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>+2.5%</span>
+                    </span>
+                </div>
+            </div>
+            
+            <div class="pro-stat-card">
+                <div class="pro-stat-label">Today's P&L</div>
+                <div class="pro-stat-value pro-text-profit" id="daily-pnl">+$125.00</div>
+                <div class="pro-stat-change">
+                    <span class="pro-text-muted" style="font-size: 12px;">Win Rate: <strong id="win-rate">75%</strong></span>
+                </div>
+            </div>
+            
+            <div class="pro-stat-card">
+                <div class="pro-stat-label">Active Positions</div>
+                <div class="pro-stat-value" id="active-positions">3</div>
+                <div class="pro-stat-change">
+                    <span class="pro-text-muted" style="font-size: 12px;">Total: <strong id="total-positions">12</strong></span>
+                </div>
+            </div>
+            
+            <div class="pro-stat-card">
+                <div class="pro-stat-label">Opportunities</div>
+                <div class="pro-stat-value" id="opportunities-count">5</div>
+                <div class="pro-stat-change">
+                    <span class="pro-text-muted" style="font-size: 12px;">Last 1h: <strong id="opportunities-1h">12</strong></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Grid Layout -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
+            
+            <!-- Left Column: Charts -->
+            <div>
+                <!-- Main Price Chart -->
+                <div class="pro-card" style="margin-bottom: 24px;">
+                    <div class="pro-card-header">
+                        <h3 class="pro-card-title">BTC/USD</h3>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span class="price-display price-up" id="btc-price">$67,245.00</span>
+                            <span class="change-indicator positive" id="btc-change">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>+3.2%</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="pro-card-body">
+                        <div id="btc-chart" style="height: 400px;"></div>
+                    </div>
+                </div>
+                
+                <!-- Portfolio Chart -->
+                <div class="pro-card">
+                    <div class="pro-card-header">
+                        <h3 class="pro-card-title">Portfolio Performance</h3>
+                        <select class="pro-select" style="width: auto; padding: 6px 12px; font-size: 13px;">
+                            <option>1D</option>
+                            <option>1W</option>
+                            <option>1M</option>
+                            <option selected>3M</option>
+                            <option>1Y</option>
+                            <option>ALL</option>
+                        </select>
+                    </div>
+                    <div class="pro-card-body">
+                        <div id="portfolio-chart" style="height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column: Quick Trade & Watchlist -->
+            <div>
+                <!-- Quick Trade Widget -->
+                <div id="quick-trade-widget" style="margin-bottom: 24px;">
+                    <!-- Widget will be populated by JavaScript -->
+                </div>
+                
+                <!-- Market Watch -->
+                <div class="pro-card">
+                    <div class="pro-card-header">
+                        <h3 class="pro-card-title">Market Watch</h3>
+                        <button class="pro-btn-secondary" style="padding: 6px 12px; font-size: 13px;">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="pro-card-body" style="padding: 0;">
+                        <table class="pro-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th style="text-align: right;">Price</th>
+                                    <th style="text-align: right;">Change</th>
+                                </tr>
+                            </thead>
+                            <tbody id="watchlist-tbody">
+                                <tr>
+                                    <td><strong>BTC</strong></td>
+                                    <td class="price-display" style="text-align: right;">$67,245</td>
+                                    <td style="text-align: right;">
+                                        <span class="change-indicator positive">+3.2%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ETH</strong></td>
+                                    <td class="price-display" style="text-align: right;">$3,824</td>
+                                    <td style="text-align: right;">
+                                        <span class="change-indicator positive">+1.8%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>SOL</strong></td>
+                                    <td class="price-display" style="text-align: right;">$152.34</td>
+                                    <td style="text-align: right;">
+                                        <span class="change-indicator negative">-0.5%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>XRP</strong></td>
+                                    <td class="price-display" style="text-align: right;">$0.65</td>
+                                    <td style="text-align: right;">
+                                        <span class="change-indicator positive">+5.2%</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Opportunities -->
+        <div class="pro-card" style="margin-bottom: 24px;">
+            <div class="pro-card-header">
+                <h3 class="pro-card-title">Recent Opportunities</h3>
+                <button class="pro-btn-secondary" style="padding: 6px 12px; font-size: 13px;">
+                    View All
+                </button>
+            </div>
+            <div class="pro-card-body" style="padding: 0;">
+                <table class="pro-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Market</th>
+                            <th>Type</th>
+                            <th style="text-align: right;">Profit Margin</th>
+                            <th style="text-align: right;">Expected</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="opportunities-tbody">
+                        <tr>
+                            <td>14:32:15</td>
+                            <td>BTC/Election Winner</td>
+                            <td><span class="status-badge">Arbitrage</span></td>
+                            <td style="text-align: right;" class="pro-text-profit">2.5%</td>
+                            <td style="text-align: right;">$25.00</td>
+                            <td><span class="status-badge active">Active</span></td>
+                            <td style="text-align: right;">
+                                <button class="pro-btn pro-btn-buy" style="padding: 4px 12px; font-size: 12px;">
+                                    Execute
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>14:28:43</td>
+                            <td>ETH Price Prediction</td>
+                            <td><span class="status-badge">Reality</span></td>
+                            <td style="text-align: right;" class="pro-text-profit">3.8%</td>
+                            <td style="text-align: right;">$38.00</td>
+                            <td><span class="status-badge warning">Pending</span></td>
+                            <td style="text-align: right;">
+                                <button class="pro-btn pro-btn-buy" style="padding: 4px 12px; font-size: 12px;">
+                                    Execute
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Open Positions -->
+        <div class="pro-card">
+            <div class="pro-card-header">
+                <h3 class="pro-card-title">Open Positions</h3>
+                <button class="pro-btn-secondary" style="padding: 6px 12px; font-size: 13px;">
+                    Close All
+                </button>
+            </div>
+            <div class="pro-card-body" style="padding: 0;">
+                <table class="pro-table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Side</th>
+                            <th style="text-align: right;">Entry</th>
+                            <th style="text-align: right;">Current</th>
+                            <th style="text-align: right;">Quantity</th>
+                            <th style="text-align: right;">P&L</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-tbody">
+                        <tr>
+                            <td><strong>BTC</strong></td>
+                            <td><span class="change-indicator positive">BUY</span></td>
+                            <td class="price-display" style="text-align: right;">$65,230</td>
+                            <td class="price-display" style="text-align: right;">$67,245</td>
+                            <td style="text-align: right;">0.0153</td>
+                            <td class="pro-text-profit" style="text-align: right;">+$30.83</td>
+                            <td style="text-align: right;">
+                                <button class="pro-btn pro-btn-sell" style="padding: 4px 12px; font-size: 12px;">
+                                    Close
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/realtime_client.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/professional_charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/quick_trade.js') }}"></script>
+    
+    <!-- Update last update time -->
+    <script>
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('last-update-time').textContent = now.toLocaleTimeString();
+        }
+        
+        updateLastUpdateTime();
+        setInterval(updateLastUpdateTime, 1000);
+        
+        // Update connection status based on WebSocket
+        window.addEventListener('realtime_connection_change', (e) => {
+            const statusEl = document.getElementById('connection-status');
+            if (e.detail.connected) {
+                statusEl.className = 'status-badge active';
+                statusEl.innerHTML = '<i class="fas fa-wifi"></i> Connected';
+            } else {
+                statusEl.className = 'status-badge error';
+                statusEl.innerHTML = '<i class="fas fa-wifi"></i> Disconnected';
+            }
+        });
+        
+        // Sidebar toggle for mobile
+        document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+            document.querySelector('.pro-sidebar').classList.toggle('open');
+        });
+    </script>
+</body>
+</html>
