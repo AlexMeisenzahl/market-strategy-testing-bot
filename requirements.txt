@@ -1,25 +1,54 @@
 # Core dependencies for Polymarket Arbitrage Bot
-requests>=2.31.0        # HTTP requests for API calls
-requests-cache>=1.1.0   # API response caching
-pyyaml>=6.0            # YAML configuration file parsing
-rich>=13.0.0           # Beautiful terminal dashboard
-python-dateutil>=2.8.2 # Date/time utilities
-pytz>=2023.3           # Timezone support for quiet hours
+Flask==2.3.0
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate==4.0.4
+Flask-Cors==4.0.0
+requests==2.31.0
+requests-cache>=1.1.0
+PyYAML>=6.0
+rich>=13.0.0
+python-dateutil>=2.8.2
+pytz>=2023.3
+werkzeug>=3.0.0
 
-# Additional dependencies for multi-strategy enhancements
-aiohttp>=3.9.0           # Async HTTP for performance
-asyncio>=3.4.3          # Async operations
-plyer>=2.1.0            # Desktop notifications
-numpy>=1.24.0           # Numerical operations for statistics
-pandas>=2.0.0           # Data analysis for backtesting
+# Crypto APIs and Data Sources
+cachetools==5.3.1
+websocket-client>=1.6.4
+gql>=3.4.1
+requests-toolbelt>=1.0.0
 
-# Web Dashboard dependencies
-flask>=3.0.0            # Web framework for dashboard
-flask-cors>=4.0.0       # CORS support for API
-werkzeug>=3.0.0        # WSGI utilities
-psutil>=5.9.0           # Process monitoring for bot status
+# Analytics and Data Processing
+numpy==1.24.3
+scipy==1.11.1
+pandas==2.0.3
 
-# Free API data sources (no API keys required)
-websocket-client>=1.6.4  # WebSocket for real-time Binance price streams
-gql>=3.4.1              # GraphQL client for Polymarket Subgraph
-requests-toolbelt>=1.0.0 # Advanced HTTP utilities
+# Async Operations
+aiohttp>=3.9.0
+
+# System Monitoring
+psutil>=5.9.0
+plyer>=2.1.0
+
+# Email and Communication
+secure-smtplib>=0.1.1
+
+# Testing
+pytest==7.4.0
+pytest-cov==4.1.0
+pytest-mock==3.11.1
+factory-boy==3.3.0
+
+# Code Quality
+black==23.7.0
+flake8==6.1.0
+mypy==1.4.1
+
+# Documentation
+sphinx==7.1.2
+
+# Production
+gunicorn==21.2.0
+alembic==1.12.0
+
+# Database
+SQLAlchemy==2.0.21
