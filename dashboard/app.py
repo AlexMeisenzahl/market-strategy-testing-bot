@@ -837,6 +837,129 @@ def get_strategy_breakdown():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/data/verify')
+def verify_data_quality():
+    """
+    Run comprehensive data quality checks
+    
+    Returns health status, issues, and check results
+    """
+    try:
+        from dashboard.services.data_validator import DataValidator
+        
+        validator = DataValidator()
+        results = {
+            'status': 'healthy',  # or 'warning' or 'error'
+            'checks': {},
+            'issues': []
+        }
+        
+        # Check 1: CSV file exists
+        trades_csv = LOGS_DIR / 'trades.csv'
+        if not trades_csv.exists():
+            results['status'] = 'warning'
+            results['issues'].append('trades.csv not found - using sample data')
+            return jsonify(results)
+        
+        # Check 2: Validate CSV structure
+        csv_validation = validator.validate_csv_data(trades_csv)
+        results['checks']['csv_validation'] = csv_validation
+        
+        if not csv_validation['valid']:
+            results['status'] = 'error'
+            results['issues'].extend(csv_validation['issues'])
+        
+        # Check 3: Calculate total P&L and verify integrity
+        trades = data_parser.get_all_trades()
+        if trades:
+            calculated_pnl = data_parser.calculate_total_pnl(trades)
+            results['checks']['total_pnl'] = calculated_pnl
+            
+            # Check 4: Win rate in valid range
+            win_rate = data_parser.calculate_win_rate(trades)
+            results['checks']['win_rate'] = win_rate
+            
+            if win_rate == 100.0 and len(trades) > 10:
+                results['status'] = 'warning'
+                results['issues'].append(f'Win rate is exactly 100% with {len(trades)} trades - suspicious')
+            
+            # Check 5: No outlier trades
+            pnls = [t['pnl_usd'] for t in trades]
+            if pnls and len(pnls) > 1:
+                mean = sum(pnls) / len(pnls)
+                variance = sum((x - mean) ** 2 for x in pnls) / len(pnls)
+                std = variance ** 0.5
+                
+                outliers = [p for p in pnls if abs(p - mean) > 3 * std]
+                if outliers:
+                    results['status'] = 'warning'
+                    results['issues'].append(f'Found {len(outliers)} outlier trades')
+            
+            # Check 6: No future timestamps
+            future_trades = [t for t in trades if datetime.fromisoformat(t['entry_time']) > datetime.now()]
+            if future_trades:
+                results['status'] = 'error'
+                results['issues'].append(f'{len(future_trades)} trades have future timestamps')
+        
+        return jsonify(results)
+    except Exception as e:
+        logger.log_error(f"Error verifying data quality: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'issues': [f'Verification failed: {str(e)}']
+        }), 500
+
+
+@app.route('/api/recent_activity')
+def get_recent_activity():
+    """
+    Get recent activity feed (trades, opportunities, events)
+    
+    Returns last 20 activities sorted by timestamp
+    """
+    try:
+        activities = []
+        
+        # Get recent trades
+        trades = data_parser.get_all_trades()
+        if trades:
+            # Get last 10 trades
+            recent_trades = sorted(trades, key=lambda x: x['entry_time'], reverse=True)[:10]
+            
+            for trade in recent_trades:
+                activities.append({
+                    'type': 'trade',
+                    'message': f"{trade['strategy']}: {trade['symbol']} - ${trade['pnl_usd']:.2f}",
+                    'profit': trade['pnl_usd'],
+                    'timestamp': trade['entry_time'],
+                    'details': trade
+                })
+        
+        # Get recent opportunities
+        opportunities = data_parser.get_all_opportunities()
+        if opportunities:
+            # Get last 10 opportunities
+            recent_opps = sorted(opportunities, key=lambda x: x['timestamp'], reverse=True)[:10]
+            
+            for opp in recent_opps:
+                activities.append({
+                    'type': 'opportunity',
+                    'message': f"{opp['strategy']}: {opp['symbol']} - Confidence: {opp['confidence']:.0%}",
+                    'profit': None,
+                    'timestamp': opp['timestamp'],
+                    'details': opp
+                })
+        
+        # Sort all activities by timestamp (newest first)
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        # Return last 20
+        return jsonify(activities[:20])
+    except Exception as e:
+        logger.log_error(f"Error getting recent activity: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Check if config exists
     if not CONFIG_PATH.exists():

@@ -51,6 +51,16 @@
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
         
+        .card.clickable {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .card.clickable:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(29, 161, 242, 0.3);
+        }
+        
         .stat-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
@@ -196,6 +206,16 @@
                     <p class="text-gray-400">Real-time performance metrics and analytics</p>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <!-- Data Health Indicator -->
+                    <div class="data-health-indicator">
+                        <span id="health-status" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400 cursor-pointer" onclick="verifyDataQuality()" title="Click to verify data quality">
+                            <span class="status-icon mr-2">🟢</span>
+                            <span class="status-text">Data Healthy</span>
+                        </span>
+                        <button id="verify-data-btn" onclick="verifyDataQuality()" class="ml-2 px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 transition">
+                            Verify Data
+                        </button>
+                    </div>
                     <label class="flex items-center cursor-pointer">
                         <span class="text-sm text-gray-400 mr-2">Auto-refresh (<span id="refresh-interval-display">5s</span>)</span>
                         <input type="checkbox" id="auto-refresh-toggle" class="sr-only peer" checked>
@@ -204,10 +224,10 @@
                 </div>
             </div>
             
-            <!-- Key Metrics Cards -->
+            <!-- Key Metrics Cards (Clickable) -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <!-- Total P&L Card -->
-                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                <div class="card clickable bg-dark-card rounded-xl p-6 border border-dark-border" onclick="navigateTo('/analytics?view=pnl-breakdown')" title="Click to see P&L breakdown">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-gray-400 text-sm">Total P&L</span>
                         <i class="fas fa-dollar-sign text-blue-500"></i>
@@ -220,7 +240,7 @@
                 </div>
                 
                 <!-- Win Rate Card -->
-                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                <div class="card clickable bg-dark-card rounded-xl p-6 border border-dark-border" onclick="navigateTo('/analytics?view=win-loss-breakdown')" title="Click to see win/loss breakdown">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-gray-400 text-sm">Win Rate</span>
                         <i class="fas fa-percentage text-green-500"></i>
@@ -232,7 +252,7 @@
                 </div>
                 
                 <!-- Active Trades Card -->
-                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                <div class="card clickable bg-dark-card rounded-xl p-6 border border-dark-border" onclick="navigateTo('/trades?status=open')" title="Click to see active trades">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-gray-400 text-sm">Active Trades</span>
                         <i class="fas fa-chart-line text-yellow-500"></i>
@@ -242,7 +262,7 @@
                 </div>
                 
                 <!-- Total Trades Card -->
-                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
+                <div class="card clickable bg-dark-card rounded-xl p-6 border border-dark-border" onclick="navigateTo('/trades')" title="Click to see all trades">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-gray-400 text-sm">Total Trades</span>
                         <i class="fas fa-list text-purple-500"></i>
@@ -289,11 +309,33 @@
                     </div>
                 </div>
                 
-                <!-- Recent Activity -->
+                <!-- Recent Activity Feed -->
                 <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
-                    <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Recent Activity</h3>
+                        <button id="pause-activity" onclick="toggleActivityPause()" class="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 transition">
+                            <i class="fas fa-pause"></i> Pause
+                        </button>
+                    </div>
+                    
+                    <!-- Activity Filters -->
+                    <div class="flex space-x-2 mb-4">
+                        <button class="filter-btn active px-3 py-1 text-xs rounded bg-blue-600" data-filter="all" onclick="filterActivity('all', event)">All</button>
+                        <button class="filter-btn px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600" data-filter="trades" onclick="filterActivity('trades', event)">Trades</button>
+                        <button class="filter-btn px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600" data-filter="opportunities" onclick="filterActivity('opportunities', event)">Opportunities</button>
+                        <button class="filter-btn px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600" data-filter="errors" onclick="filterActivity('errors', event)">Errors</button>
+                    </div>
+                    
+                    <!-- Activity Search -->
+                    <input type="text" id="activity-search" placeholder="Search activity..." class="w-full px-3 py-2 mb-4 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeyup="searchActivity()">
+                    
+                    <!-- Activity Feed -->
                     <div id="recent-activity" class="space-y-3 max-h-80 overflow-y-auto">
                         <!-- Activity items will be inserted here -->
+                        <div class="text-center text-gray-500 py-4">
+                            <i class="fas fa-sync-alt fa-spin mb-2"></i>
+                            <p class="text-sm">Loading activity...</p>
+                        </div>
                     </div>
                 </div>
             </div>
