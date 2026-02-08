@@ -7,7 +7,7 @@
     <title>Market Strategy Testing Bot - Dashboard</title>
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="/manifest.json">
     
     <!-- PWA Meta Tags -->
     <meta name="description" content="Professional trading bot dashboard for cryptocurrency and prediction markets">
@@ -1208,16 +1208,5 @@
     <script src="{{ url_for('static', filename='js/enhanced_charts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/favorites.js') }}"></script>
     <script src="{{ url_for('static', filename='js/debug_panel.js') }}"></script>
-    
-    <!-- PWA Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/service-worker.js')
-                    .then(registration => console.log('[PWA] Service Worker registered'))
-                    .catch(error => console.log('[PWA] Service Worker registration failed:', error));
-            });
-        }
-    </script>
 </body>
 </html>
