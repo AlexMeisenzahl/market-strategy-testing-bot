@@ -152,7 +152,9 @@ class ArbitrageStrategy:
                 market=market_name,
                 yes_price=yes_price,
                 no_price=no_price,
-                action_taken=f"{self.strategy_name}_detected"
+                action_taken=f"{self.strategy_name}_detected",
+                strategy=self.strategy_name,
+                arbitrage_type=getattr(opportunity, 'arbitrage_type', 'Simple')
             )
             
             return opportunity
@@ -289,7 +291,9 @@ class ArbitrageStrategy:
             yes_price=opportunity.yes_price,
             no_price=opportunity.no_price,
             profit_usd=expected_profit,
-            status=f"{self.strategy_name}_entered"
+            status=f"{self.strategy_name}_entered",
+            strategy=self.strategy_name,
+            arbitrage_type=getattr(opportunity, 'arbitrage_type', 'Simple')
         )
         
         return position
@@ -329,7 +333,9 @@ class ArbitrageStrategy:
             yes_price=exit_prices['yes'],
             no_price=exit_prices['no'],
             profit_usd=actual_profit,
-            status=f"{self.strategy_name}_exited_{reason}"
+            status=f"{self.strategy_name}_exited_{reason}",
+            strategy=self.strategy_name,
+            arbitrage_type='Simple'  # Default for now
         )
         
         # Create exit record
