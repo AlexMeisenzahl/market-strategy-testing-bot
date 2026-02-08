@@ -150,7 +150,7 @@ def create_splash_screen(width, height, name, output_path):
     try:
         # Use default font (custom fonts may not be available)
         font = ImageFont.load_default()
-    except (OSError, IOError) as e:
+    except (OSError, IOError):
         # If even default font fails, set to None
         font = None
     

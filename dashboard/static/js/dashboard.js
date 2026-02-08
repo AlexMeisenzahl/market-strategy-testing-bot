@@ -1370,11 +1370,8 @@ function setupPullToRefresh() {
     container.addEventListener('touchmove', (e) => {
         if (!pulling) return;
         
+        // Track touch position for potential future UI feedback
         const currentY = e.touches[0].pageY;
-        const distance = currentY - startY;
-        
-        // Visual feedback for pull-to-refresh
-        // Distance is tracked for potential UI indicators
     }, { passive: true });
     
     container.addEventListener('touchend', (e) => {
@@ -1492,7 +1489,7 @@ function initializeMobilePageNavigation() {
     
     window.showPage = function(page, event) {
         // For mobile navigation, create a synthetic event if needed
-        if (event && !event.target.closest('.nav-link')) {
+        if (event && event.target && !event.target.closest('.nav-link')) {
             // Call original with a modified event that won't break desktop nav update
             if (typeof originalShowPage === 'function') {
                 try {
