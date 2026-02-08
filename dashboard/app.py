@@ -1537,7 +1537,7 @@ def reset_settings():
 
 
 @app.route('/api/notifications/test/<channel_type>', methods=['POST'])
-def test_notification(channel_type):
+def test_notification_channel(channel_type):
     """
     Send a test notification to a specific channel.
     
