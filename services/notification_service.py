@@ -22,6 +22,15 @@ def validate_webhook_url(url: str) -> bool:
     """
     Validate webhook URL to prevent SSRF attacks.
     
+    SECURITY NOTE: This function mitigates SSRF (Server-Side Request Forgery)
+    risks by validating user-provided webhook URLs. It enforces:
+    - HTTPS-only connections
+    - Blocks localhost and private IP ranges (RFC 1918)
+    - Validates URL format and hostname
+    
+    While CodeQL may still report SSRF warnings for requests.post() calls
+    using these URLs, the risk is mitigated through this validation.
+    
     Args:
         url: URL to validate
         
