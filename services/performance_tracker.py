@@ -4,7 +4,6 @@ Real-Time Performance Tracking
 Track and broadcast performance updates via WebSocket for real-time monitoring.
 """
 
-import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from collections import deque
@@ -14,8 +13,9 @@ from database.competition_models import (
     Strategy,
     StrategyPerformanceSnapshot
 )
+from logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 class RealTimePerformanceTracker:

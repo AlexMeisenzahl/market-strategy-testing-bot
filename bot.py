@@ -608,7 +608,7 @@ class ArbitrageBot:
                 self.add_activity("💾 Saved hourly performance snapshots")
             
             # Weekly: Run strategy selection and capital allocation
-            if (now - self.last_weekly_selection).total_seconds() >= 604800:  # 7 days
+            if (now - self.last_weekly_selection).total_seconds() >= (7 * 24 * 3600):  # 7 days
                 self.logger.log_info("Running weekly strategy selection")
                 best_strategy = strategy_selector.select_best_strategy()
                 if best_strategy:

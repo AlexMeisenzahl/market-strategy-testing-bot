@@ -5,14 +5,14 @@ API routes for emergency kill switch and safety controls.
 """
 
 from flask import Blueprint, jsonify, request
-import logging
 
 from services.emergency_kill_switch import kill_switch
 from services.strategy_health_monitor import health_monitor
 from services.strategy_pause_manager import pause_manager
 from database.competition_models import Strategy
+from logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 emergency_bp = Blueprint('emergency', __name__, url_prefix='/api/emergency')
 

@@ -5,7 +5,6 @@ Run multiple strategies simultaneously and track which performs best.
 Each strategy starts with same virtual capital and competes in real-time.
 """
 
-import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -17,8 +16,12 @@ from database.competition_models import (
     StrategyPerformanceSnapshot,
     get_connection
 )
+from logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
+
+# Constants
+TRADING_DAYS_PER_YEAR = 252  # Standard for Sharpe ratio annualization
 
 
 class StrategyCompetition:
@@ -239,7 +242,7 @@ class StrategyCompetition:
                 return 0.0
             
             # Annualized Sharpe (assuming daily returns)
-            sharpe = (mean_return / std_return) * np.sqrt(252)
+            sharpe = (mean_return / std_return) * np.sqrt(TRADING_DAYS_PER_YEAR)
             return float(sharpe)
             
         except Exception as e:

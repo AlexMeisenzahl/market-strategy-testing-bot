@@ -4,7 +4,6 @@ Strategy Auto-Selection
 Automatically identify best performing strategy and allocate capital.
 """
 
-import logging
 from typing import Dict, Optional, List
 from datetime import datetime
 
@@ -12,6 +11,9 @@ from database.competition_models import Strategy, StrategyPerformanceSnapshot
 from logger import get_logger
 
 logger = get_logger()
+
+# Constants
+SHARPE_SCALING_FACTOR = 10  # Scale Sharpe ratio in scoring formula
 
 
 class StrategySelector:
@@ -127,7 +129,7 @@ class StrategySelector:
         """
         try:
             return_score = performance['return_pct'] * 0.4
-            sharpe_score = performance['sharpe'] * 10 * 0.3  # Scale sharpe
+            sharpe_score = performance['sharpe'] * SHARPE_SCALING_FACTOR * 0.3  # Scale sharpe
             winrate_score = performance['win_rate'] * 0.2
             drawdown_score = (100 - performance['drawdown']) * 0.1  # Invert drawdown
             

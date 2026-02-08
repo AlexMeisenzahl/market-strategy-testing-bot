@@ -5,13 +5,13 @@ API routes for strategy competition leaderboard.
 """
 
 from flask import Blueprint, jsonify, request
-import logging
 
 from services.strategy_competition import competition
 from services.performance_tracker import performance_tracker
 from database.competition_models import Strategy
+from logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 leaderboard_bp = Blueprint('leaderboard', __name__, url_prefix='/api/leaderboard')
 
