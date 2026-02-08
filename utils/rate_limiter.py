@@ -152,9 +152,11 @@ class PriorityRateLimiter(RateLimiter):
         """
         super().__init__(calls_per_minute)
         import heapq
+        import logging
         self.request_queue = []  # Min heap by priority
         self.processing = False
         self.heapq = heapq
+        self.logger = logging.getLogger(__name__)
     
     def queue_request(self, api_func, args=None, kwargs=None, priority: int = 5):
         """
@@ -196,7 +198,7 @@ class PriorityRateLimiter(RateLimiter):
         
         return request_id
     
-    def process_queue(self, max_requests: int = None) -> Dict:
+    def process_queue(self, max_requests: int = None):
         """
         Process queued requests
         
@@ -281,7 +283,7 @@ class PriorityRateLimiter(RateLimiter):
         finally:
             self.processing = False
     
-    def get_queue_status(self) -> Dict:
+    def get_queue_status(self):
         """
         Get queue status
         
@@ -308,8 +310,3 @@ class PriorityRateLimiter(RateLimiter):
         with self.lock:
             self.request_queue.clear()
         self.logger.info("Request queue cleared")
-
-
-# Add logging to PriorityRateLimiter
-import logging
-PriorityRateLimiter.logger = logging.getLogger(__name__)
