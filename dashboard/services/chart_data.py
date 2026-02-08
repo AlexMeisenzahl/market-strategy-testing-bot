@@ -127,45 +127,25 @@ class ChartDataService:
     
     def get_strategy_performance(self) -> Dict[str, Any]:
         """
-        Get strategy performance comparison data
+        Get strategy performance comparison data using Decimal precision
         
         Returns:
             Dictionary with strategy comparison data
         """
-        trades = self.data_parser.get_all_trades()
+        # Use data_parser's Decimal-based method
+        performance = self.data_parser.get_strategy_performance()
         
-        # Group by strategy
-        strategy_data = defaultdict(lambda: {
-            'total_pnl': 0,
-            'wins': 0,
-            'losses': 0,
-            'total_trades': 0
-        })
-        
-        for trade in trades:
-            strategy = trade['strategy']
-            data = strategy_data[strategy]
-            
-            data['total_pnl'] += trade['pnl_usd']
-            data['total_trades'] += 1
-            
-            if trade['pnl_usd'] > 0:
-                data['wins'] += 1
-            else:
-                data['losses'] += 1
-        
-        # Calculate win rates and prepare chart data
+        # Convert to list format for charts
         strategies = []
-        for strategy, data in strategy_data.items():
-            win_rate = (data['wins'] / data['total_trades'] * 100) if data['total_trades'] > 0 else 0
-            
+        for strategy_name, data in performance.items():
             strategies.append({
-                'name': strategy,
-                'pnl': round(data['total_pnl'], 2),
-                'win_rate': round(win_rate, 2),
-                'total_trades': data['total_trades'],
+                'name': strategy_name,
+                'pnl': data['total_pnl'],
+                'win_rate': data['win_rate'],
+                'total_trades': data['trades_executed'],
                 'wins': data['wins'],
-                'losses': data['losses']
+                'losses': data['losses'],
+                'opportunities': data['opportunities_found']
             })
         
         # Sort by P&L (descending)

@@ -187,6 +187,33 @@ def get_strategy_performance():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/strategies')
+def get_strategies():
+    """Get list of all strategy names"""
+    try:
+        strategies = data_parser.get_all_strategy_names()
+        return jsonify({
+            'strategies': strategies
+        })
+    except Exception as e:
+        logger.log_error(f"Error getting strategies: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/strategies/<strategy_name>/performance')
+def get_strategy_details(strategy_name):
+    """Get detailed performance for a specific strategy"""
+    try:
+        performance = data_parser.get_strategy_performance()
+        if strategy_name in performance:
+            return jsonify(performance[strategy_name])
+        else:
+            return jsonify({'error': 'Strategy not found'}), 404
+    except Exception as e:
+        logger.log_error(f"Error getting strategy details: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
     """Get all settings from config.yaml"""
