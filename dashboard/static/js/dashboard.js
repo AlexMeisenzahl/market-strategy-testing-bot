@@ -164,6 +164,10 @@ async function refreshCurrentPage() {
         await loadTradesData();
     } else if (currentPage === 'opportunities') {
         await loadOpportunitiesData();
+    } else if (currentPage === 'analytics') {
+        await loadAnalyticsData();
+    } else if (currentPage === 'tax') {
+        await loadTaxData();
     } else if (currentPage === 'settings') {
         await loadSettings();
     }
@@ -199,6 +203,10 @@ function showPage(pageName, event) {
         loadTradesData();
     } else if (pageName === 'opportunities') {
         loadOpportunitiesData();
+    } else if (pageName === 'analytics') {
+        loadAnalyticsData();
+    } else if (pageName === 'tax') {
+        loadTaxData();
     } else if (pageName === 'settings') {
         loadSettings();
     }
@@ -946,3 +954,48 @@ document.addEventListener('DOMContentLoaded', function() {
         oppFilterBtn.addEventListener('click', applyOpportunityFilters);
     }
 });
+
+// Tax Page Functions
+async function loadTaxData() {
+    try {
+        const year = new Date().getFullYear();
+        
+        // Load tax summary
+        const summaryResponse = await fetch(`${API_BASE}/api/tax/summary?year=${year}`);
+        const summary = await summaryResponse.json();
+        
+        // Update summary cards (if they have IDs)
+        console.log('Tax summary loaded:', summary);
+        
+        // Load tax positions
+        const positionsResponse = await fetch(`${API_BASE}/api/tax/positions?year=${year}`);
+        const positions = await positionsResponse.json();
+        
+        console.log('Tax positions loaded:', positions);
+        showToast('Tax data loaded', 'success');
+    } catch (error) {
+        console.error('Error loading tax data:', error);
+        showToast('Error loading tax data', 'error');
+    }
+}
+
+// Analytics Page Functions
+async function loadAnalyticsData() {
+    try {
+        // Load risk analytics
+        const riskResponse = await fetch(`${API_BASE}/api/analytics/risk`);
+        const risk = await riskResponse.json();
+        
+        console.log('Risk analytics loaded:', risk);
+        
+        // Load strategy breakdown
+        const strategyResponse = await fetch(`${API_BASE}/api/analytics/strategy-breakdown`);
+        const strategies = await strategyResponse.json();
+        
+        console.log('Strategy breakdown loaded:', strategies);
+        showToast('Analytics loaded', 'success');
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+        showToast('Error loading analytics', 'error');
+    }
+}
