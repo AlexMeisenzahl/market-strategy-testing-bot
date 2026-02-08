@@ -127,7 +127,7 @@ class MarketValidator:
                     if distance_pct > 20:
                         expected_yes_price = Decimal('0.20')  # Far above
                     elif distance_pct > 10:
-                        expected_yes_price = Decimal('0.35')  # Moderately above
+                        expected_yes_price = Decimal('0.35')  # Approaching threshold
                     else:
                         expected_yes_price = Decimal('0.45')  # Close to threshold
                 else:
@@ -228,8 +228,7 @@ class MarketValidator:
         # Extract threshold (price level)
         # Patterns: $100,000 | 100k | $100k | 100000
         threshold_patterns = [
-            r'\$?([\d,]+)k',  # 100k format
-            r'\$?([\d,]+)',   # 100,000 format
+            r'\$?([\d,]+)',   # Matches numbers like 100,000 or 100
         ]
         
         threshold = None
@@ -240,7 +239,7 @@ class MarketValidator:
                 num_str = match.replace(',', '')
                 try:
                     num = float(num_str)
-                    # Check for 'k' multiplier immediately after the number
+                    # Check for 'k' multiplier immediately after the matched number
                     match_end = match_obj.end()
                     if match_end < len(market_lower) and market_lower[match_end] == 'k' and num < 1000:
                         num *= 1000
@@ -248,6 +247,7 @@ class MarketValidator:
                         threshold = Decimal(str(int(num)))
                         break
                 except:
+                    continue
                     continue
             if threshold:
                 break

@@ -1135,6 +1135,16 @@ def get_market_reality_status():
         for market in markets:
             validation = validator.validate_market_against_reality(market, current_prices)
             if validation:  # Only include crypto markets
+                # Convert confidence string to numeric value
+                confidence_map = {
+                    'none': 0.0,
+                    'low': 0.3,
+                    'medium': 0.5,
+                    'high': 0.7,
+                    'very_high': 0.9
+                }
+                confidence_numeric = confidence_map.get(validation['confidence'], 0.5)
+                
                 validations.append({
                     'market_name': market['market_name'],
                     'symbol': validation['symbol'],
@@ -1148,7 +1158,7 @@ def get_market_reality_status():
                     'valid': validation['valid'],
                     'opportunity': validation.get('opportunity'),
                     'profit_potential_pct': validation.get('profit_potential_pct', 0),
-                    'confidence': validation['confidence']
+                    'confidence': confidence_numeric
                 })
         
         return jsonify({
