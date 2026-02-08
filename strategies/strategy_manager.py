@@ -59,6 +59,10 @@ class StrategyManager:
                                                        self.config.get('min_profit_margin', 0.02)),
                     'max_trade_size': self.config.get('max_trade_size', 10),
                     'arbitrage_types': arb_config.get('arbitrage_types', {}),
+                    # Pass crypto_apis config for reality arbitrage
+                    'crypto_apis': self.config.get('crypto_apis', {}),
+                    'crypto_symbols': self.config.get('crypto_symbols', []),
+                    'strategies': self.config.get('strategies', {}),  # For nested config access
                 }
                 
                 self.strategies['polymarket_arbitrage'] = ArbitrageStrategy(strategy_config)

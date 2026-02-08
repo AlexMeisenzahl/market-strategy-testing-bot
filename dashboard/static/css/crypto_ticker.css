@@ -1,0 +1,210 @@
+/* Crypto Ticker Styles */
+
+.crypto-ticker {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-bottom: 1px solid #334155;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.crypto-ticker-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+    gap: 1rem;
+}
+
+.ticker-items {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #475569 #1e293b;
+}
+
+/* Mobile: horizontal scroll */
+@media (max-width: 768px) {
+    .ticker-items {
+        overflow-x: scroll;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        padding: 0.25rem 0;
+    }
+    
+    .crypto-ticker-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+}
+
+.ticker-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 0.5rem;
+    border: 1px solid #334155;
+    min-width: 150px;
+    transition: all 0.3s ease;
+}
+
+.ticker-item:hover {
+    background: rgba(30, 41, 59, 0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.ticker-symbol {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+}
+
+.ticker-data {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.ticker-price {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #f1f5f9;
+    transition: all 0.3s ease;
+}
+
+.ticker-change {
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+/* Price flash animation */
+@keyframes priceFlash {
+    0%, 100% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+.price-flash {
+    animation: priceFlash 0.3s ease;
+}
+
+/* Ticker info */
+.ticker-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.ticker-timestamp {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ticker-stale-warning {
+    display: none;
+    align-items: center;
+    gap: 0.25rem;
+    color: #fbbf24;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.ticker-error {
+    display: none;
+    padding: 0.5rem 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    border-radius: 0.5rem;
+    color: #fca5a5;
+    font-size: 0.875rem;
+}
+
+/* Tooltip */
+.ticker-item[data-tooltip] {
+    position: relative;
+}
+
+.ticker-item[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #1e293b;
+    border: 1px solid #475569;
+    border-radius: 0.375rem;
+    color: #f1f5f9;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    animation: tooltipFade 0.2s ease;
+}
+
+.ticker-item[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1e293b;
+    z-index: 1000;
+}
+
+@keyframes tooltipFade {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* Smooth scroll behavior */
+.ticker-items::-webkit-scrollbar {
+    height: 4px;
+}
+
+.ticker-items::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+
+.ticker-items::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 2px;
+}
+
+.ticker-items::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}

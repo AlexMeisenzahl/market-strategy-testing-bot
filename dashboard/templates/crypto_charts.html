@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Price Charts - Market Strategy Bot</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'profit': '#10b981',
+                        'loss': '#ef4444',
+                        'dark-bg': '#0f172a',
+                        'dark-card': '#1e293b',
+                        'dark-border': '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        .btn-timeframe {
+            transition: all 0.2s ease;
+        }
+        
+        .btn-timeframe.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-dark-bg text-gray-100">
+    
+    <!-- Navigation -->
+    <nav class="bg-dark-card border-b border-dark-border sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold">📊 Market Strategy Bot</a>
+                </div>
+                
+                <div class="flex items-center space-x-6">
+                    <a href="/" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-home mr-2"></i>Dashboard
+                    </a>
+                    <a href="/crypto_charts" class="text-white px-3 py-2 rounded-md text-sm font-medium bg-blue-600">
+                        <i class="fas fa-chart-line mr-2"></i>Charts
+                    </a>
+                    <a href="/market_reality" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition">
+                        <i class="fas fa-eye mr-2"></i>Market Reality
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Page Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold mb-2">Crypto Price Charts</h1>
+            <p class="text-gray-400">Real-time cryptocurrency price tracking and analysis</p>
+        </div>
+        
+        <!-- Timeframe Selector -->
+        <div class="bg-dark-card rounded-xl p-4 mb-8 border border-dark-border">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-400">Timeframe:</span>
+                    <div class="flex gap-2">
+                        <button onclick="changeTimeframe('1h')" class="btn-timeframe px-4 py-2 rounded-lg text-sm font-medium bg-dark-bg hover:bg-gray-700 transition" data-timeframe="1h">
+                            1H
+                        </button>
+                        <button onclick="changeTimeframe('24h')" class="btn-timeframe active px-4 py-2 rounded-lg text-sm font-medium bg-dark-bg hover:bg-gray-700 transition" data-timeframe="24h">
+                            24H
+                        </button>
+                        <button onclick="changeTimeframe('7d')" class="btn-timeframe px-4 py-2 rounded-lg text-sm font-medium bg-dark-bg hover:bg-gray-700 transition" data-timeframe="7d">
+                            7D
+                        </button>
+                        <button onclick="changeTimeframe('30d')" class="btn-timeframe px-4 py-2 rounded-lg text-sm font-medium bg-dark-bg hover:bg-gray-700 transition" data-timeframe="30d">
+                            30D
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="text-sm text-gray-400">
+                        <i class="fas fa-sync-alt"></i>
+                        Auto-refresh: 60s
+                    </div>
+                    <button onclick="refreshCharts()" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 transition">
+                        <i class="fas fa-refresh mr-2"></i>Refresh Now
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- BTC Chart -->
+            <div class="bg-dark-card rounded-xl p-6 border border-dark-border">
+                <div class="mb-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="text-xl font-bold">Bitcoin (BTC)</h3>
+                            <p id="btc-price" class="text-2xl font-bold text-white mt-1">$0.00</p>
+                        </div>
+                        <div id="btc-change" class="text-right">
+                            <div class="text-sm text-gray-400">24h Change</div>
+                            <div class="text-lg font-semibold">0.00%</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-400">High:</span>
+                            <span id="btc-high" class="font-semibold ml-2">$0.00</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400">Low:</span>
+                            <span id="btc-low" class="font-semibold ml-2">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="btc-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- ETH Chart -->
+            <div class="bg-dark-card rounded-xl p-6 border border-dark-border">
+                <div class="mb-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="text-xl font-bold">Ethereum (ETH)</h3>
+                            <p id="eth-price" class="text-2xl font-bold text-white mt-1">$0.00</p>
+                        </div>
+                        <div id="eth-change" class="text-right">
+                            <div class="text-sm text-gray-400">24h Change</div>
+                            <div class="text-lg font-semibold">0.00%</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-400">High:</span>
+                            <span id="eth-high" class="font-semibold ml-2">$0.00</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400">Low:</span>
+                            <span id="eth-low" class="font-semibold ml-2">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="eth-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- SOL Chart -->
+            <div class="bg-dark-card rounded-xl p-6 border border-dark-border">
+                <div class="mb-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="text-xl font-bold">Solana (SOL)</h3>
+                            <p id="sol-price" class="text-2xl font-bold text-white mt-1">$0.00</p>
+                        </div>
+                        <div id="sol-change" class="text-right">
+                            <div class="text-sm text-gray-400">24h Change</div>
+                            <div class="text-lg font-semibold">0.00%</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-400">High:</span>
+                            <span id="sol-high" class="font-semibold ml-2">$0.00</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400">Low:</span>
+                            <span id="sol-low" class="font-semibold ml-2">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="sol-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- XRP Chart -->
+            <div class="bg-dark-card rounded-xl p-6 border border-dark-border">
+                <div class="mb-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="text-xl font-bold">Ripple (XRP)</h3>
+                            <p id="xrp-price" class="text-2xl font-bold text-white mt-1">$0.00</p>
+                        </div>
+                        <div id="xrp-change" class="text-right">
+                            <div class="text-sm text-gray-400">24h Change</div>
+                            <div class="text-lg font-semibold">0.00%</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-400">High:</span>
+                            <span id="xrp-high" class="font-semibold ml-2">$0.00</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400">Low:</span>
+                            <span id="xrp-low" class="font-semibold ml-2">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="xrp-chart"></canvas>
+                </div>
+            </div>
+            
+        </div>
+        
+    </main>
+    
+    <script>
+        const symbols = ['BTC', 'ETH', 'SOL', 'XRP'];
+        const charts = {};
+        let currentTimeframe = '24h';
+        let refreshInterval;
+        
+        // Initialize charts
+        symbols.forEach(symbol => {
+            const ctx = document.getElementById(`${symbol.toLowerCase()}-chart`);
+            charts[symbol] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: `${symbol} Price`,
+                        data: [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            padding: 12,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(51, 65, 85, 0.3)'
+                            },
+                            ticks: {
+                                color: '#64748b',
+                                maxRotation: 0,
+                                autoSkipPadding: 20
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(51, 65, 85, 0.3)'
+                            },
+                            ticks: {
+                                color: '#64748b',
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        });
+        
+        // Fetch price history for a symbol
+        async function fetchPriceHistory(symbol, timeframe) {
+            try {
+                const response = await fetch(`/api/crypto/price_history?symbol=${symbol}&timeframe=${timeframe}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${symbol} price history:`, error);
+                return null;
+            }
+        }
+        
+        // Update chart with new data
+        function updateChart(symbol, data) {
+            if (!data || !data.history) return;
+            
+            const chart = charts[symbol];
+            const history = data.history;
+            
+            // Update chart data
+            chart.data.labels = history.map(h => {
+                const date = new Date(h.timestamp);
+                if (currentTimeframe === '1h' || currentTimeframe === '24h') {
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
+            });
+            chart.data.datasets[0].data = history.map(h => h.price);
+            chart.update('none');
+            
+            // Update stats
+            const prices = history.map(h => h.price);
+            const currentPrice = prices[prices.length - 1];
+            const high = Math.max(...prices);
+            const low = Math.min(...prices);
+            const change = data.change_percent || 0;
+            
+            document.getElementById(`${symbol.toLowerCase()}-price`).textContent = `$${currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.getElementById(`${symbol.toLowerCase()}-high`).textContent = `$${high.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.getElementById(`${symbol.toLowerCase()}-low`).textContent = `$${low.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            
+            const changeElement = document.getElementById(`${symbol.toLowerCase()}-change`);
+            const changeText = changeElement.querySelector('.text-lg');
+            changeText.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+            changeText.className = `text-lg font-semibold ${change >= 0 ? 'text-profit' : 'text-loss'}`;
+        }
+        
+        // Refresh all charts
+        async function refreshCharts() {
+            for (const symbol of symbols) {
+                const data = await fetchPriceHistory(symbol, currentTimeframe);
+                if (data) {
+                    updateChart(symbol, data);
+                }
+            }
+        }
+        
+        // Change timeframe
+        function changeTimeframe(timeframe) {
+            currentTimeframe = timeframe;
+            
+            // Update active button
+            document.querySelectorAll('.btn-timeframe').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-timeframe="${timeframe}"]`).classList.add('active');
+            
+            // Refresh charts
+            refreshCharts();
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshCharts();
+            
+            // Auto-refresh every 60 seconds
+            refreshInterval = setInterval(refreshCharts, 60000);
+        });
+    </script>
+</body>
+</html>

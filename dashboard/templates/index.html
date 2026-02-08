@@ -17,6 +17,9 @@
     <!-- Chart Sizing Fix CSS -->
     <link rel="stylesheet" href="/static/css/charts-fixed.css">
     
+    <!-- Crypto Ticker CSS -->
+    <link rel="stylesheet" href="/static/css/crypto_ticker.css">
+    
     <!-- Custom Tailwind Config -->
     <script>
         tailwind.config = {
@@ -194,6 +197,61 @@
             </div>
         </div>
     </nav>
+    
+    <!-- Crypto Ticker -->
+    <div class="crypto-ticker sticky top-16 z-40">
+        <div class="crypto-ticker-container">
+            <div class="ticker-items">
+                <!-- BTC -->
+                <div class="ticker-item" data-tooltip="Bitcoin">
+                    <div class="ticker-symbol">BTC</div>
+                    <div class="ticker-data">
+                        <div id="ticker-price-BTC" class="ticker-price">$0.00</div>
+                        <div id="ticker-change-BTC" class="ticker-change text-gray-500">0.00%</div>
+                    </div>
+                </div>
+                
+                <!-- ETH -->
+                <div class="ticker-item" data-tooltip="Ethereum">
+                    <div class="ticker-symbol">ETH</div>
+                    <div class="ticker-data">
+                        <div id="ticker-price-ETH" class="ticker-price">$0.00</div>
+                        <div id="ticker-change-ETH" class="ticker-change text-gray-500">0.00%</div>
+                    </div>
+                </div>
+                
+                <!-- SOL -->
+                <div class="ticker-item" data-tooltip="Solana">
+                    <div class="ticker-symbol">SOL</div>
+                    <div class="ticker-data">
+                        <div id="ticker-price-SOL" class="ticker-price">$0.00</div>
+                        <div id="ticker-change-SOL" class="ticker-change text-gray-500">0.00%</div>
+                    </div>
+                </div>
+                
+                <!-- XRP -->
+                <div class="ticker-item" data-tooltip="Ripple">
+                    <div class="ticker-symbol">XRP</div>
+                    <div class="ticker-data">
+                        <div id="ticker-price-XRP" class="ticker-price">$0.00</div>
+                        <div id="ticker-change-XRP" class="ticker-change text-gray-500">0.00%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="ticker-info">
+                <div class="ticker-timestamp">
+                    <i class="fas fa-clock"></i>
+                    <span id="ticker-timestamp">Loading...</span>
+                </div>
+                <div id="ticker-stale-warning" class="ticker-stale-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Stale data</span>
+                </div>
+            </div>
+        </div>
+        <div id="ticker-error" class="ticker-error"></div>
+    </div>
     
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1021,5 +1079,6 @@
     <!-- Load utilities first, then dashboard -->
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/crypto_ticker.js') }}"></script>
 </body>
 </html>

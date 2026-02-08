@@ -168,6 +168,14 @@ class ArbitrageStrategy:
         """
         Find all arbitrage opportunities across multiple markets
         
+        Checks all arbitrage types:
+        1. Simple arbitrage (YES + NO < $1)
+        2. Cross-exchange arbitrage
+        3. Correlated markets arbitrage
+        4. Time-based arbitrage
+        5. Event-driven arbitrage
+        6. Reality-based arbitrage (NEW!)
+        
         Args:
             markets: List of market information
             prices_dict: Dictionary mapping market_id to price data
@@ -177,6 +185,7 @@ class ArbitrageStrategy:
         """
         opportunities = []
         
+        # 1. Simple arbitrage (classic YES + NO < $1)
         for market in markets:
             market_id = market.get('id', market.get('market_id', 'unknown'))
             prices = prices_dict.get(market_id)
@@ -187,6 +196,19 @@ class ArbitrageStrategy:
             opportunity = self.analyze(market, prices)
             if opportunity:
                 opportunities.append(opportunity)
+        
+        # 2-5. Other arbitrage types (if implemented and enabled)
+        # These would require additional detection methods
+        
+        # 6. Reality-Based Arbitrage (NEW!)
+        # Check crypto markets against current prices
+        if self.arbitrage_types_config.get('reality_based', {}).get('enabled', True):
+            try:
+                reality_opportunities = self.detect_reality_arbitrage(markets, prices_dict)
+                opportunities.extend(reality_opportunities)
+            except Exception as e:
+                if self.logger:
+                    self.logger.log_error(f"Error in reality arbitrage detection: {str(e)}")
         
         return opportunities
     
@@ -590,3 +612,93 @@ class ArbitrageStrategy:
         
         # For now, return empty list - full implementation requires date parsing
         return opportunities
+    
+    def detect_reality_arbitrage(self, markets: List[Dict[str, Any]],
+                                prices_dict: Dict[str, Dict[str, float]]) -> List[ArbitrageOpportunity]:
+        """
+        Type 6: Reality-Based Arbitrage (NEW!)
+        
+        Detects when prediction markets are mispriced compared to current crypto reality.
+        This is the most profitable arbitrage type when conditions are already met.
+        
+        Example:
+            Market: "Will BTC be above $100k?"
+            Current BTC Price: $105,234
+            Market YES Price: 42%
+            → EXTREME opportunity: BUY YES (58% profit potential)
+        
+        Args:
+            markets: List of market information
+            prices_dict: Dictionary mapping market_id to price data
+            
+        Returns:
+            List of reality-based arbitrage opportunities
+        """
+        # Check if reality-based arbitrage is enabled
+        if not self.arbitrage_types_config.get('reality_based', {}).get('enabled', True):
+            return []
+        
+        try:
+            from services.reality_arbitrage_detector import RealityArbitrageDetector
+            
+            # Initialize detector
+            detector = RealityArbitrageDetector(logger=self.logger, config=self.config)
+            
+            # Prepare market data for detector
+            markets_for_detection = []
+            for market in markets:
+                market_id = market.get('id', market.get('market_id', 'unknown'))
+                prices = prices_dict.get(market_id)
+                
+                if prices:
+                    markets_for_detection.append({
+                        'market_id': market_id,
+                        'market_name': market.get('question', market.get('name', market_id)),
+                        'yes_price': prices.get('yes', 0),
+                        'no_price': prices.get('no', 0)
+                    })
+            
+            # Check for reality arbitrage
+            reality_opportunities = detector.check_all_markets(markets_for_detection)
+            
+            # Convert to ArbitrageOpportunity objects
+            opportunities = []
+            for opp in reality_opportunities:
+                arb_opp = ArbitrageOpportunity(
+                    market_id=opp['market_id'],
+                    market_name=opp['market_name'],
+                    yes_price=opp['market_yes_price'],
+                    no_price=opp['market_no_price'],
+                    arbitrage_type='Reality-Based'
+                )
+                
+                # Add reality-specific metadata
+                arb_opp.reality_info = {
+                    'symbol': opp['symbol'],
+                    'current_price': opp['current_price'],
+                    'threshold': opp['threshold'],
+                    'direction': opp['direction'],
+                    'reality_met': opp['reality_met'],
+                    'confidence': opp['confidence'],
+                    'profit_potential_pct': opp['profit_potential_pct']
+                }
+                
+                opportunities.append(arb_opp)
+                
+                if self.logger:
+                    self.logger.log_info(
+                        f"🎯 Reality Arbitrage: {opp['market_name']} - "
+                        f"{opp['symbol']} at ${opp['current_price']:,.0f}, "
+                        f"market {opp['opportunity']} ({opp['profit_potential_pct']:.1f}% profit)"
+                    )
+            
+            return opportunities
+            
+        except ImportError as e:
+            if self.logger:
+                self.logger.log_warning(f"Reality arbitrage detector not available: {str(e)}")
+            return []
+        except Exception as e:
+            if self.logger:
+                self.logger.log_error(f"Error detecting reality arbitrage: {str(e)}")
+            return []

@@ -987,6 +987,225 @@ def get_recent_activity():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================================
+# CRYPTO PRICE API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/crypto/current_prices')
+def get_crypto_current_prices():
+    """Get current prices for all tracked crypto symbols"""
+    try:
+        from services.crypto_price_manager import CryptoPriceManager
+        
+        # Load config
+        config = config_manager.get_config()
+        symbols = config.get('crypto_symbols', ['BTC', 'ETH', 'SOL', 'XRP'])
+        
+        # Get prices
+        price_manager = CryptoPriceManager(logger=logger, config=config)
+        prices = price_manager.get_current_prices(symbols)
+        
+        # Convert Decimal to float for JSON serialization
+        result = {}
+        for symbol, data in prices.items():
+            result[symbol] = {
+                'symbol': data['symbol'],
+                'name': data['name'],
+                'price': float(data['price_usd']),
+                'change_24h': float(data.get('change_24h_pct', 0)),
+                'sources': data['sources'],
+                'sources_count': data['sources_count'],
+                'last_updated': data['last_updated']
+            }
+        
+        return jsonify({'prices': result})
+    except Exception as e:
+        logger.log_error(f"Error getting crypto prices: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/crypto/price_history')
+def get_crypto_price_history():
+    """Get historical prices for a specific symbol"""
+    try:
+        from services.crypto_price_manager import CryptoPriceManager
+        
+        symbol = request.args.get('symbol', 'BTC')
+        timeframe = request.args.get('timeframe', '24h')
+        
+        # Parse timeframe to hours
+        timeframe_map = {
+            '1h': 1,
+            '24h': 24,
+            '7d': 168,
+            '30d': 720
+        }
+        hours = timeframe_map.get(timeframe, 24)
+        
+        # Load config and get history
+        config = config_manager.get_config()
+        price_manager = CryptoPriceManager(logger=logger, config=config)
+        history = price_manager.get_price_history(symbol, hours)
+        
+        # Convert to format for Chart.js
+        history_data = []
+        
+        for record in history:
+            history_data.append({
+                'timestamp': record['timestamp'],
+                'price': float(record['price_usd'])
+            })
+        
+        # Calculate change percentage
+        change_percent = 0
+        if len(history_data) >= 2:
+            first_price = history_data[0]['price']
+            last_price = history_data[-1]['price']
+            if first_price > 0:
+                change_percent = ((last_price - first_price) / first_price) * 100
+        
+        return jsonify({
+            'symbol': symbol,
+            'timeframe': timeframe,
+            'history': history_data,
+            'change_percent': change_percent
+        })
+    except Exception as e:
+        logger.log_error(f"Error getting price history: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/crypto/alerts')
+def get_crypto_alerts():
+    """Get recently triggered price alerts"""
+    try:
+        from services.price_alert_manager import PriceAlertManager
+        
+        # Load config
+        config = config_manager.get_config()
+        alert_manager = PriceAlertManager(logger=logger, config=config)
+        
+        # Get active alerts
+        active_alerts = alert_manager.get_active_alerts()
+        
+        return jsonify({
+            'active_alerts': active_alerts,
+            'enabled': alert_manager.enabled
+        })
+    except Exception as e:
+        logger.log_error(f"Error getting alerts: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/market_reality/status')
+def get_market_reality_status():
+    """Get validation status of all crypto prediction markets"""
+    try:
+        from services.market_validator import MarketValidator
+        from services.crypto_price_manager import CryptoPriceManager
+        
+        # Load config
+        config = config_manager.get_config()
+        
+        # Get current crypto prices
+        symbols = config.get('crypto_symbols', ['BTC', 'ETH', 'SOL', 'XRP'])
+        price_manager = CryptoPriceManager(logger=logger, config=config)
+        current_prices = price_manager.get_current_prices(symbols)
+        
+        # Get markets from opportunities log (last 100)
+        opportunities = data_parser.parse_opportunities()
+        
+        # Extract unique markets
+        markets = []
+        seen_markets = set()
+        for opp in opportunities[:100]:
+            market_name = opp.get('market', '')
+            if market_name and market_name not in seen_markets:
+                seen_markets.add(market_name)
+                markets.append({
+                    'market_name': market_name,
+                    'yes_price': opp.get('yes_price', 0.5),
+                    'no_price': opp.get('no_price', 0.5)
+                })
+        
+        # Validate each market
+        validator = MarketValidator(logger=logger)
+        validations = []
+        
+        for market in markets:
+            validation = validator.validate_market_against_reality(market, current_prices)
+            if validation:  # Only include crypto markets
+                # Convert confidence string to numeric value
+                confidence_map = {
+                    'none': 0.0,
+                    'low': 0.3,
+                    'medium': 0.5,
+                    'high': 0.7,
+                    'very_high': 0.9
+                }
+                confidence_numeric = confidence_map.get(validation['confidence'], 0.5)
+                
+                validations.append({
+                    'market_name': market['market_name'],
+                    'symbol': validation['symbol'],
+                    'current_price': validation['current_price'],
+                    'threshold': validation['threshold'],
+                    'direction': validation['direction'],
+                    'reality_met': validation['reality_met'],
+                    'market_yes_price': validation['market_yes_price'],
+                    'expected_yes_price': validation['expected_yes_price'],
+                    'discrepancy': validation['discrepancy'],
+                    'valid': validation['valid'],
+                    'opportunity': validation.get('opportunity'),
+                    'profit_potential_pct': validation.get('profit_potential_pct', 0),
+                    'confidence': confidence_numeric
+                })
+        
+        return jsonify({
+            'markets': validations,
+            'total_markets': len(validations),
+            'mispriced_count': sum(1 for v in validations if not v['valid']),
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.log_error(f"Error getting market reality status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/crypto/price_check')
+def check_specific_price():
+    """Check if a specific price threshold has been crossed"""
+    try:
+        from services.crypto_price_manager import CryptoPriceManager
+        from decimal import Decimal
+        
+        symbol = request.args.get('symbol', 'BTC')
+        threshold = float(request.args.get('threshold', 100000))
+        direction = request.args.get('direction', 'above')
+        
+        # Load config and check
+        config = config_manager.get_config()
+        price_manager = CryptoPriceManager(logger=logger, config=config)
+        
+        is_crossed = price_manager.check_price_alert(symbol, Decimal(str(threshold)), direction)
+        
+        # Get current price
+        prices = price_manager.get_current_prices([symbol])
+        current_price = float(prices[symbol]['price_usd']) if symbol in prices else None
+        
+        return jsonify({
+            'symbol': symbol,
+            'threshold': threshold,
+            'direction': direction,
+            'current_price': current_price,
+            'threshold_crossed': is_crossed,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.log_error(f"Error checking price: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Check if config exists
     if not CONFIG_PATH.exists():
