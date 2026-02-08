@@ -1487,12 +1487,20 @@ function convertTableToCards(tableSelector) {
 
 /**
  * Enhanced showPage function with mobile support
+ * Wraps the original showPage function if it exists, or creates a basic implementation
  */
-const originalShowPage = window.showPage;
-if (originalShowPage) {
+function initializeMobilePageNavigation() {
+    const originalShowPage = window.showPage;
+    
     window.showPage = function(page, event) {
-        // Call original function
-        originalShowPage.call(this, page, event);
+        // Call original function if it exists
+        if (typeof originalShowPage === 'function') {
+            originalShowPage.call(this, page, event);
+        } else {
+            // Basic fallback implementation
+            console.log('Navigating to page:', page);
+            currentPage = page;
+        }
         
         // Update mobile navigation
         updateBottomNavActiveState(page);
@@ -1515,3 +1523,8 @@ if (originalShowPage) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 }
+
+// Initialize mobile page navigation on load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMobilePageNavigation();
+});

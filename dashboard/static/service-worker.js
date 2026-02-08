@@ -3,8 +3,10 @@
  * Provides offline support and caching
  */
 
-const CACHE_NAME = 'trading-bot-v2';
-const RUNTIME_CACHE = 'trading-bot-runtime-v2';
+// Cache version configuration
+const CACHE_VERSION = 2;
+const CACHE_NAME = `trading-bot-v${CACHE_VERSION}`;
+const RUNTIME_CACHE = `trading-bot-runtime-v${CACHE_VERSION}`;
 
 // URLs to cache on install
 const urlsToCache = [
