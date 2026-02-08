@@ -50,6 +50,12 @@ data/
 backups/
 *.tar.gz
 
+# Update system
+.update_lock
+.bot.pid
+.dashboard.pid
+logs/update_progress.json
+
 # Docker volumes
 prometheus-data/
 grafana-data/
