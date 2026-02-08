@@ -1,0 +1,10 @@
+{
+  "active_strategies": [
+    "strategy1",
+    "strategy2"
+  ],
+  "open_positions": [],
+  "portfolio_value": 10000.0,
+  "timestamp": "2026-02-08T07:15:18.391647",
+  "save_count": 1
+}
