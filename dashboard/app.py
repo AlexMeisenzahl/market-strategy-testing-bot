@@ -37,9 +37,13 @@ from database.settings_models import (
 )
 from services.notification_service import notification_service
 from services.realtime_server import init_realtime_server
+from dashboard.routes.config_api import config_api
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for API access
+
+# Register blueprints
+app.register_blueprint(config_api)
 
 # Initialize WebSocket server for real-time updates
 realtime_server = init_realtime_server(app, logger)
@@ -1558,6 +1562,12 @@ def export_analytics():
 def settings_page():
     """Render settings page"""
     return render_template("settings.html")
+
+
+@app.route("/settings/advanced")
+def advanced_settings_page():
+    """Render advanced settings page"""
+    return render_template("advanced_settings.html")
 
 
 @app.route("/api/settings", methods=["GET", "POST"])
