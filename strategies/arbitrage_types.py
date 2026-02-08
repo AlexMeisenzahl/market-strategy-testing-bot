@@ -65,7 +65,7 @@ class ArbitrageOpportunity:
     type: ArbitrageType
     legs: List[ArbitrageLeg]
     expected_profit: float
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=lambda: datetime.now())
     kalshi_first: bool = field(init=False)
     
     def __post_init__(self):
