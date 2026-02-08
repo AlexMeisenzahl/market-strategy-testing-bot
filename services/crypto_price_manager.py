@@ -81,12 +81,12 @@ class CryptoPriceManager:
         # Configuration
         self.discrepancy_threshold = 0.05  # 5% discrepancy warning threshold
         self.min_sources = 1  # Minimum sources required
-        
+
         # Initialize price aggregator with weighted consensus
         self.price_aggregator = PriceAggregator(
             outlier_threshold=2.0,
             min_sources=self.min_sources,
-            volume_weight_factor=0.3
+            volume_weight_factor=0.3,
         )
 
         # Ensure logs directory exists
@@ -232,35 +232,33 @@ class CryptoPriceManager:
     def _aggregate_prices(self, symbol: str, prices: Dict[str, float]) -> Dict:
         """
         Aggregate prices from multiple sources using weighted consensus algorithm
-        
+
         Args:
             symbol: Crypto symbol
             prices: Dictionary of source -> price
-            
+
         Returns:
             Aggregated price data with metadata including confidence and quality
         """
         if not prices:
             return None
-            
+
         # Prepare prices with volume data (volume would come from sources if available)
         # For now, assign equal volume to all sources
-        prices_with_volume = {
-            source: (price, 1.0) for source, price in prices.items()
-        }
-        
+        prices_with_volume = {source: (price, 1.0) for source, price in prices.items()}
+
         # Use price aggregator for consensus
         aggregation_result = self.price_aggregator.aggregate_prices(prices_with_volume)
-        
+
         if not aggregation_result.get("price"):
             if self.logger:
                 self.logger.log_error(
                     f"Failed to aggregate prices for {symbol}: {aggregation_result.get('error')}"
                 )
             return None
-            
+
         consensus_price = Decimal(str(aggregation_result["price"]))
-        
+
         # Warn if discrepancy is high
         if aggregation_result["price_spread_pct"] > self.discrepancy_threshold * 100:
             if self.logger:
@@ -269,10 +267,12 @@ class CryptoPriceManager:
                     f"(${aggregation_result['min_price']:.2f} - ${aggregation_result['max_price']:.2f}), "
                     f"Confidence: {aggregation_result['confidence']}%"
                 )
-                
+
         # Calculate quality score
-        quality_metrics = self.price_aggregator.calculate_quality_score(aggregation_result)
-        
+        quality_metrics = self.price_aggregator.calculate_quality_score(
+            aggregation_result
+        )
+
         # Calculate 24h change from historical data if available
         change_24h_pct = 0.0
         try:
@@ -285,7 +285,7 @@ class CryptoPriceManager:
                     )
         except:
             pass
-            
+
         return {
             "symbol": symbol,
             "name": self._get_crypto_name(symbol),
