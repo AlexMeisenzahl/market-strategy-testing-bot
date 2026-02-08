@@ -22,7 +22,7 @@ class RiskMetrics:
             data_parser: DataParser instance for accessing trade data
         """
         self.data_parser = data_parser
-        self.risk_free_rate = 0.0001  # Daily risk-free rate (~4% annual / 252)
+        self.risk_free_rate = 0.0001  # Daily risk-free rate (~2.5% annual)
     
     def calculate_all_risk_metrics(
         self,

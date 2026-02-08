@@ -36,19 +36,19 @@ class AnalyticsDashboard {
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const sortBy = e.target.dataset.sort;
-                this.handleFilterChange(sortBy);
+                this.handleFilterChange(sortBy, e.target);
             });
         });
     }
     
-    handleFilterChange(sortBy) {
+    handleFilterChange(sortBy, targetElement) {
         // Update active button
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.classList.remove('active', 'bg-blue-600');
             btn.classList.add('bg-gray-700');
         });
-        event.target.classList.add('active', 'bg-blue-600');
-        event.target.classList.remove('bg-gray-700');
+        targetElement.classList.add('active', 'bg-blue-600');
+        targetElement.classList.remove('bg-gray-700');
         
         // Reload market data with new sort
         this.currentSort = sortBy;

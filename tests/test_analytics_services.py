@@ -96,7 +96,7 @@ class TestStrategyAnalytics:
         self.analytics = StrategyAnalytics(self.mock_parser)
     
     def test_strategy_performance_metrics(self):
-        """Test that all 14+ metrics are calculated"""
+        """Test that all 18 metrics are calculated"""
         metrics = self.analytics.get_strategy_performance('Strategy A')
         
         # Check all required metrics exist
