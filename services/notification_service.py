@@ -9,12 +9,61 @@ import logging
 import requests
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+from urllib.parse import urlparse
 
 from database.settings_models import UserSettings, NotificationChannel, NotificationPreference
 from services.notification_types import NotificationType, NotificationCategory
 
 
 logger = logging.getLogger(__name__)
+
+
+def validate_webhook_url(url: str) -> bool:
+    """
+    Validate webhook URL to prevent SSRF attacks.
+    
+    Args:
+        url: URL to validate
+        
+    Returns:
+        True if URL is valid and safe
+    """
+    try:
+        parsed = urlparse(url)
+        
+        # Must use HTTPS
+        if parsed.scheme != 'https':
+            logger.warning(f"Webhook URL must use HTTPS: {url}")
+            return False
+        
+        # Must have a valid hostname
+        if not parsed.netloc:
+            logger.warning(f"Invalid webhook URL (no hostname): {url}")
+            return False
+        
+        # Block private IP ranges and localhost
+        hostname = parsed.hostname or parsed.netloc
+        if hostname:
+            hostname_lower = hostname.lower()
+            # Block localhost and private IPs
+            blocked_hosts = [
+                'localhost', '127.0.0.1', '::1',
+                '169.254.', '10.', '172.16.', '172.17.', '172.18.',
+                '172.19.', '172.20.', '172.21.', '172.22.', '172.23.',
+                '172.24.', '172.25.', '172.26.', '172.27.', '172.28.',
+                '172.29.', '172.30.', '172.31.', '192.168.'
+            ]
+            
+            for blocked in blocked_hosts:
+                if hostname_lower.startswith(blocked):
+                    logger.warning(f"Webhook URL uses blocked hostname: {url}")
+                    return False
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error validating webhook URL: {e}")
+        return False
 
 
 class NotificationService:
@@ -193,6 +242,11 @@ class NotificationService:
             self.logger.warning("Discord webhook URL not configured")
             return False
         
+        # Validate URL for security
+        if not validate_webhook_url(webhook_url):
+            self.logger.error("Discord webhook URL failed security validation")
+            return False
+        
         try:
             # Get category for color
             category = NotificationType.get_category(notification_type)
@@ -246,6 +300,11 @@ class NotificationService:
         webhook_url = channel.get('webhook_url')
         if not webhook_url:
             self.logger.warning("Slack webhook URL not configured")
+            return False
+        
+        # Validate URL for security
+        if not validate_webhook_url(webhook_url):
+            self.logger.error("Slack webhook URL failed security validation")
             return False
         
         try:
@@ -332,6 +391,11 @@ class NotificationService:
         webhook_url = channel.get('webhook_url')
         if not webhook_url:
             self.logger.warning("Webhook URL not configured")
+            return False
+        
+        # Validate URL for security
+        if not validate_webhook_url(webhook_url):
+            self.logger.error("Webhook URL failed security validation")
             return False
         
         try:
