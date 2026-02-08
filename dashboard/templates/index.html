@@ -2,16 +2,29 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#00d4ff">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#16213e">
     <title>Market Strategy Testing Bot - Dashboard</title>
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Professional trading bot dashboard for cryptocurrency and prediction markets">
+    <meta name="application-name" content="Market Strategy Bot">
+    
+    <!-- Apple iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Market Bot">
     
     <!-- PWA Icons -->
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/static/icons/icon-152x152.png">
+    
+    <!-- Device Detector (must load first) -->
+    <script src="/static/js/device-detector.js"></script>
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -147,34 +160,98 @@
             background: #64748b;
         }
     </style>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        // Register service worker for PWA support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered successfully:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
 </head>
 <body class="bg-dark-bg text-gray-100">
     
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav">
-        <button class="hamburger-menu">
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
-        <h1 class="text-lg font-bold">📊 Trading Bot</h1>
+    <!-- Mobile Top Bar -->
+    <div class="mobile-top-bar">
+        <div class="mobile-top-bar-left">
+            <button class="hamburger-menu" aria-label="Open menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <div class="mobile-top-bar-center">
+            <div class="mobile-logo">📊 Market Bot</div>
+        </div>
+        <div class="mobile-top-bar-right">
+            <span id="connection-status" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
+                <span class="w-2 h-2 bg-green-400 rounded-full mr-1"></span>
+                <span id="connection-status-text">Connected</span>
+            </span>
+        </div>
     </div>
     
-    <!-- Mobile Menu Overlay -->
+    <!-- Mobile Slide-out Menu -->
     <div class="mobile-menu-overlay">
         <nav>
-            <a href="#" onclick="showPage('overview', event)" class="active">📊 Dashboard</a>
-            <a href="#" onclick="showPage('trades', event)">💱 Trades</a>
-            <a href="#" onclick="showPage('opportunities', event)">💡 Opportunities</a>
-            <a href="#" onclick="showPage('analytics', event)">📈 Analytics</a>
-            <a href="#" onclick="showPage('tax', event)">📄 Tax</a>
-            <a href="#" onclick="showPage('settings', event)">⚙️ Settings</a>
-            <a href="#" onclick="showPage('control', event)">🎮 Control</a>
+            <a href="#" onclick="showPage('overview', event)" class="active" data-page="overview">
+                <i class="fas fa-home mr-2"></i> Dashboard
+            </a>
+            <a href="#" onclick="showPage('trades', event)" data-page="trades">
+                <i class="fas fa-exchange-alt mr-2"></i> Trades
+            </a>
+            <a href="#" onclick="showPage('opportunities', event)" data-page="opportunities">
+                <i class="fas fa-lightbulb mr-2"></i> Opportunities
+            </a>
+            <a href="#" onclick="showPage('analytics', event)" data-page="analytics">
+                <i class="fas fa-chart-bar mr-2"></i> Analytics
+            </a>
+            <a href="#" onclick="showPage('control', event)" data-page="control">
+                <i class="fas fa-gamepad mr-2"></i> Control
+            </a>
+            <a href="#" onclick="showPage('tax', event)" data-page="tax">
+                <i class="fas fa-file-invoice-dollar mr-2"></i> Tax Reports
+            </a>
+            <a href="#" onclick="showPage('settings', event)" data-page="settings">
+                <i class="fas fa-cog mr-2"></i> Settings
+            </a>
         </nav>
     </div>
     
     <!-- Mobile Menu Backdrop -->
     <div class="mobile-menu-backdrop"></div>
+    
+    <!-- Mobile Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="bottom-nav-item active" onclick="showPage('overview', event)" data-page="overview">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </button>
+        <button class="bottom-nav-item" onclick="showPage('trades', event)" data-page="trades">
+            <i class="fas fa-exchange-alt"></i>
+            <span>Trades</span>
+        </button>
+        <button class="bottom-nav-item" onclick="showPage('control', event)" data-page="control">
+            <i class="fas fa-gamepad"></i>
+            <span>Control</span>
+        </button>
+        <button class="bottom-nav-item" onclick="showPage('analytics', event)" data-page="analytics">
+            <i class="fas fa-chart-line"></i>
+            <span>Analytics</span>
+        </button>
+        <button class="bottom-nav-item" onclick="toggleMobileMenu(event)">
+            <i class="fas fa-bars"></i>
+            <span>More</span>
+        </button>
+    </nav>
     
     <!-- Navigation -->
     <nav class="bg-dark-card border-b border-dark-border sticky top-0 z-50 desktop-nav">
@@ -1131,16 +1208,5 @@
     <script src="{{ url_for('static', filename='js/enhanced_charts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/favorites.js') }}"></script>
     <script src="{{ url_for('static', filename='js/debug_panel.js') }}"></script>
-    
-    <!-- PWA Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/service-worker.js')
-                    .then(registration => console.log('[PWA] Service Worker registered'))
-                    .catch(error => console.log('[PWA] Service Worker registration failed:', error));
-            });
-        }
-    </script>
 </body>
 </html>

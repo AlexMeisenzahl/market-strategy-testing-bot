@@ -1268,4 +1268,300 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Run initial data verification
     setTimeout(verifyDataQuality, 2000);
+    
+    // Initialize mobile features
+    initializeMobileFeatures();
+});
+
+// ========================================================================
+// MOBILE-SPECIFIC FEATURES
+// ========================================================================
+
+/**
+ * Initialize mobile-specific features
+ */
+function initializeMobileFeatures() {
+    // Only run on mobile devices
+    if (!window.DeviceDetector || !window.DeviceDetector.isMobile()) {
+        return;
+    }
+    
+    console.log('Initializing mobile features...');
+    
+    // Setup pull-to-refresh
+    setupPullToRefresh();
+    
+    // Setup haptic feedback
+    setupHapticFeedback();
+    
+    // Initialize bottom nav active states
+    updateBottomNavActiveState(currentPage);
+}
+
+/**
+ * Toggle mobile menu (for "More" button in bottom nav)
+ */
+function toggleMobileMenu(event) {
+    if (event) event.preventDefault();
+    
+    const menu = document.querySelector('.mobile-menu-overlay');
+    const backdrop = document.querySelector('.mobile-menu-backdrop');
+    const hamburger = document.querySelector('.hamburger-menu');
+    
+    if (menu) {
+        const isActive = menu.classList.contains('active');
+        
+        if (isActive) {
+            menu.classList.remove('active');
+            if (backdrop) backdrop.classList.remove('active');
+            if (hamburger) hamburger.classList.remove('active');
+        } else {
+            menu.classList.add('active');
+            if (backdrop) backdrop.classList.add('active');
+            if (hamburger) hamburger.classList.add('active');
+        }
+    }
+}
+
+/**
+ * Update bottom navigation active state
+ */
+function updateBottomNavActiveState(pageName) {
+    const bottomNavItems = document.querySelectorAll('.bottom-nav-item[data-page]');
+    const menuItems = document.querySelectorAll('.mobile-menu-overlay a[data-page]');
+    
+    bottomNavItems.forEach(item => {
+        const itemPage = item.getAttribute('data-page');
+        if (itemPage === pageName) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+    
+    menuItems.forEach(item => {
+        const itemPage = item.getAttribute('data-page');
+        if (itemPage === pageName) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+/**
+ * Setup pull-to-refresh functionality
+ */
+function setupPullToRefresh() {
+    let startY = 0;
+    let pulling = false;
+    const threshold = 80;
+    
+    const container = document.querySelector('.main-content') || document.body;
+    
+    container.addEventListener('touchstart', (e) => {
+        // Only trigger if at top of page
+        if (container.scrollTop === 0) {
+            startY = e.touches[0].pageY;
+            pulling = true;
+        }
+    }, { passive: true });
+    
+    container.addEventListener('touchmove', (e) => {
+        if (!pulling) return;
+        
+        // Track touch position for potential future UI feedback
+        const currentY = e.touches[0].pageY;
+    }, { passive: true });
+    
+    container.addEventListener('touchend', (e) => {
+        if (!pulling) return;
+        
+        const currentY = e.changedTouches[0].pageY;
+        const distance = currentY - startY;
+        
+        pulling = false;
+        
+        if (distance > threshold) {
+            // Trigger refresh
+            console.log('Pull-to-refresh triggered');
+            refreshCurrentPage();
+            
+            // Show feedback
+            showToast('Refreshing...', 'info');
+            
+            // Haptic feedback if available
+            triggerHapticFeedback();
+        }
+    }, { passive: true });
+}
+
+/**
+ * Setup haptic feedback for iOS
+ */
+function setupHapticFeedback() {
+    // Add haptic feedback to buttons on mobile
+    if (window.DeviceDetector && window.DeviceDetector.isIOS()) {
+        const buttons = document.querySelectorAll('button, .clickable');
+        buttons.forEach(button => {
+            button.addEventListener('click', () => {
+                triggerHapticFeedback('light');
+            }, { passive: true });
+        });
+    }
+}
+
+/**
+ * Trigger haptic feedback (iOS only)
+ */
+function triggerHapticFeedback(style = 'medium') {
+    if (window.navigator && window.navigator.vibrate) {
+        // Android vibration
+        switch (style) {
+            case 'light':
+                window.navigator.vibrate(10);
+                break;
+            case 'medium':
+                window.navigator.vibrate(20);
+                break;
+            case 'heavy':
+                window.navigator.vibrate(30);
+                break;
+        }
+    }
+    
+    // iOS haptic feedback (if available)
+    if (window.Haptic && typeof window.Haptic.impact === 'function') {
+        window.Haptic.impact(style);
+    }
+}
+
+/**
+ * Convert table to mobile card layout
+ */
+function convertTableToCards(tableSelector) {
+    const table = document.querySelector(tableSelector);
+    if (!table) return;
+    
+    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    const rows = table.querySelectorAll('tbody tr');
+    
+    const cardList = document.createElement('div');
+    cardList.className = 'mobile-card-list';
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const card = document.createElement('div');
+        card.className = 'mobile-card';
+        
+        const cardBody = document.createElement('div');
+        cardBody.className = 'mobile-card-body';
+        
+        cells.forEach((cell, index) => {
+            if (headers[index]) {
+                const label = document.createElement('div');
+                label.className = 'mobile-card-label';
+                label.textContent = headers[index];
+                
+                const value = document.createElement('div');
+                value.className = 'mobile-card-value';
+                value.innerHTML = cell.innerHTML;
+                
+                cardBody.appendChild(label);
+                cardBody.appendChild(value);
+            }
+        });
+        
+        card.appendChild(cardBody);
+        cardList.appendChild(card);
+    });
+    
+    // Insert cards after table
+    table.parentNode.insertBefore(cardList, table.nextSibling);
+}
+
+/**
+ * Enhanced showPage function with mobile support
+ * Wraps the original showPage function if it exists, or creates a basic implementation
+ */
+function initializeMobilePageNavigation() {
+    const originalShowPage = window.showPage;
+    
+    window.showPage = function(page, event) {
+        // For mobile navigation, create a synthetic event if needed
+        if (event && event.target && !event.target.closest('.nav-link')) {
+            // Call original with a modified event that won't break desktop nav update
+            if (typeof originalShowPage === 'function') {
+                try {
+                    // Hide all pages
+                    document.querySelectorAll('.page-content').forEach(p => {
+                        p.classList.add('hidden');
+                    });
+                    
+                    // Show selected page
+                    const targetPage = document.getElementById(`page-${page}`);
+                    if (targetPage) {
+                        targetPage.classList.remove('hidden');
+                        targetPage.classList.add('slide-in');
+                    }
+                    
+                    // Update desktop nav links if they exist
+                    document.querySelectorAll('.nav-link').forEach(link => {
+                        link.classList.remove('text-white', 'bg-gray-800');
+                        link.classList.add('text-gray-300');
+                    });
+                    
+                    currentPage = page;
+                    
+                    // Load page-specific data
+                    if (page === 'trades') {
+                        loadTradesData();
+                    } else if (page === 'opportunities') {
+                        loadOpportunitiesData();
+                    } else if (page === 'analytics') {
+                        loadAnalyticsData();
+                    } else if (page === 'tax') {
+                        loadTaxData();
+                    } else if (page === 'settings') {
+                        loadSettings();
+                    }
+                } catch (error) {
+                    console.error('Error in page navigation:', error);
+                }
+            }
+        } else {
+            // Call original function for desktop navigation
+            if (typeof originalShowPage === 'function') {
+                originalShowPage.call(this, page, event);
+            } else {
+                // Basic fallback implementation
+                currentPage = page;
+            }
+        }
+        
+        // Update mobile navigation
+        updateBottomNavActiveState(page);
+        
+        // Close mobile menu if open
+        const menu = document.querySelector('.mobile-menu-overlay');
+        const backdrop = document.querySelector('.mobile-menu-backdrop');
+        const hamburger = document.querySelector('.hamburger-menu');
+        
+        if (menu && menu.classList.contains('active')) {
+            menu.classList.remove('active');
+            if (backdrop) backdrop.classList.remove('active');
+            if (hamburger) hamburger.classList.remove('active');
+        }
+        
+        // Trigger haptic feedback
+        triggerHapticFeedback('light');
+        
+        // Scroll to top on page change
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+}
+
+// Initialize mobile page navigation on load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMobilePageNavigation();
 });

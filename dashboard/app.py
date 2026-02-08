@@ -143,6 +143,32 @@ def health_check():
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
 
+# PWA Routes
+@app.route("/manifest.json")
+def manifest():
+    """Serve PWA manifest file"""
+    return send_file(
+        BASE_DIR / "dashboard" / "static" / "manifest.json",
+        mimetype="application/manifest+json",
+    )
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    """Serve service worker file"""
+    return send_file(
+        BASE_DIR / "dashboard" / "static" / "service-worker.js",
+        mimetype="application/javascript",
+    )
+
+
+@app.route("/offline")
+@app.route("/offline.html")
+def offline():
+    """Serve offline fallback page"""
+    return render_template("offline.html")
+
+
 @app.route("/api/overview")
 def get_overview():
     """Get overview dashboard summary statistics"""
