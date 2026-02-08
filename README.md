@@ -37,6 +37,18 @@ A complete, production-ready arbitrage bot for Polymarket with **live API integr
 - 📥 **CSV Export** - Export trade history for external analysis
 - 📈 **Advanced Analytics** - Opportunity trends, profit distribution, and more
 
+### 📱 Mobile & Progressive Web App (PWA):
+- 📲 **Install as iPhone App** - Add to home screen for native app experience
+- 🎯 **Mobile-Optimized UI** - Bottom navigation, touch-friendly buttons, card layouts
+- 📴 **Offline Support** - View cached data without internet connection
+- 🔄 **Pull-to-Refresh** - Swipe down to refresh data on mobile
+- 👆 **Touch Gestures** - Swipe to open/close menu, haptic feedback on iOS
+- 📱 **Responsive Design** - Works perfectly on iPhone, iPad, and desktop
+- 🌐 **Remote Access** - Access via Tailscale or ngrok from anywhere
+- 🔒 **Secure** - HTTPS support, service worker caching, safe area support
+
+👉 **[Mobile Setup Guide](docs/MOBILE_SETUP.md)** | **[Remote Access Guide](docs/REMOTE_ACCESS_GUIDE.md)**
+
 ### Quick Start Dashboard:
 
 **Option 1: Quick Start Script (Recommended)**
