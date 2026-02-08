@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Comparison - Market Strategy Testing Bot</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#0f172a',
+                        'dark-card': '#1e293b',
+                        'dark-border': '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-dark-bg text-white min-h-screen">
+    <nav class="bg-dark-card border-b border-dark-border p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">
+                <i class="fas fa-chart-bar text-blue-400"></i>
+                Strategy Comparison
+            </h1>
+            <a href="/" class="text-blue-400 hover:text-blue-300">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-6">
+        <!-- Strategy Selector -->
+        <div class="bg-dark-card rounded-lg p-6 border border-dark-border mb-6">
+            <h2 class="text-xl font-bold mb-4">Select Strategies to Compare (2-4)</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="strategy-selector"></div>
+            <button onclick="loadComparison()" 
+                    class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
+                <i class="fas fa-sync"></i> Compare Selected Strategies
+            </button>
+        </div>
+
+        <!-- Metrics Table -->
+        <div class="bg-dark-card rounded-lg p-6 border border-dark-border mb-6">
+            <h2 class="text-xl font-bold mb-4">Performance Metrics</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full" id="metrics-table">
+                    <thead>
+                        <tr class="border-b border-dark-border">
+                            <th class="text-left p-3">Metric</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Equity Curves -->
+        <div class="bg-dark-card rounded-lg p-6 border border-dark-border">
+            <h2 class="text-xl font-bold mb-4">Equity Curves</h2>
+            <canvas id="equity-chart" height="80"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let selectedStrategies = new Set();
+        let equityChart = null;
+
+        // Load available strategies on page load
+        window.addEventListener('DOMContentLoaded', loadAvailableStrategies);
+
+        async function loadAvailableStrategies() {
+            try {
+                const response = await fetch('/api/strategies/list');
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderStrategySelector(data.strategies);
+                }
+            } catch (error) {
+                console.error('Error loading strategies:', error);
+            }
+        }
+
+        function renderStrategySelector(strategies) {
+            const selector = document.getElementById('strategy-selector');
+            selector.innerHTML = strategies.map(strategy => `
+                <label class="flex items-center space-x-2 cursor-pointer p-3 bg-dark-bg rounded hover:bg-gray-700">
+                    <input type="checkbox" value="${strategy}" 
+                           onchange="toggleStrategy('${strategy}')"
+                           class="form-checkbox h-5 w-5 text-blue-600">
+                    <span>${strategy}</span>
+                </label>
+            `).join('');
+        }
+
+        function toggleStrategy(strategy) {
+            if (selectedStrategies.has(strategy)) {
+                selectedStrategies.delete(strategy);
+            } else {
+                if (selectedStrategies.size >= 4) {
+                    alert('Maximum 4 strategies can be compared');
+                    event.target.checked = false;
+                    return;
+                }
+                selectedStrategies.add(strategy);
+            }
+        }
+
+        async function loadComparison() {
+            if (selectedStrategies.size < 2) {
+                alert('Please select at least 2 strategies');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/strategies/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strategies: Array.from(selectedStrategies) })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderMetricsTable(data.comparison);
+                    renderEquityChart(data.equity_curves);
+                }
+            } catch (error) {
+                console.error('Error loading comparison:', error);
+            }
+        }
+
+        function renderMetricsTable(comparison) {
+            const table = document.getElementById('metrics-table');
+            const strategies = Object.keys(comparison);
+            
+            // Update header
+            table.querySelector('thead tr').innerHTML = `
+                <th class="text-left p-3">Metric</th>
+                ${strategies.map(s => `<th class="text-right p-3">${s}</th>`).join('')}
+            `;
+            
+            // Render metrics rows
+            const metrics = [
+                { key: 'total_return', label: 'Total Return', format: v => `${v.toFixed(2)}%`, isBest: 'max' },
+                { key: 'win_rate', label: 'Win Rate', format: v => `${v.toFixed(1)}%`, isBest: 'max' },
+                { key: 'sharpe_ratio', label: 'Sharpe Ratio', format: v => v.toFixed(2), isBest: 'max' },
+                { key: 'max_drawdown', label: 'Max Drawdown', format: v => `${v.toFixed(1)}%`, isBest: 'min' },
+                { key: 'total_trades', label: 'Total Trades', format: v => v, isBest: 'none' }
+            ];
+            
+            table.querySelector('tbody').innerHTML = metrics.map(metric => {
+                const values = strategies.map(s => comparison[s][metric.key]);
+                const bestValue = metric.isBest === 'max' ? Math.max(...values) : 
+                                 metric.isBest === 'min' ? Math.min(...values) : null;
+                
+                return `
+                    <tr class="border-b border-dark-border">
+                        <td class="p-3 font-semibold">${metric.label}</td>
+                        ${strategies.map((s, i) => {
+                            const value = comparison[s][metric.key];
+                            const isBest = bestValue !== null && value === bestValue;
+                            return `<td class="text-right p-3 ${isBest ? 'bg-green-900/30 font-bold' : ''}">
+                                ${metric.format(value)}
+                                ${isBest ? '<i class="fas fa-trophy text-yellow-400 ml-1"></i>' : ''}
+                            </td>`;
+                        }).join('')}
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderEquityChart(equityCurves) {
+            const ctx = document.getElementById('equity-chart');
+            
+            if (equityChart) {
+                equityChart.destroy();
+            }
+            
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+            
+            equityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: equityCurves[Object.keys(equityCurves)[0]].map((_, i) => i),
+                    datasets: Object.keys(equityCurves).map((strategy, i) => ({
+                        label: strategy,
+                        data: equityCurves[strategy],
+                        borderColor: colors[i % colors.length],
+                        backgroundColor: colors[i % colors.length] + '20',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#334155' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#334155' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
