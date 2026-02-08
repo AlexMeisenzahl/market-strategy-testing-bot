@@ -136,43 +136,52 @@ class CryptoPriceHistory:
     """Model for cryptocurrency price history"""
 
     @staticmethod
-    def insert(symbol: str, price_usd: float, volume: float = None, 
-               market_cap: float = None, timestamp: int = None) -> int:
+    def insert(
+        symbol: str,
+        price_usd: float,
+        volume: float = None,
+        market_cap: float = None,
+        timestamp: int = None,
+    ) -> int:
         """Insert price history record"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         if timestamp is None:
             timestamp = int(datetime.utcnow().timestamp())
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             INSERT INTO crypto_price_history (symbol, price_usd, volume, market_cap, timestamp)
             VALUES (?, ?, ?, ?, ?)
-        """, (symbol, price_usd, volume, market_cap, timestamp))
-        
+        """,
+            (symbol, price_usd, volume, market_cap, timestamp),
+        )
+
         conn.commit()
         return cursor.lastrowid
 
     @staticmethod
-    def get_history(symbol: str, start_timestamp: int = None, 
-                   end_timestamp: int = None) -> List[Dict]:
+    def get_history(
+        symbol: str, start_timestamp: int = None, end_timestamp: int = None
+    ) -> List[Dict]:
         """Get price history for a symbol"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         query = "SELECT * FROM crypto_price_history WHERE symbol = ?"
         params = [symbol]
-        
+
         if start_timestamp:
             query += " AND timestamp >= ?"
             params.append(start_timestamp)
-        
+
         if end_timestamp:
             query += " AND timestamp <= ?"
             params.append(end_timestamp)
-        
+
         query += " ORDER BY timestamp ASC"
-        
+
         cursor.execute(query, params)
         return [dict(row) for row in cursor.fetchall()]
 
@@ -181,14 +190,17 @@ class CryptoPriceHistory:
         """Get latest price for a symbol"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             SELECT * FROM crypto_price_history 
             WHERE symbol = ? 
             ORDER BY timestamp DESC 
             LIMIT 1
-        """, (symbol,))
-        
+        """,
+            (symbol,),
+        )
+
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -197,18 +209,26 @@ class CryptoPriceHistory:
         """Bulk insert price history records"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         data = [
-            (r['symbol'], r['price_usd'], r.get('volume'), 
-             r.get('market_cap'), r.get('timestamp', int(datetime.utcnow().timestamp())))
+            (
+                r["symbol"],
+                r["price_usd"],
+                r.get("volume"),
+                r.get("market_cap"),
+                r.get("timestamp", int(datetime.utcnow().timestamp())),
+            )
             for r in records
         ]
-        
-        cursor.executemany("""
+
+        cursor.executemany(
+            """
             INSERT INTO crypto_price_history (symbol, price_usd, volume, market_cap, timestamp)
             VALUES (?, ?, ?, ?, ?)
-        """, data)
-        
+        """,
+            data,
+        )
+
         conn.commit()
         return cursor.rowcount
 
@@ -217,44 +237,53 @@ class PolymarketHistory:
     """Model for Polymarket price history"""
 
     @staticmethod
-    def insert(market_id: str, yes_price: float, no_price: float,
-               volume: float = None, liquidity: float = None, 
-               timestamp: int = None) -> int:
+    def insert(
+        market_id: str,
+        yes_price: float,
+        no_price: float,
+        volume: float = None,
+        liquidity: float = None,
+        timestamp: int = None,
+    ) -> int:
         """Insert Polymarket history record"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         if timestamp is None:
             timestamp = int(datetime.utcnow().timestamp())
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             INSERT INTO polymarket_history (market_id, yes_price, no_price, volume, liquidity, timestamp)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (market_id, yes_price, no_price, volume, liquidity, timestamp))
-        
+        """,
+            (market_id, yes_price, no_price, volume, liquidity, timestamp),
+        )
+
         conn.commit()
         return cursor.lastrowid
 
     @staticmethod
-    def get_history(market_id: str, start_timestamp: int = None,
-                   end_timestamp: int = None) -> List[Dict]:
+    def get_history(
+        market_id: str, start_timestamp: int = None, end_timestamp: int = None
+    ) -> List[Dict]:
         """Get price history for a market"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         query = "SELECT * FROM polymarket_history WHERE market_id = ?"
         params = [market_id]
-        
+
         if start_timestamp:
             query += " AND timestamp >= ?"
             params.append(start_timestamp)
-        
+
         if end_timestamp:
             query += " AND timestamp <= ?"
             params.append(end_timestamp)
-        
+
         query += " ORDER BY timestamp ASC"
-        
+
         cursor.execute(query, params)
         return [dict(row) for row in cursor.fetchall()]
 
@@ -263,46 +292,57 @@ class TradeJournal:
     """Model for trade journal entries"""
 
     @staticmethod
-    def create(trade_id: str = None, position_id: str = None,
-               entry_reason: str = None, confidence_level: int = None) -> int:
+    def create(
+        trade_id: str = None,
+        position_id: str = None,
+        entry_reason: str = None,
+        confidence_level: int = None,
+    ) -> int:
         """Create journal entry"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             INSERT INTO trade_journal (trade_id, position_id, entry_reason, confidence_level)
             VALUES (?, ?, ?, ?)
-        """, (trade_id, position_id, entry_reason, confidence_level))
-        
+        """,
+            (trade_id, position_id, entry_reason, confidence_level),
+        )
+
         conn.commit()
         return cursor.lastrowid
 
     @staticmethod
-    def update(journal_id: int, exit_reason: str = None,
-               lessons_learned: str = None, rating: int = None):
+    def update(
+        journal_id: int,
+        exit_reason: str = None,
+        lessons_learned: str = None,
+        rating: int = None,
+    ):
         """Update journal entry"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         updates = []
         params = []
-        
+
         if exit_reason is not None:
             updates.append("exit_reason = ?")
             params.append(exit_reason)
-        
+
         if lessons_learned is not None:
             updates.append("lessons_learned = ?")
             params.append(lessons_learned)
-        
+
         if rating is not None:
             updates.append("rating = ?")
             params.append(rating)
-        
+
         if updates:
             updates.append("updated_at = strftime('%s', 'now')")
             params.append(journal_id)
-            
+
             query = f"UPDATE trade_journal SET {', '.join(updates)} WHERE id = ?"
             cursor.execute(query, params)
             conn.commit()
@@ -312,7 +352,7 @@ class TradeJournal:
         """Get all journal entries"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM trade_journal ORDER BY created_at DESC")
         return [dict(row) for row in cursor.fetchall()]
 
@@ -321,7 +361,7 @@ class TradeJournal:
         """Get journal entry by ID"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM trade_journal WHERE id = ?", (journal_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
@@ -335,12 +375,15 @@ class Alert:
         """Create alert"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             INSERT INTO alerts (alert_type, condition_json, enabled)
             VALUES (?, ?, ?)
-        """, (alert_type, condition_json, 1 if enabled else 0))
-        
+        """,
+            (alert_type, condition_json, 1 if enabled else 0),
+        )
+
         conn.commit()
         return cursor.lastrowid
 
@@ -349,22 +392,22 @@ class Alert:
         """Update alert"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         updates = []
         params = []
-        
+
         if enabled is not None:
             updates.append("enabled = ?")
             params.append(1 if enabled else 0)
-        
+
         if condition_json is not None:
             updates.append("condition_json = ?")
             params.append(condition_json)
-        
+
         if updates:
             updates.append("updated_at = strftime('%s', 'now')")
             params.append(alert_id)
-            
+
             query = f"UPDATE alerts SET {', '.join(updates)} WHERE id = ?"
             cursor.execute(query, params)
             conn.commit()
@@ -374,14 +417,17 @@ class Alert:
         """Record alert trigger"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             UPDATE alerts 
             SET last_triggered = strftime('%s', 'now'),
                 trigger_count = trigger_count + 1
             WHERE id = ?
-        """, (alert_id,))
-        
+        """,
+            (alert_id,),
+        )
+
         conn.commit()
 
     @staticmethod
@@ -389,7 +435,7 @@ class Alert:
         """Get all enabled alerts"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM alerts WHERE enabled = 1")
         return [dict(row) for row in cursor.fetchall()]
 
@@ -398,7 +444,7 @@ class Alert:
         """Get all alerts"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM alerts ORDER BY created_at DESC")
         return [dict(row) for row in cursor.fetchall()]
 
@@ -407,7 +453,7 @@ class Alert:
         """Delete alert"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("DELETE FROM alerts WHERE id = ?", (alert_id,))
         conn.commit()
 
@@ -416,19 +462,32 @@ class PositionConfig:
     """Model for position-specific configurations"""
 
     @staticmethod
-    def set_config(position_id: str, stop_loss_pct: float = -5.0,
-                  take_profit_pct: float = 10.0, max_hold_hours: int = 24,
-                  trailing_stop: float = None):
+    def set_config(
+        position_id: str,
+        stop_loss_pct: float = -5.0,
+        take_profit_pct: float = 10.0,
+        max_hold_hours: int = 24,
+        trailing_stop: float = None,
+    ):
         """Set or update position config"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO position_config 
             (position_id, stop_loss_pct, take_profit_pct, max_hold_hours, trailing_stop, updated_at)
             VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
-        """, (position_id, stop_loss_pct, take_profit_pct, max_hold_hours, trailing_stop))
-        
+        """,
+            (
+                position_id,
+                stop_loss_pct,
+                take_profit_pct,
+                max_hold_hours,
+                trailing_stop,
+            ),
+        )
+
         conn.commit()
 
     @staticmethod
@@ -436,8 +495,10 @@ class PositionConfig:
         """Get position config"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM position_config WHERE position_id = ?", (position_id,))
+
+        cursor.execute(
+            "SELECT * FROM position_config WHERE position_id = ?", (position_id,)
+        )
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -446,18 +507,25 @@ class APIKey:
     """Model for encrypted API keys"""
 
     @staticmethod
-    def save_key(exchange: str, api_key_encrypted: str, 
-                api_secret_encrypted: str, passphrase_encrypted: str = None):
+    def save_key(
+        exchange: str,
+        api_key_encrypted: str,
+        api_secret_encrypted: str,
+        passphrase_encrypted: str = None,
+    ):
         """Save encrypted API key"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO api_keys 
             (exchange, api_key_encrypted, api_secret_encrypted, passphrase_encrypted, updated_at)
             VALUES (?, ?, ?, ?, strftime('%s', 'now'))
-        """, (exchange, api_key_encrypted, api_secret_encrypted, passphrase_encrypted))
-        
+        """,
+            (exchange, api_key_encrypted, api_secret_encrypted, passphrase_encrypted),
+        )
+
         conn.commit()
 
     @staticmethod
@@ -465,7 +533,7 @@ class APIKey:
         """Get encrypted API key"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM api_keys WHERE exchange = ?", (exchange,))
         row = cursor.fetchone()
         return dict(row) if row else None
@@ -475,14 +543,17 @@ class APIKey:
         """Update connection status"""
         conn = get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
+
+        cursor.execute(
+            """
             UPDATE api_keys 
             SET is_connected = ?, 
                 last_tested = strftime('%s', 'now')
             WHERE exchange = ?
-        """, (1 if is_connected else 0, exchange))
-        
+        """,
+            (1 if is_connected else 0, exchange),
+        )
+
         conn.commit()
 
     @staticmethod
@@ -490,7 +561,7 @@ class APIKey:
         """Get all API keys"""
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM api_keys")
         return [dict(row) for row in cursor.fetchall()]
 

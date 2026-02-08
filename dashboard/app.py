@@ -2200,17 +2200,17 @@ def test_api_key():
     try:
         data = request.get_json()
         exchange = data.get("exchange")
-        
+
         # Placeholder - in production, would test actual connection
         success = True  # Would actually test connection here
-        
+
         if success:
             APIKey.update_connection_status(exchange, True)
             return jsonify({"success": True, "message": "Connection successful"})
         else:
             APIKey.update_connection_status(exchange, False)
             return jsonify({"success": False, "error": "Connection failed"})
-            
+
     except Exception as e:
         logger.log_error(f"Error testing API key: {e}")
         return jsonify({"success": False, "error": str(e)})
@@ -2224,10 +2224,10 @@ def save_api_key():
         exchange = data.get("exchange")
         api_key = data.get("api_key")
         api_secret = data.get("api_secret")
-        
+
         # Placeholder - in production, would encrypt keys
         APIKey.save_key(exchange, api_key, api_secret)
-        
+
         return jsonify({"success": True})
     except Exception as e:
         logger.log_error(f"Error saving API key: {e}")
@@ -2239,7 +2239,12 @@ def save_api_key():
 def list_strategies():
     """List available strategies"""
     try:
-        strategies = ["polymarket_arbitrage", "crypto_momentum", "mean_reversion", "volatility_breakout"]
+        strategies = [
+            "polymarket_arbitrage",
+            "crypto_momentum",
+            "mean_reversion",
+            "volatility_breakout",
+        ]
         return jsonify({"success": True, "strategies": strategies})
     except Exception as e:
         logger.log_error(f"Error listing strategies: {e}")
@@ -2252,21 +2257,23 @@ def compare_strategies():
     try:
         data = request.get_json()
         strategies = data.get("strategies", [])
-        
+
         comparison = {}
         equity_curves = {}
-        
+
         for strategy in strategies:
             comparison[strategy] = {
                 "total_return": 15.5 + len(strategy),
                 "win_rate": 55.0 + len(strategy),
                 "sharpe_ratio": 1.2 + (len(strategy) / 10),
                 "max_drawdown": 8.5 - (len(strategy) / 10),
-                "total_trades": 50 + len(strategy) * 2
+                "total_trades": 50 + len(strategy) * 2,
             }
             equity_curves[strategy] = [10000 + i * 100 for i in range(30)]
-        
-        return jsonify({"success": True, "comparison": comparison, "equity_curves": equity_curves})
+
+        return jsonify(
+            {"success": True, "comparison": comparison, "equity_curves": equity_curves}
+        )
     except Exception as e:
         logger.log_error(f"Error comparing strategies: {e}")
         return jsonify({"success": False, "error": str(e)})
@@ -2289,20 +2296,20 @@ def save_journal_entry():
     """Save trade journal entry"""
     try:
         data = request.get_json()
-        
+
         entry_id = TradeJournal.create(
             entry_reason=data.get("entry_reason"),
             confidence_level=data.get("confidence_level"),
         )
-        
+
         if data.get("exit_reason") or data.get("lessons_learned") or data.get("rating"):
             TradeJournal.update(
                 entry_id,
                 exit_reason=data.get("exit_reason"),
                 lessons_learned=data.get("lessons_learned"),
-                rating=data.get("rating")
+                rating=data.get("rating"),
             )
-        
+
         return jsonify({"success": True, "entry_id": entry_id})
     except Exception as e:
         logger.log_error(f"Error saving journal entry: {e}")
@@ -2329,7 +2336,7 @@ def create_alert():
         alert_id = alert_manager.create_alert(
             data.get("alert_type"),
             data.get("condition"),
-            enabled=data.get("enabled", True)
+            enabled=data.get("enabled", True),
         )
         return jsonify({"success": True, "alert_id": alert_id})
     except Exception as e:
@@ -2369,12 +2376,14 @@ def run_backtest():
         strategy_name = data.get("strategy")
         start_date = datetime.fromisoformat(data.get("start_date"))
         end_date = datetime.fromisoformat(data.get("end_date"))
-        
+
         class PlaceholderStrategy:
             __name__ = strategy_name
-        
-        result = backtesting_engine.run_backtest(PlaceholderStrategy(), start_date, end_date)
-        
+
+        result = backtesting_engine.run_backtest(
+            PlaceholderStrategy(), start_date, end_date
+        )
+
         return jsonify(result)
     except Exception as e:
         logger.log_error(f"Error running backtest: {e}")
