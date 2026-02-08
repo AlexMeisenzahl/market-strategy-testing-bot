@@ -12,12 +12,18 @@ from logger import get_logger
 
 class ArbitrageOpportunity:
     """Represents a single arbitrage opportunity"""
-    
-    def __init__(self, market_id: str, market_name: str, 
-                 yes_price: float, no_price: float, arbitrage_type: str = "Simple"):
+
+    def __init__(
+        self,
+        market_id: str,
+        market_name: str,
+        yes_price: float,
+        no_price: float,
+        arbitrage_type: str = "Simple",
+    ):
         """
         Initialize arbitrage opportunity
-        
+
         Args:
             market_id: Unique market identifier
             market_name: Human-readable market name
@@ -33,122 +39,125 @@ class ArbitrageOpportunity:
         self.detected_at = datetime.now()
         self.opportunity_type = "arbitrage"
         self.arbitrage_type = arbitrage_type
-    
+
     @property
     def profit_margin(self) -> float:
         """Calculate profit margin as percentage"""
         if self.price_sum == 0:
             return 0.0
         return ((1.0 - self.price_sum) / self.price_sum) * 100
-    
+
     @property
     def expected_profit(self) -> float:
         """Calculate expected profit per $1 invested"""
         return 1.0 - self.price_sum
-    
+
     def calculate_profit_for_amount(self, amount: float) -> float:
         """
         Calculate expected profit for a given investment amount
-        
+
         Args:
             amount: Investment amount in USD
-            
+
         Returns:
             Expected profit in USD
         """
         total_cost = amount * self.price_sum
         return amount - total_cost
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for logging"""
         return {
-            'market_id': self.market_id,
-            'market_name': self.market_name,
-            'yes_price': self.yes_price,
-            'no_price': self.no_price,
-            'price_sum': self.price_sum,
-            'profit_margin': self.profit_margin,
-            'opportunity_type': self.opportunity_type,
-            'arbitrage_type': self.arbitrage_type,
-            'detected_at': self.detected_at.isoformat()
+            "market_id": self.market_id,
+            "market_name": self.market_name,
+            "yes_price": self.yes_price,
+            "no_price": self.no_price,
+            "price_sum": self.price_sum,
+            "profit_margin": self.profit_margin,
+            "opportunity_type": self.opportunity_type,
+            "arbitrage_type": self.arbitrage_type,
+            "detected_at": self.detected_at.isoformat(),
         }
 
 
 class ArbitrageStrategy:
     """
     Classic arbitrage strategy: Buy YES + NO when sum < $1.00
-    
+
     This is a risk-free strategy that profits from pricing inefficiencies
     where the combined price of YES and NO contracts is less than their
     guaranteed $1.00 payout.
     """
-    
+
     def __init__(self, config: Dict[str, Any]):
         """
         Initialize arbitrage strategy
-        
+
         Args:
             config: Configuration dictionary with strategy parameters
         """
         self.config = config
         self.logger = get_logger()
         self.strategy_name = "polymarket_arbitrage"
-        
+
         # Strategy parameters
-        self.min_profit_margin = config.get('min_profit_margin', 0.02)  # 2%
-        self.max_trade_size = config.get('max_trade_size', 10)
-        self.max_price_sum = config.get('max_price_sum', 0.98)  # Only consider if sum < 0.98
-        
+        self.min_profit_margin = config.get("min_profit_margin", 0.02)  # 2%
+        self.max_trade_size = config.get("max_trade_size", 10)
+        self.max_price_sum = config.get(
+            "max_price_sum", 0.98
+        )  # Only consider if sum < 0.98
+
         # Arbitrage types configuration
-        self.arbitrage_types_config = config.get('arbitrage_types', {})
-        
+        self.arbitrage_types_config = config.get("arbitrage_types", {})
+
         # Statistics tracking
         self.opportunities_found = 0
         self.opportunities_taken = 0
         self.total_expected_profit = 0.0
         self.total_actual_profit = 0.0
-        
+
         # Active positions (market_id -> position info)
         self.active_positions: Dict[str, Dict[str, Any]] = {}
-    
-    def analyze(self, market_data: Dict[str, Any], 
-                price_data: Dict[str, float]) -> Optional[ArbitrageOpportunity]:
+
+    def analyze(
+        self, market_data: Dict[str, Any], price_data: Dict[str, float]
+    ) -> Optional[ArbitrageOpportunity]:
         """
         Analyze a market for arbitrage opportunities
-        
+
         Args:
             market_data: Market information (id, name, etc.)
             price_data: Current prices {'yes': float, 'no': float}
-            
+
         Returns:
             ArbitrageOpportunity if found, None otherwise
         """
-        market_id = market_data.get('id', market_data.get('market_id', 'unknown'))
-        market_name = market_data.get('question', market_data.get('name', market_id))
-        
-        yes_price = price_data.get('yes', 0)
-        no_price = price_data.get('no', 0)
-        
+        market_id = market_data.get("id", market_data.get("market_id", "unknown"))
+        market_name = market_data.get("question", market_data.get("name", market_id))
+
+        yes_price = price_data.get("yes", 0)
+        no_price = price_data.get("no", 0)
+
         # Validate prices
         if not self._validate_prices(yes_price, no_price):
             return None
-        
+
         # Check if arbitrage opportunity exists
         if not self._is_arbitrage_opportunity(yes_price, no_price):
             return None
-        
+
         # Create opportunity object
         opportunity = ArbitrageOpportunity(
             market_id=market_id,
             market_name=market_name,
             yes_price=yes_price,
-            no_price=no_price
+            no_price=no_price,
         )
-        
+
         # Check if meets minimum profit threshold
         if opportunity.profit_margin >= (self.min_profit_margin * 100):
             self.opportunities_found += 1
-            
+
             # Log the opportunity
             self.logger.log_opportunity(
                 market=market_name,
@@ -156,18 +165,19 @@ class ArbitrageStrategy:
                 no_price=no_price,
                 action_taken=f"{self.strategy_name}_detected",
                 strategy=self.strategy_name,
-                arbitrage_type=getattr(opportunity, 'arbitrage_type', 'Simple')
+                arbitrage_type=getattr(opportunity, "arbitrage_type", "Simple"),
             )
-            
+
             return opportunity
-        
+
         return None
-    
-    def find_opportunities(self, markets: List[Dict[str, Any]],
-                          prices_dict: Dict[str, Dict[str, float]]) -> List[ArbitrageOpportunity]:
+
+    def find_opportunities(
+        self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
+    ) -> List[ArbitrageOpportunity]:
         """
         Find all arbitrage opportunities across multiple markets
-        
+
         Checks all arbitrage types:
         1. Simple arbitrage (YES + NO < $1)
         2. Cross-exchange arbitrage
@@ -175,140 +185,145 @@ class ArbitrageStrategy:
         4. Time-based arbitrage
         5. Event-driven arbitrage
         6. Reality-based arbitrage (NEW!)
-        
+
         Args:
             markets: List of market information
             prices_dict: Dictionary mapping market_id to price data
-            
+
         Returns:
             List of valid arbitrage opportunities
         """
         opportunities = []
-        
+
         # 1. Simple arbitrage (classic YES + NO < $1)
         for market in markets:
-            market_id = market.get('id', market.get('market_id', 'unknown'))
+            market_id = market.get("id", market.get("market_id", "unknown"))
             prices = prices_dict.get(market_id)
-            
+
             if not prices:
                 continue
-            
+
             opportunity = self.analyze(market, prices)
             if opportunity:
                 opportunities.append(opportunity)
-        
+
         # 2-5. Other arbitrage types (if implemented and enabled)
         # These would require additional detection methods
-        
+
         # 6. Reality-Based Arbitrage (NEW!)
         # Check crypto markets against current prices
-        if self.arbitrage_types_config.get('reality_based', {}).get('enabled', True):
+        if self.arbitrage_types_config.get("reality_based", {}).get("enabled", True):
             try:
-                reality_opportunities = self.detect_reality_arbitrage(markets, prices_dict)
+                reality_opportunities = self.detect_reality_arbitrage(
+                    markets, prices_dict
+                )
                 opportunities.extend(reality_opportunities)
             except Exception as e:
                 if self.logger:
-                    self.logger.log_error(f"Error in reality arbitrage detection: {str(e)}")
-        
+                    self.logger.log_error(
+                        f"Error in reality arbitrage detection: {str(e)}"
+                    )
+
         return opportunities
-    
+
     def should_enter(self, opportunity: ArbitrageOpportunity) -> bool:
         """
         Determine if we should enter a position on this opportunity
-        
+
         Args:
             opportunity: ArbitrageOpportunity to evaluate
-            
+
         Returns:
             True if should enter position, False otherwise
         """
         # Don't enter if we already have a position in this market
         if opportunity.market_id in self.active_positions:
             return False
-        
+
         # Check profit margin meets threshold
         if opportunity.profit_margin < (self.min_profit_margin * 100):
             return False
-        
+
         # Check price sum is reasonable
         if opportunity.price_sum >= self.max_price_sum:
             return False
-        
+
         # Additional checks could include:
         # - Liquidity check
         # - Market expiry check
         # - Risk limits check
-        
+
         return True
-    
+
     def should_exit(self, market_id: str, current_prices: Dict[str, float]) -> bool:
         """
         Determine if we should exit a position
-        
+
         For arbitrage strategy, we typically hold to expiry since it's risk-free.
         However, we might exit early if prices improve significantly.
-        
+
         Args:
             market_id: Market identifier
             current_prices: Current market prices
-            
+
         Returns:
             True if should exit position, False otherwise
         """
         # Check if we have an active position
         if market_id not in self.active_positions:
             return False
-        
+
         position = self.active_positions[market_id]
-        entry_sum = position['entry_price_sum']
-        
-        yes_price = current_prices.get('yes', 0)
-        no_price = current_prices.get('no', 0)
+        entry_sum = position["entry_price_sum"]
+
+        yes_price = current_prices.get("yes", 0)
+        no_price = current_prices.get("no", 0)
         current_sum = yes_price + no_price
-        
+
         # Exit if prices have improved significantly (can lock in profit early)
         # For example, if price sum has increased by 5% or more
         improvement_threshold = 0.05
         if current_sum >= entry_sum * (1 + improvement_threshold):
             return True
-        
+
         # Exit if market is about to expire (would be checked via market data)
         # This would require additional market metadata
-        
+
         return False
-    
-    def enter_position(self, opportunity: ArbitrageOpportunity, 
-                       trade_size: float) -> Dict[str, Any]:
+
+    def enter_position(
+        self, opportunity: ArbitrageOpportunity, trade_size: float
+    ) -> Dict[str, Any]:
         """
         Enter a position on an arbitrage opportunity
-        
+
         Args:
             opportunity: ArbitrageOpportunity to trade
             trade_size: Amount to invest in USD
-            
+
         Returns:
             Position information dictionary
         """
         # Calculate expected profit
         expected_profit = opportunity.calculate_profit_for_amount(trade_size)
-        
+
         # Record position
         position = {
-            'market_id': opportunity.market_id,
-            'market_name': opportunity.market_name,
-            'entry_time': datetime.now(),
-            'entry_price_sum': opportunity.price_sum,
-            'yes_price': opportunity.yes_price,
-            'no_price': opportunity.no_price,
-            'trade_size': trade_size,
-            'expected_profit': expected_profit,
-            'status': 'active'
+            "market_id": opportunity.market_id,
+            "market_name": opportunity.market_name,
+            "entry_time": datetime.now(),
+            "entry_price_sum": opportunity.price_sum,
+            "yes_price": opportunity.yes_price,
+            "no_price": opportunity.no_price,
+            "trade_size": trade_size,
+            "expected_profit": expected_profit,
+            "status": "active",
         }
-        
+
         self.active_positions[opportunity.market_id] = position
         self.opportunities_taken += 1
         self.total_expected_profit += expected_profit
-        
+
         # Log the trade
         self.logger.log_trade(
             market=opportunity.market_name,
@@ -317,77 +332,80 @@ class ArbitrageStrategy:
             profit_usd=expected_profit,
             status=f"{self.strategy_name}_entered",
             strategy=self.strategy_name,
-            arbitrage_type=getattr(opportunity, 'arbitrage_type', 'Simple')
+            arbitrage_type=getattr(opportunity, "arbitrage_type", "Simple"),
         )
-        
+
         return position
-    
-    def exit_position(self, market_id: str, exit_prices: Dict[str, float],
-                     reason: str = "manual") -> Dict[str, Any]:
+
+    def exit_position(
+        self, market_id: str, exit_prices: Dict[str, float], reason: str = "manual"
+    ) -> Dict[str, Any]:
         """
         Exit a position
-        
+
         Args:
             market_id: Market identifier
             exit_prices: Exit prices {'yes': float, 'no': float}
             reason: Reason for exit (profit_target, stop_loss, manual, etc.)
-            
+
         Returns:
             Exit information dictionary
         """
         if market_id not in self.active_positions:
-            return {'error': 'No active position found'}
-        
+            return {"error": "No active position found"}
+
         position = self.active_positions[market_id]
-        
+
         # Calculate actual profit based on exit prices
-        entry_sum = position['entry_price_sum']
-        exit_sum = exit_prices['yes'] + exit_prices['no']
-        trade_size = position['trade_size']
-        
+        entry_sum = position["entry_price_sum"]
+        exit_sum = exit_prices["yes"] + exit_prices["no"]
+        trade_size = position["trade_size"]
+
         # Profit improvement from entry to exit
-        actual_profit = trade_size * (exit_sum - entry_sum) + position['expected_profit']
-        
+        actual_profit = (
+            trade_size * (exit_sum - entry_sum) + position["expected_profit"]
+        )
+
         # Update statistics
         self.total_actual_profit += actual_profit
-        
+
         # Log the exit
         self.logger.log_trade(
-            market=position['market_name'],
-            yes_price=exit_prices['yes'],
-            no_price=exit_prices['no'],
+            market=position["market_name"],
+            yes_price=exit_prices["yes"],
+            no_price=exit_prices["no"],
             profit_usd=actual_profit,
             status=f"{self.strategy_name}_exited_{reason}",
             strategy=self.strategy_name,
-            arbitrage_type='Simple'  # Default for now
+            arbitrage_type="Simple",  # Default for now
         )
-        
+
         # Create exit record
         exit_info = {
-            'market_id': market_id,
-            'market_name': position['market_name'],
-            'exit_time': datetime.now(),
-            'exit_prices': exit_prices,
-            'entry_sum': entry_sum,
-            'exit_sum': exit_sum,
-            'expected_profit': position['expected_profit'],
-            'actual_profit': actual_profit,
-            'reason': reason
+            "market_id": market_id,
+            "market_name": position["market_name"],
+            "exit_time": datetime.now(),
+            "exit_prices": exit_prices,
+            "entry_sum": entry_sum,
+            "exit_sum": exit_sum,
+            "expected_profit": position["expected_profit"],
+            "actual_profit": actual_profit,
+            "reason": reason,
         }
-        
+
         # Remove from active positions
         del self.active_positions[market_id]
-        
+
         return exit_info
-    
+
     def _validate_prices(self, yes_price: float, no_price: float) -> bool:
         """
         Validate that prices are reasonable
-        
+
         Args:
             yes_price: YES contract price
             no_price: NO contract price
-            
+
         Returns:
             True if prices are valid
         """
@@ -396,31 +414,31 @@ class ArbitrageStrategy:
             return False
         if no_price <= 0 or no_price >= 1:
             return False
-        
+
         # Sum should be positive
         if yes_price + no_price <= 0:
             return False
-        
+
         return True
-    
+
     def _is_arbitrage_opportunity(self, yes_price: float, no_price: float) -> bool:
         """
         Check if prices represent an arbitrage opportunity
-        
+
         Args:
             yes_price: YES contract price
             no_price: NO contract price
-            
+
         Returns:
             True if arbitrage opportunity exists
         """
         price_sum = yes_price + no_price
         return price_sum < 1.0
-    
+
     def get_statistics(self) -> Dict[str, Any]:
         """
         Get strategy statistics
-        
+
         Returns:
             Dictionary with strategy statistics
         """
@@ -429,96 +447,98 @@ class ArbitrageStrategy:
             execution_rate = (self.opportunities_taken / self.opportunities_found) * 100
         else:
             execution_rate = 0.0
-        
+
         return {
-            'strategy_name': self.strategy_name,
-            'opportunities_found': self.opportunities_found,
-            'opportunities_taken': self.opportunities_taken,
-            'total_expected_profit': self.total_expected_profit,
-            'total_actual_profit': self.total_actual_profit,
-            'active_positions': len(self.active_positions),
-            'execution_rate': execution_rate
+            "strategy_name": self.strategy_name,
+            "opportunities_found": self.opportunities_found,
+            "opportunities_taken": self.opportunities_taken,
+            "total_expected_profit": self.total_expected_profit,
+            "total_actual_profit": self.total_actual_profit,
+            "active_positions": len(self.active_positions),
+            "execution_rate": execution_rate,
         }
-    
+
     def reset_statistics(self) -> None:
         """Reset strategy statistics"""
         self.opportunities_found = 0
         self.opportunities_taken = 0
         self.total_expected_profit = 0.0
         self.total_actual_profit = 0.0
-    
+
     def get_name(self) -> str:
         """
         Get strategy name
-        
+
         Returns:
             Strategy name string
         """
         return self.strategy_name
-    
-    def _detect_arbitrage_type(self, market_data: Dict[str, Any], 
-                                yes_price: float, no_price: float) -> str:
+
+    def _detect_arbitrage_type(
+        self, market_data: Dict[str, Any], yes_price: float, no_price: float
+    ) -> str:
         """
         Detect the type of arbitrage opportunity
-        
+
         Args:
             market_data: Market information
             yes_price: YES price
             no_price: NO price
-            
+
         Returns:
             Arbitrage type string
         """
         # Type 1: Simple Arbitrage - YES + NO < 1.0
         if yes_price + no_price < 1.0:
             return "Simple"
-        
+
         # For now, other types require additional data not yet available
         # They will be implemented as we add exchange integration
         return "Simple"
-    
-    def detect_correlated_markets_arbitrage(self, markets: List[Dict[str, Any]],
-                                           prices_dict: Dict[str, Dict[str, float]]) -> List[ArbitrageOpportunity]:
+
+    def detect_correlated_markets_arbitrage(
+        self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
+    ) -> List[ArbitrageOpportunity]:
         """
         Type 3: Detect correlated markets arbitrage
-        
+
         Detects logical impossibilities like:
         - "BTC > 100k" priced higher than "BTC > 95k"
-        
+
         Args:
             markets: List of market information
             prices_dict: Dictionary mapping market_id to price data
-            
+
         Returns:
             List of correlated markets arbitrage opportunities
         """
         opportunities = []
-        
+
         # Look for related markets (simplified implementation)
         # In production, would use more sophisticated matching
         market_pairs = []
         for i, market1 in enumerate(markets):
-            for market2 in markets[i+1:]:
+            for market2 in markets[i + 1 :]:
                 # Check if markets are related (e.g., same asset, different thresholds)
                 if self._markets_are_related(market1, market2):
                     market_pairs.append((market1, market2))
-        
+
         # Check each pair for logical inconsistencies
         for market1, market2 in market_pairs:
-            market_id_1 = market1.get('id', '')
-            market_id_2 = market2.get('id', '')
-            
+            market_id_1 = market1.get("id", "")
+            market_id_2 = market2.get("id", "")
+
             prices_1 = prices_dict.get(market_id_1, {})
             prices_2 = prices_dict.get(market_id_2, {})
-            
+
             if not prices_1 or not prices_2:
                 continue
-            
+
             # Example: If "BTC > 100k" has higher YES price than "BTC > 95k", there's an opportunity
             # This is a simplified check - production would need more sophisticated logic
-            yes_1 = prices_1.get('yes', 0)
-            yes_2 = prices_2.get('yes', 0)
-            
+            yes_1 = prices_1.get("yes", 0)
+            yes_2 = prices_2.get("yes", 0)
+
             # Check if there's a logical inconsistency
             if self._is_correlated_inconsistency(market1, market2, yes_1, yes_2):
                 # Create opportunity (simplified - would need more complex structure)
@@ -527,51 +547,58 @@ class ArbitrageStrategy:
                     market_name=f"Correlated: {market1.get('question', '')} vs {market2.get('question', '')}",
                     yes_price=yes_1,
                     no_price=1 - yes_1,
-                    arbitrage_type="Correlated Markets"
+                    arbitrage_type="Correlated Markets",
                 )
                 opportunities.append(opportunity)
-        
+
         return opportunities
-    
-    def _markets_are_related(self, market1: Dict[str, Any], market2: Dict[str, Any]) -> bool:
+
+    def _markets_are_related(
+        self, market1: Dict[str, Any], market2: Dict[str, Any]
+    ) -> bool:
         """Check if two markets are related (same asset, different thresholds)"""
         # Simplified: Check if they share keywords
-        q1 = market1.get('question', '').lower()
-        q2 = market2.get('question', '').lower()
-        
+        q1 = market1.get("question", "").lower()
+        q2 = market2.get("question", "").lower()
+
         # Check for common assets
-        assets = ['btc', 'eth', 'sol', 'bitcoin', 'ethereum', 'solana']
+        assets = ["btc", "eth", "sol", "bitcoin", "ethereum", "solana"]
         for asset in assets:
             if asset in q1 and asset in q2:
                 return True
-        
+
         return False
-    
-    def _is_correlated_inconsistency(self, market1: Dict[str, Any], market2: Dict[str, Any],
-                                     price1: float, price2: float) -> bool:
+
+    def _is_correlated_inconsistency(
+        self,
+        market1: Dict[str, Any],
+        market2: Dict[str, Any],
+        price1: float,
+        price2: float,
+    ) -> bool:
         """Check if there's a logical inconsistency in correlated markets"""
         # Simplified implementation
         # In production, would parse thresholds and check logical consistency
-        
+
         # Example: Extract numbers from market questions
         import re
-        
-        q1 = market1.get('question', '')
-        q2 = market2.get('question', '')
-        
+
+        q1 = market1.get("question", "")
+        q2 = market2.get("question", "")
+
         # Find numbers in questions
-        nums1 = re.findall(r'\d+', q1)
-        nums2 = re.findall(r'\d+', q2)
-        
+        nums1 = re.findall(r"\d+", q1)
+        nums2 = re.findall(r"\d+", q2)
+
         if not nums1 or not nums2:
             return False
-        
+
         # Simple check: if first market has higher threshold but higher probability
         # This is a placeholder - real implementation would need more context
         try:
             threshold1 = float(nums1[0])
             threshold2 = float(nums2[0])
-            
+
             # If threshold1 > threshold2 but price1 > price2, that's inconsistent
             if threshold1 > threshold2 and price1 > price2:
                 # Require significant difference to avoid noise
@@ -579,124 +606,139 @@ class ArbitrageStrategy:
                     return True
         except (ValueError, IndexError):
             pass
-        
+
         return False
-    
-    def detect_time_based_arbitrage(self, markets: List[Dict[str, Any]],
-                                   prices_dict: Dict[str, Dict[str, float]]) -> List[ArbitrageOpportunity]:
+
+    def detect_time_based_arbitrage(
+        self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
+    ) -> List[ArbitrageOpportunity]:
         """
         Type 4: Detect time-based arbitrage
-        
+
         Detects when shorter timeframe has higher probability than longer timeframe
-        
+
         Args:
             markets: List of market information
             prices_dict: Dictionary mapping market_id to price data
-            
+
         Returns:
             List of time-based arbitrage opportunities
         """
         opportunities = []
-        
+
         # Group markets by similar questions with different timeframes
         # Simplified implementation - production would use date parsing
-        
+
         for market in markets:
-            question = market.get('question', '').lower()
-            
+            question = market.get("question", "").lower()
+
             # Look for time-related keywords
-            if 'by' in question or 'before' in question or '2024' in question or '2025' in question:
+            if (
+                "by" in question
+                or "before" in question
+                or "2024" in question
+                or "2025" in question
+            ):
                 # This is a placeholder - real implementation would match related markets
                 # and check if near-term has higher probability than long-term
                 pass
-        
+
         # For now, return empty list - full implementation requires date parsing
         return opportunities
-    
-    def detect_reality_arbitrage(self, markets: List[Dict[str, Any]],
-                                prices_dict: Dict[str, Dict[str, float]]) -> List[ArbitrageOpportunity]:
+
+    def detect_reality_arbitrage(
+        self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
+    ) -> List[ArbitrageOpportunity]:
         """
         Type 6: Reality-Based Arbitrage (NEW!)
-        
+
         Detects when prediction markets are mispriced compared to current crypto reality.
         This is the most profitable arbitrage type when conditions are already met.
-        
+
         Example:
             Market: "Will BTC be above $100k?"
             Current BTC Price: $105,234
             Market YES Price: 42%
             → EXTREME opportunity: BUY YES (58% profit potential)
-        
+
         Args:
             markets: List of market information
             prices_dict: Dictionary mapping market_id to price data
-            
+
         Returns:
             List of reality-based arbitrage opportunities
         """
         # Check if reality-based arbitrage is enabled
-        if not self.arbitrage_types_config.get('reality_based', {}).get('enabled', True):
+        if not self.arbitrage_types_config.get("reality_based", {}).get(
+            "enabled", True
+        ):
             return []
-        
+
         try:
             from services.reality_arbitrage_detector import RealityArbitrageDetector
-            
+
             # Initialize detector
             detector = RealityArbitrageDetector(logger=self.logger, config=self.config)
-            
+
             # Prepare market data for detector
             markets_for_detection = []
             for market in markets:
-                market_id = market.get('id', market.get('market_id', 'unknown'))
+                market_id = market.get("id", market.get("market_id", "unknown"))
                 prices = prices_dict.get(market_id)
-                
+
                 if prices:
-                    markets_for_detection.append({
-                        'market_id': market_id,
-                        'market_name': market.get('question', market.get('name', market_id)),
-                        'yes_price': prices.get('yes', 0),
-                        'no_price': prices.get('no', 0)
-                    })
-            
+                    markets_for_detection.append(
+                        {
+                            "market_id": market_id,
+                            "market_name": market.get(
+                                "question", market.get("name", market_id)
+                            ),
+                            "yes_price": prices.get("yes", 0),
+                            "no_price": prices.get("no", 0),
+                        }
+                    )
+
             # Check for reality arbitrage
             reality_opportunities = detector.check_all_markets(markets_for_detection)
-            
+
             # Convert to ArbitrageOpportunity objects
             opportunities = []
             for opp in reality_opportunities:
                 arb_opp = ArbitrageOpportunity(
-                    market_id=opp['market_id'],
-                    market_name=opp['market_name'],
-                    yes_price=opp['market_yes_price'],
-                    no_price=opp['market_no_price'],
-                    arbitrage_type='Reality-Based'
+                    market_id=opp["market_id"],
+                    market_name=opp["market_name"],
+                    yes_price=opp["market_yes_price"],
+                    no_price=opp["market_no_price"],
+                    arbitrage_type="Reality-Based",
                 )
-                
+
                 # Add reality-specific metadata
                 arb_opp.reality_info = {
-                    'symbol': opp['symbol'],
-                    'current_price': opp['current_price'],
-                    'threshold': opp['threshold'],
-                    'direction': opp['direction'],
-                    'reality_met': opp['reality_met'],
-                    'confidence': opp['confidence'],
-                    'profit_potential_pct': opp['profit_potential_pct']
+                    "symbol": opp["symbol"],
+                    "current_price": opp["current_price"],
+                    "threshold": opp["threshold"],
+                    "direction": opp["direction"],
+                    "reality_met": opp["reality_met"],
+                    "confidence": opp["confidence"],
+                    "profit_potential_pct": opp["profit_potential_pct"],
                 }
-                
+
                 opportunities.append(arb_opp)
-                
+
                 if self.logger:
                     self.logger.log_info(
                         f"🎯 Reality Arbitrage: {opp['market_name']} - "
                         f"{opp['symbol']} at ${opp['current_price']:,.0f}, "
                         f"market {opp['opportunity']} ({opp['profit_potential_pct']:.1f}% profit)"
                     )
-            
+
             return opportunities
-            
+
         except ImportError as e:
             if self.logger:
-                self.logger.log_warning(f"Reality arbitrage detector not available: {str(e)}")
+                self.logger.log_warning(
+                    f"Reality arbitrage detector not available: {str(e)}"
+                )
             return []
         except Exception as e:
             if self.logger:

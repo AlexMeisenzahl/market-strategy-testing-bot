@@ -52,3 +52,15 @@ alembic==1.12.0
 
 # Database
 SQLAlchemy==2.0.21
+
+# Monitoring and Observability
+prometheus-client>=0.18.0
+sentry-sdk>=1.38.0
+
+# Security
+PyJWT>=2.8.0
+cryptography>=41.0.0
+
+# Caching and Performance
+redis>=5.0.0
+hiredis>=2.2.0

@@ -35,3 +35,33 @@ config_backups/
 *.log
 .flask_session/
 
+# Data and databases
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Backups
+backups/
+*.tar.gz
+
+# Docker volumes
+prometheus-data/
+grafana-data/
+redis-data/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

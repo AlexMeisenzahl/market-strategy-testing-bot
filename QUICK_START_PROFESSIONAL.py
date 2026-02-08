@@ -11,7 +11,7 @@ Simple examples to get started with each module.
 from backtester import Backtester
 import yaml
 
-with open('config.yaml', 'r') as f:
+with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 backtester = Backtester(config)
@@ -21,7 +21,7 @@ backtester = Backtester(config)
 # 2024-01-01 10:00:00,BTC,0.48,0.49
 
 data = backtester.load_historical_data(filepath="historical_data.csv")
-results = backtester.simulate_strategy('basic_arbitrage', data)
+results = backtester.simulate_strategy("basic_arbitrage", data)
 print(backtester.generate_backtest_report())
 
 
@@ -33,13 +33,14 @@ from liquidity_analyzer import LiquidityAnalyzer
 
 analyzer = LiquidityAnalyzer(config)
 
-# Before every trade:
-is_safe, reason = analyzer.verify_before_execution(opportunity)
-if is_safe:
-    # Execute trade
-    pass
-else:
-    print(f"Trade blocked: {reason}")
+# Before every trade (example with mock opportunity):
+# opportunity = ArbitrageOpportunity(...)  # Your opportunity object
+# is_safe, reason = analyzer.verify_before_execution(opportunity)
+# if is_safe:
+#     # Execute trade
+#     pass
+# else:
+#     print(f"Trade blocked: {reason}")
 
 
 # ============================================================
@@ -75,7 +76,7 @@ notifier.alert_circuit_breaker("Max losses exceeded")
 notifier.notify(
     title="Custom Alert",
     message="Something important happened",
-    priority="WARNING"  # CRITICAL, WARNING, or INFO
+    priority="WARNING",  # CRITICAL, WARNING, or INFO
 )
 
 
