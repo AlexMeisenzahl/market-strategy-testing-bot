@@ -132,6 +132,8 @@ class NewsOpportunity:
             'volatility': self.volatility,
             'current_price': self.current_price,
             'opportunity_type': self.opportunity_type,
+            'strategy': 'crypto_news',
+            'arbitrage_type': 'N/A',
             'detected_at': self.detected_at.isoformat()
         }
 
@@ -164,7 +166,7 @@ class NewsStrategy:
         """
         self.config = config
         self.logger = get_logger()
-        self.strategy_name = "news"
+        self.strategy_name = "crypto_news"
         
         # Strategy parameters
         self.min_volume_spike = config.get('news_min_volume_spike', 300.0)  # 300%
@@ -589,3 +591,12 @@ class NewsStrategy:
         self.opportunities_taken = 0
         self.total_profit = 0.0
         self.total_loss = 0.0
+    
+    def get_name(self) -> str:
+        """
+        Get strategy name
+        
+        Returns:
+            Strategy name string
+        """
+        return self.strategy_name

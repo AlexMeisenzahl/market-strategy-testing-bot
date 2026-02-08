@@ -67,6 +67,7 @@ class ArbitrageOpportunity:
             'price_sum': self.price_sum,
             'profit_margin': self.profit_margin,
             'opportunity_type': self.opportunity_type,
+            'arbitrage_type': getattr(self, 'arbitrage_type', 'Simple'),
             'detected_at': self.detected_at.isoformat()
         }
 
@@ -89,12 +90,15 @@ class ArbitrageStrategy:
         """
         self.config = config
         self.logger = get_logger()
-        self.strategy_name = "arbitrage"
+        self.strategy_name = "polymarket_arbitrage"
         
         # Strategy parameters
         self.min_profit_margin = config.get('min_profit_margin', 0.02)  # 2%
         self.max_trade_size = config.get('max_trade_size', 10)
         self.max_price_sum = config.get('max_price_sum', 0.98)  # Only consider if sum < 0.98
+        
+        # Arbitrage types configuration
+        self.arbitrage_types_config = config.get('arbitrage_types', {})
         
         # Statistics tracking
         self.opportunities_found = 0
@@ -412,3 +416,12 @@ class ArbitrageStrategy:
         self.opportunities_taken = 0
         self.total_expected_profit = 0.0
         self.total_actual_profit = 0.0
+    
+    def get_name(self) -> str:
+        """
+        Get strategy name
+        
+        Returns:
+            Strategy name string
+        """
+        return self.strategy_name
