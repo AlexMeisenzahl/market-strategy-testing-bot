@@ -42,6 +42,7 @@ from services.realtime_server import init_realtime_server
 from dashboard.routes.config_api import config_api
 from dashboard.routes.leaderboard import leaderboard_bp
 from dashboard.routes.emergency import emergency_bp
+from dashboard.routes.data_sources_api import data_sources_api
 from version_manager import VersionManager
 from services.update_service import UpdateService
 from services.process_manager import ProcessManager
@@ -53,6 +54,7 @@ CORS(app)  # Enable CORS for API access
 app.register_blueprint(config_api)
 app.register_blueprint(leaderboard_bp)
 app.register_blueprint(emergency_bp)
+app.register_blueprint(data_sources_api)
 
 # Configuration
 BASE_DIR = Path(__file__).resolve().parent.parent

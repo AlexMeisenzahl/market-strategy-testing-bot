@@ -525,3 +525,203 @@ Include:
 
 4. **Nuclear Option:**
    See EMERGENCY_RECOVERY.md "Everything is Broken" section
+
+---
+
+## Data Sources Issues
+
+### Bot Shows "Mock Data" After Adding Keys
+
+**Problem:** Bot continues to use mock data even after configuring API keys.
+
+**Diagnosis:**
+1. Check Settings → Data Sources in dashboard
+2. Look for 🔴 MOCK DATA indicator
+3. Check bot logs: `tail -f logs/bot.log`
+
+**Solutions:**
+1. **Verify keys were saved:**
+   - Go to Settings → Data Sources
+   - Check if API keys show `****last6chars`
+   - If blank, re-enter and click **Save**
+
+2. **Test connections:**
+   - Click **Test Connection** for each service
+   - Should show ✅ Connected
+   - If ❌ Error, check key validity
+
+3. **Restart the bot:**
+   ```bash
+   python run_bot.py
+   ```
+
+4. **Check credentials file:**
+   ```bash
+   ls -la config/credentials.json
+   # Should exist and have content
+   ```
+
+5. **Verify data mode:**
+   ```bash
+   curl http://localhost:5000/api/settings/data-mode
+   # Should return: {"mode": "live"}
+   ```
+
+---
+
+### "Connection Failed" Error
+
+**Problem:** Test connection fails when clicking Test Connection button.
+
+**Solutions:**
+
+**For Polymarket:**
+1. Check endpoint URL is correct: `https://clob.polymarket.com`
+2. Verify API key is valid (if using one)
+3. Check internet connection
+4. Try without API key (public access)
+
+**For CoinGecko:**
+1. Check endpoint: `https://api.coingecko.com/api/v3`
+2. Verify not hitting rate limits (50 calls/min free)
+3. Wait 1 minute if rate limited
+4. API key is optional - try without
+
+---
+
+### "No Opportunities Found"
+
+**Problem:** Bot runs but finds no trading opportunities.
+
+**Solutions:**
+
+**If using LIVE data:**
+1. This is often **normal** - real markets don't always have arbitrage
+2. Wait longer - opportunities come and go
+3. Check Polymarket.com - verify markets exist
+
+**If using MOCK data:**
+1. Mock data should always generate opportunities
+2. Check logs for errors
+3. Restart bot
+
+---
+
+### API Rate Limit Errors
+
+**Problem:** "Rate limit exceeded" or HTTP 429 errors.
+
+**Solutions:**
+
+**For CoinGecko (50 calls/min free):**
+1. Bot only calls once per minute - shouldn't hit limit
+2. If hit limit, wait 1 minute
+3. Consider adding API key for higher limits
+
+---
+
+### Keys Not Saving
+
+**Problem:** API keys disappear after clicking Save.
+
+**Solutions:**
+
+1. **Create config directory:**
+   ```bash
+   mkdir -p config
+   chmod 755 config
+   ```
+
+2. **Check disk space:**
+   ```bash
+   df -h .
+   ```
+
+3. **Browser issues:**
+   - Clear browser cache
+   - Try incognito mode
+   - Try different browser
+
+---
+
+## Dashboard Issues
+
+### Dashboard Not Loading
+
+**Problem:** Cannot access http://localhost:5000
+
+**Solutions:**
+
+1. **Start the dashboard:**
+   ```bash
+   python start_dashboard.py
+   ```
+
+2. **Port already in use:**
+   ```bash
+   # Use different port
+   PORT=5001 python start_dashboard.py
+   ```
+
+---
+
+### Dashboard Shows Old Data
+
+**Problem:** Dashboard not updating with new trades/opportunities.
+
+**Solutions:**
+
+1. **Refresh browser:** F5 or Ctrl+R
+2. **Check bot is running:** `ps aux | grep run_bot`
+3. **Restart both bot and dashboard**
+
+---
+
+## Bot Runtime Issues
+
+### Bot Crashes on Startup
+
+**Problem:** Bot exits immediately after starting.
+
+**Common Errors:**
+
+**1. Module Not Found:**
+```
+ModuleNotFoundError: No module named 'cryptography'
+```
+Solution:
+```bash
+pip install -r requirements.txt
+```
+
+**2. Config File Missing:**
+```
+FileNotFoundError: config.yaml not found
+```
+Solution:
+```bash
+cp config.example.yaml config.yaml
+```
+
+---
+
+## Getting More Help
+
+If you're still stuck:
+
+1. **Check documentation:**
+   - [SETUP.md](SETUP.md) - Setup guide
+   - [FAQ.md](FAQ.md) - Common questions
+   - [API_KEYS.md](API_KEYS.md) - API configuration
+
+2. **Search existing issues:**
+   - [GitHub Issues](https://github.com/AlexMeisenzahl/market-strategy-testing-bot/issues)
+
+3. **Create new issue:**
+   - Describe problem clearly
+   - Include relevant logs (sanitize API keys!)
+   - Specify OS and Python version
+
+---
+
+**Still having issues? We're here to help! 🛠️**

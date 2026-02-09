@@ -858,109 +858,196 @@
 
                         <!-- Data Sources Tab -->
                         <div class="tab-panel" id="data-sources-tab">
-                            <!-- Prediction Markets -->
-                            <div class="settings-section">
-                                <h3 class="section-title">Prediction Markets</h3>
-                                
-                                <div class="source-card">
-                                    <div class="source-header">
-                                        <div class="source-info">
-                                            <h5><i class="bi bi-graph-up-arrow"></i> Polymarket</h5>
-                                            <span class="badge bg-success">Connected</span>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="polymarket-enabled" checked>
-                                        </div>
+                            <!-- Data Mode Indicator -->
+                            <div class="alert alert-info mb-4">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-1"><i class="bi bi-info-circle"></i> Current Data Mode</h5>
+                                        <p class="mb-0">Configure API keys to enable live data sources</p>
                                     </div>
-                                    <div class="source-config">
-                                        <input type="text" class="form-control" id="polymarket-api-key" 
-                                               placeholder="API Key">
-                                    </div>
-                                </div>
-
-                                <div class="source-card">
-                                    <div class="source-header">
-                                        <div class="source-info">
-                                            <h5><i class="bi bi-graph-up-arrow"></i> PredictIt</h5>
-                                            <span class="badge bg-secondary">Disconnected</span>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="predictit-enabled">
-                                        </div>
-                                    </div>
-                                    <div class="source-config">
-                                        <input type="text" class="form-control" id="predictit-api-key" 
-                                               placeholder="API Key">
-                                    </div>
-                                </div>
-
-                                <div class="source-card">
-                                    <div class="source-header">
-                                        <div class="source-info">
-                                            <h5><i class="bi bi-graph-up-arrow"></i> Kalshi</h5>
-                                            <span class="badge bg-secondary">Disconnected</span>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="kalshi-enabled">
-                                        </div>
-                                    </div>
-                                    <div class="source-config">
-                                        <input type="text" class="form-control" id="kalshi-api-key" 
-                                               placeholder="API Key">
+                                    <div id="data-mode-indicator">
+                                        <span class="badge bg-warning"><i class="bi bi-circle-fill"></i> MOCK DATA</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Crypto Price Sources -->
+                            <!-- Polymarket Markets -->
                             <div class="settings-section">
-                                <h3 class="section-title">Crypto Price Sources</h3>
+                                <h3 class="section-title"><i class="bi bi-graph-up-arrow"></i> Polymarket Markets</h3>
+                                <p class="text-muted mb-3">Configure Polymarket API for real prediction market data</p>
                                 
                                 <div class="source-card">
-                                    <div class="source-header">
+                                    <div class="source-header mb-3">
                                         <div class="source-info">
-                                            <h5><i class="bi bi-coin"></i> CoinGecko</h5>
-                                            <span class="badge bg-success">Active</span>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="coingecko-enabled" checked>
+                                            <h5>Polymarket CLOB API</h5>
+                                            <div id="polymarket-status">
+                                                <span class="badge bg-secondary"><i class="bi bi-exclamation-triangle"></i> Not Configured</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="source-stats">
-                                        <small class="text-muted">Rate Limit: 50 calls/minute (Free tier)</small>
+                                    <div class="source-config">
+                                        <div class="mb-3">
+                                            <label for="polymarket-endpoint" class="form-label">API Endpoint</label>
+                                            <input type="text" class="form-control" id="polymarket-endpoint" 
+                                                   value="https://clob.polymarket.com"
+                                                   placeholder="https://clob.polymarket.com">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="polymarket-api-key" class="form-label">API Key (Optional)</label>
+                                            <input type="password" class="form-control" id="polymarket-api-key" 
+                                                   placeholder="Enter API key or leave blank for public access">
+                                            <small class="text-muted">API key is optional for read-only access</small>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-primary" id="save-polymarket-btn">
+                                                <i class="bi bi-save"></i> Save
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" id="test-polymarket-btn">
+                                                <i class="bi bi-wifi"></i> Test Connection
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                            </div>
 
+                            <!-- Crypto Prices -->
+                            <div class="settings-section">
+                                <h3 class="section-title"><i class="bi bi-currency-bitcoin"></i> Crypto Prices</h3>
+                                <p class="text-muted mb-3">Configure cryptocurrency price data sources</p>
+                                
                                 <div class="source-card">
-                                    <div class="source-header">
+                                    <div class="source-header mb-3">
                                         <div class="source-info">
-                                            <h5><i class="bi bi-coin"></i> Binance</h5>
-                                            <span class="badge bg-success">Active</span>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="binance-enabled" checked>
+                                            <h5>CoinGecko API</h5>
+                                            <div id="crypto-status">
+                                                <span class="badge bg-secondary"><i class="bi bi-exclamation-triangle"></i> Not Configured</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="source-stats">
-                                        <small class="text-muted">Rate Limit: 1200 requests/minute</small>
+                                    <div class="source-config">
+                                        <div class="mb-3">
+                                            <label for="crypto-provider" class="form-label">Provider</label>
+                                            <select class="form-select" id="crypto-provider">
+                                                <option value="coingecko">CoinGecko (Free)</option>
+                                                <option value="alpaca">Alpaca Markets</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="crypto-endpoint" class="form-label">API Endpoint</label>
+                                            <input type="text" class="form-control" id="crypto-endpoint" 
+                                                   value="https://api.coingecko.com/api/v3"
+                                                   placeholder="https://api.coingecko.com/api/v3">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="crypto-api-key" class="form-label">API Key (Optional)</label>
+                                            <input type="password" class="form-control" id="crypto-api-key" 
+                                                   placeholder="Optional - for higher rate limits">
+                                            <small class="text-muted">Free tier: 50 calls/min (no key required)</small>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-primary" id="save-crypto-btn">
+                                                <i class="bi bi-save"></i> Save
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" id="test-crypto-btn">
+                                                <i class="bi bi-wifi"></i> Test Connection
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                            </div>
 
+                            <!-- Telegram Notifications -->
+                            <div class="settings-section">
+                                <h3 class="section-title"><i class="bi bi-telegram"></i> Telegram Notifications</h3>
+                                <p class="text-muted mb-3">Configure Telegram bot for mobile notifications</p>
+                                
                                 <div class="source-card">
-                                    <div class="source-header">
+                                    <div class="source-header mb-3">
                                         <div class="source-info">
-                                            <h5><i class="bi bi-coin"></i> Coinbase</h5>
-                                            <span class="badge bg-warning">Limited</span>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="coinbase-enabled">
+                                            <h5>Telegram Bot</h5>
+                                            <div id="telegram-status">
+                                                <span class="badge bg-secondary"><i class="bi bi-exclamation-triangle"></i> Not Configured</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="source-stats">
-                                        <small class="text-muted">Rate Limit: 10 requests/second</small>
+                                    <div class="source-config">
+                                        <div class="mb-3">
+                                            <label for="telegram-bot-token" class="form-label">Bot Token</label>
+                                            <input type="password" class="form-control" id="telegram-bot-token" 
+                                                   placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz">
+                                            <small class="text-muted">Get from <a href="https://t.me/BotFather" target="_blank">@BotFather</a> on Telegram</small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="telegram-chat-id" class="form-label">Chat ID (Optional)</label>
+                                            <input type="text" class="form-control" id="telegram-chat-id" 
+                                                   placeholder="123456789">
+                                            <small class="text-muted">Your Telegram user/chat ID for notifications</small>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-primary" id="save-telegram-btn">
+                                                <i class="bi bi-save"></i> Save
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" id="test-telegram-btn">
+                                                <i class="bi bi-send"></i> Send Test Message
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Email Notifications -->
+                            <div class="settings-section">
+                                <h3 class="section-title"><i class="bi bi-envelope"></i> Email Notifications</h3>
+                                <p class="text-muted mb-3">Configure SMTP for email alerts</p>
+                                
+                                <div class="source-card">
+                                    <div class="source-header mb-3">
+                                        <div class="source-info">
+                                            <h5>Email SMTP</h5>
+                                            <div id="email-status">
+                                                <span class="badge bg-secondary"><i class="bi bi-exclamation-triangle"></i> Not Configured</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="source-config">
+                                        <div class="row mb-3">
+                                            <div class="col-md-8">
+                                                <label for="email-smtp-server" class="form-label">SMTP Server</label>
+                                                <input type="text" class="form-control" id="email-smtp-server" 
+                                                       value="smtp.gmail.com"
+                                                       placeholder="smtp.gmail.com">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="email-smtp-port" class="form-label">Port</label>
+                                                <input type="number" class="form-control" id="email-smtp-port" 
+                                                       value="587"
+                                                       placeholder="587">
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="email-username" class="form-label">Email Address</label>
+                                            <input type="email" class="form-control" id="email-username" 
+                                                   placeholder="your.email@gmail.com">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="email-password" class="form-label">App Password</label>
+                                            <input type="password" class="form-control" id="email-password" 
+                                                   placeholder="App-specific password">
+                                            <small class="text-muted">For Gmail, use an <a href="https://support.google.com/accounts/answer/185833" target="_blank">App Password</a></small>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-primary" id="save-email-btn">
+                                                <i class="bi bi-save"></i> Save
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" id="test-email-btn">
+                                                <i class="bi bi-envelope-check"></i> Send Test Email
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
                     </div>
 
                     <!-- Action Buttons -->
@@ -991,6 +1078,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/settings_data_sources.js') }}"></script>
     <script>
         // Enable live confirmation checkbox listener
         document.getElementById('liveConfirmCheck').addEventListener('change', function() {

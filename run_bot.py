@@ -31,6 +31,13 @@ from logger import get_logger
 from strategy_manager import StrategyManager
 from services.paper_trading_engine import PaperTradingEngine
 from polymarket_api import PolymarketAPI
+from services.secure_config_manager import SecureConfigManager
+from clients import (
+    PolymarketClient,
+    CoinGeckoClient,
+    MockMarketClient,
+    MockCryptoClient,
+)
 
 
 class BotRunner:
@@ -54,6 +61,9 @@ class BotRunner:
             timeout=self.config.get("api_timeout_seconds", 10),
             retry_attempts=self.config.get("api_retry_attempts", 3),
         )
+
+        # Initialize data clients (market and crypto data)
+        self.market_client, self.crypto_client = self._initialize_data_clients()
 
         # Setup directories
         self.logs_dir = Path("logs")
@@ -96,6 +106,95 @@ class BotRunner:
             }
 
         return config
+
+    def _initialize_data_clients(self):
+        """
+        Initialize market and crypto data clients based on API configuration
+
+        Returns:
+            Tuple of (market_client, crypto_client)
+        """
+        config_manager = SecureConfigManager()
+
+        # Initialize Market Client (Polymarket or Mock)
+        market_client = None
+        if config_manager.has_polymarket_api():
+            self.logger.log_warning(
+                "🔗 Polymarket API configured, attempting connection..."
+            )
+            creds = config_manager.get_api_credentials("polymarket")
+            try:
+                endpoint = creds.get("endpoint", "https://clob.polymarket.com")
+                api_key = creds.get("api_key")
+                market_client = PolymarketClient(endpoint=endpoint, api_key=api_key)
+
+                # Test connection
+                result = market_client.test_connection()
+                if result["success"]:
+                    self.logger.log_warning(f"✅ {result['message']}")
+                    self.logger.log_warning("📊 Using LIVE Polymarket data")
+                else:
+                    self.logger.log_warning(
+                        f"⚠️  Polymarket connection failed: {result['error']}"
+                    )
+                    self.logger.log_warning("📊 Falling back to MOCK market data")
+                    market_client = None
+            except Exception as e:
+                self.logger.log_warning(
+                    f"⚠️  Error initializing Polymarket client: {str(e)}"
+                )
+                self.logger.log_warning("📊 Falling back to MOCK market data")
+                market_client = None
+
+        # Use mock client if no live client
+        if market_client is None:
+            self.logger.log_warning(
+                "📊 No Polymarket API configured - Using MOCK market data"
+            )
+            market_client = MockMarketClient()
+            market_client.connect()
+
+        # Initialize Crypto Client (CoinGecko or Mock)
+        crypto_client = None
+        if config_manager.has_crypto_api():
+            self.logger.log_warning(
+                "🔗 Crypto API configured, attempting connection..."
+            )
+            creds = config_manager.get_api_credentials("crypto")
+            try:
+                provider = creds.get("provider", "coingecko")
+                if provider == "coingecko":
+                    endpoint = creds.get("endpoint", "https://api.coingecko.com/api/v3")
+                    api_key = creds.get("api_key")
+                    crypto_client = CoinGeckoClient(endpoint=endpoint, api_key=api_key)
+
+                    # Test connection
+                    result = crypto_client.test_connection()
+                    if result["success"]:
+                        self.logger.log_warning(f"✅ {result['message']}")
+                        self.logger.log_warning("💰 Using LIVE crypto price data")
+                    else:
+                        self.logger.log_warning(
+                            f"⚠️  Crypto API connection failed: {result['error']}"
+                        )
+                        self.logger.log_warning("💰 Falling back to MOCK crypto data")
+                        crypto_client = None
+            except Exception as e:
+                self.logger.log_warning(
+                    f"⚠️  Error initializing crypto client: {str(e)}"
+                )
+                self.logger.log_warning("💰 Falling back to MOCK crypto data")
+                crypto_client = None
+
+        # Use mock client if no live client
+        if crypto_client is None:
+            self.logger.log_warning(
+                "💰 No crypto API configured - Using MOCK crypto data"
+            )
+            crypto_client = MockCryptoClient()
+            crypto_client.connect()
+
+        return market_client, crypto_client
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully"""
@@ -142,25 +241,65 @@ class BotRunner:
 
     def _fetch_markets(self) -> List[Dict[str, Any]]:
         """
-        Fetch current markets from Polymarket API or use mock data
+        Fetch current markets using configured data client
 
         Returns:
             List of market data dictionaries
         """
-        # For testing, use mock data
-        # TODO: Uncomment below to use real API
-        # try:
-        #     # Try to fetch from Polymarket API
-        #     markets = self.polymarket_api.get_markets()
-        #     if markets:
-        #         self.logger.log_warning(f"📊 Fetched {len(markets)} markets from Polymarket API")
-        #         return markets
-        # except Exception as e:
-        #     self.logger.log_warning(f"⚠️  Failed to fetch from API: {str(e)}")
+        try:
+            # Use the configured market client (live or mock)
+            markets = self.market_client.get_markets(min_volume=1000, limit=100)
 
-        # Use mock data for testing
-        self.logger.log_warning("📊 Using mock market data for testing")
-        return self._get_mock_markets()
+            if markets:
+                market_type = (
+                    "LIVE"
+                    if isinstance(self.market_client, PolymarketClient)
+                    else "MOCK"
+                )
+                self.logger.log_warning(
+                    f"📊 Fetched {len(markets)} {market_type} markets"
+                )
+
+                # Convert to expected format if needed
+                return self._normalize_market_format(markets)
+            else:
+                self.logger.log_warning("⚠️  No markets returned, using mock data")
+                return self._get_mock_markets()
+
+        except Exception as e:
+            self.logger.log_warning(f"⚠️  Error fetching markets: {str(e)}")
+            self.logger.log_warning("📊 Falling back to mock market data")
+            return self._get_mock_markets()
+
+    def _normalize_market_format(
+        self, markets: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Normalize market format to ensure consistency
+
+        Args:
+            markets: Raw market data from client
+
+        Returns:
+            Normalized market data
+        """
+        normalized = []
+        for market in markets:
+            # Ensure all required fields exist
+            normalized.append(
+                {
+                    "id": market.get("market_id", market.get("id", "unknown")),
+                    "question": market.get(
+                        "market_name", market.get("question", "Unknown")
+                    ),
+                    "yes_price": market.get("yes_price", 0.5),
+                    "no_price": market.get("no_price", 0.5),
+                    "liquidity": market.get("liquidity", 0),
+                    "volume_24h": market.get("volume_24h", 0),
+                    "category": market.get("category", "unknown"),
+                }
+            )
+        return normalized
 
     def _get_mock_markets(self) -> List[Dict[str, Any]]:
         """
