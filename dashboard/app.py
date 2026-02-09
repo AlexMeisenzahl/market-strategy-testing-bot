@@ -366,32 +366,7 @@ def leaderboard_page():
     return render_template("leaderboard.html")
 
 
-@app.route("/health")
-def health_check():
-    """Health check endpoint for startup verification"""
-    try:
-        # Check if logs directory exists
-        logs_exist = LOGS_DIR.exists()
-
-        return (
-            jsonify(
-                {
-                    "status": "healthy",
-                    "timestamp": datetime.now().isoformat(),
-                    "logs_directory": str(LOGS_DIR),
-                    "logs_exist": logs_exist,
-                    "services": {
-                        "data_parser": "ready",
-                        "analytics": "ready",
-                        "chart_data": "ready",
-                    },
-                }
-            ),
-            200,
-        )
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+# Duplicate /health route removed - see line 249 for primary health_check endpoint
 
 
 # PWA Routes
@@ -2212,29 +2187,7 @@ def api_health():
         return jsonify({"status": "error", "error": str(e)}), 500
 
 
-@app.route("/api/health", methods=["GET"])
-def api_health_check():
-    """
-    API endpoint for comprehensive health checks.
-    Checks all external services and APIs.
-    """
-    try:
-        from services.health_check import health_service
-
-        health_status = health_service.check_all()
-        return jsonify(health_status), 200
-    except Exception as e:
-        logger.error(f"Error in API health check: {str(e)}")
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "error": str(e),
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
-            ),
-            500,
-        )
+# Duplicate /api/health route removed - see line 2165 for primary api_health endpoint
 
 
 @app.route("/api/settings/export", methods=["GET"])
