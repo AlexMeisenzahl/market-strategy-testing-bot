@@ -4,6 +4,19 @@
  * Handles all frontend interactions, data fetching, and chart rendering
  */
 
+// Debounce helper function to prevent API spam
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 // Global state
 let currentPage = 'overview';
 let cumulativePNLChart = null;
@@ -13,6 +26,7 @@ let currentTimeRange = '1M';
 let autoRefreshEnabled = true;
 let autoRefreshInterval = null;
 let isRefreshing = false;
+let lastRefreshTime = 0;
 
 // API Base URL
 const API_BASE = window.location.origin;
@@ -22,6 +36,7 @@ const apiClient = new APIClient(API_BASE);
 
 // Auto-refresh interval (15 seconds to prevent spam)
 const REFRESH_INTERVAL = 15000;
+const MIN_REFRESH_DELAY = 2000; // Minimum 2 seconds between manual refreshes
 
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -148,11 +163,20 @@ function handleAutoRefreshToggle(event) {
 
 // Handle manual refresh
 async function handleManualRefresh() {
+    // Debounce: prevent rapid clicking
+    const now = Date.now();
+    if (now - lastRefreshTime < MIN_REFRESH_DELAY) {
+        console.log('Refresh debounced - too soon since last refresh');
+        showToast('Please wait before refreshing again', 'info');
+        return;
+    }
+    
     if (isRefreshing) {
         showToast('Refresh already in progress', 'info');
         return;
     }
     
+    lastRefreshTime = now;
     const refreshBtn = document.getElementById('manual-refresh-btn');
     const refreshIcon = refreshBtn?.querySelector('i');
     
