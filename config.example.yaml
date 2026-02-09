@@ -342,6 +342,31 @@ strategies:
     min_correlation: 0.7
     z_score_threshold: 2.0
     max_holding_time: 3600
+  
+  # Mean Reversion Strategy
+  mean_reversion:
+    enabled: false
+    ma_window: 20                    # Moving average window (periods)
+    min_deviation_pct: 10.0          # Minimum deviation from MA (%)
+    z_score_threshold: 2.0           # Z-score threshold for entry
+    max_holding_time: 3600           # Maximum position hold time (seconds)
+  
+  # Volatility Breakout Strategy
+  volatility_breakout:
+    enabled: false
+    bb_window: 20                    # Bollinger Bands window (periods)
+    bb_num_std: 2.0                  # Number of standard deviations for bands
+    min_consolidation_periods: 10    # Minimum consolidation periods
+    breakout_threshold_pct: 1.0      # Breakout threshold (%)
+    max_holding_time: 1800           # Maximum position hold time (seconds)
+  
+  # Pairs Trading Strategy
+  pairs_trading:
+    enabled: false
+    min_correlation: 0.7             # Minimum correlation between pairs
+    z_score_threshold: 2.0           # Z-score threshold for entry
+    spread_window: 20                # Window for spread calculations
+    max_holding_time: 3600           # Maximum position hold time (seconds)
 
 # ============================================================================
 # EXCHANGES CONFIGURATION

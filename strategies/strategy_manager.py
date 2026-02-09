@@ -17,6 +17,28 @@ from strategies.statistical_arb_strategy import (
     StatisticalArbStrategy,
     StatisticalArbOpportunity,
 )
+from strategies.mean_reversion_strategy import (
+    MeanReversionStrategy,
+    MeanReversionOpportunity,
+)
+from strategies.volatility_breakout_strategy import (
+    VolatilityBreakoutStrategy,
+    VolatilityBreakoutOpportunity,
+)
+from strategies.pairs_trading_strategy import (
+    PairsTradingStrategy,
+    PairsTradingOpportunity,
+)
+
+# Strategy types that don't use arbitrage type classification
+NON_ARBITRAGE_STRATEGY_TYPES = {
+    "momentum",
+    "news",
+    "statistical_arb",
+    "mean_reversion",
+    "volatility_breakout",
+    "pairs_trading",
+}
 
 
 class StrategyManager:
@@ -144,6 +166,71 @@ class StrategyManager:
                     f"Failed to load Statistical Arb strategy: {str(e)}"
                 )
 
+        # Load Mean Reversion Strategy
+        mean_rev_config = strategies_config.get("mean_reversion", {})
+        if mean_rev_config.get("enabled", False):
+            try:
+                strategy_config = {
+                    "ma_window": mean_rev_config.get("ma_window", 20),
+                    "min_deviation_pct": mean_rev_config.get("min_deviation_pct", 10.0),
+                    "z_score_threshold": mean_rev_config.get("z_score_threshold", 2.0),
+                    "max_holding_time": mean_rev_config.get("max_holding_time", 3600),
+                }
+
+                self.strategies["mean_reversion"] = MeanReversionStrategy(
+                    strategy_config
+                )
+                self.logger.log_info("Loaded Mean Reversion strategy")
+            except Exception as e:
+                self.logger.log_error(
+                    f"Failed to load Mean Reversion strategy: {str(e)}"
+                )
+
+        # Load Volatility Breakout Strategy
+        vol_breakout_config = strategies_config.get("volatility_breakout", {})
+        if vol_breakout_config.get("enabled", False):
+            try:
+                strategy_config = {
+                    "bb_window": vol_breakout_config.get("bb_window", 20),
+                    "bb_num_std": vol_breakout_config.get("bb_num_std", 2.0),
+                    "min_consolidation_periods": vol_breakout_config.get(
+                        "min_consolidation_periods", 10
+                    ),
+                    "breakout_threshold_pct": vol_breakout_config.get(
+                        "breakout_threshold_pct", 1.0
+                    ),
+                    "max_holding_time": vol_breakout_config.get(
+                        "max_holding_time", 1800
+                    ),
+                }
+
+                self.strategies["volatility_breakout"] = VolatilityBreakoutStrategy(
+                    strategy_config
+                )
+                self.logger.log_info("Loaded Volatility Breakout strategy")
+            except Exception as e:
+                self.logger.log_error(
+                    f"Failed to load Volatility Breakout strategy: {str(e)}"
+                )
+
+        # Load Pairs Trading Strategy
+        pairs_config = strategies_config.get("pairs_trading", {})
+        if pairs_config.get("enabled", False):
+            try:
+                strategy_config = {
+                    "min_correlation": pairs_config.get("min_correlation", 0.7),
+                    "z_score_threshold": pairs_config.get("z_score_threshold", 2.0),
+                    "spread_window": pairs_config.get("spread_window", 20),
+                    "max_holding_time": pairs_config.get("max_holding_time", 3600),
+                }
+
+                self.strategies["pairs_trading"] = PairsTradingStrategy(strategy_config)
+                self.logger.log_info("Loaded Pairs Trading strategy")
+            except Exception as e:
+                self.logger.log_error(
+                    f"Failed to load Pairs Trading strategy: {str(e)}"
+                )
+
     def find_opportunities(
         self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
     ) -> List[Dict[str, Any]]:
@@ -208,11 +295,7 @@ class StrategyManager:
 
         if opp_type == "arbitrage":
             return opportunity.get("arbitrage_type", "Simple")
-        elif opp_type == "momentum":
-            return "N/A"
-        elif opp_type == "news":
-            return "N/A"
-        elif opp_type == "statistical_arb":
+        elif opp_type in NON_ARBITRAGE_STRATEGY_TYPES:
             return "N/A"
         else:
             return "Unknown"
