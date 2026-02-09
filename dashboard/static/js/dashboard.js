@@ -20,8 +20,8 @@ const API_BASE = window.location.origin;
 // Initialize API client
 const apiClient = new APIClient(API_BASE);
 
-// Auto-refresh interval (5 seconds for real-time updates)
-const REFRESH_INTERVAL = 5000;
+// Auto-refresh interval (15 seconds to prevent spam)
+const REFRESH_INTERVAL = 15000;
 
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -106,7 +106,7 @@ function handleAutoRefreshToggle(event) {
     
     if (autoRefreshEnabled) {
         startAutoRefresh();
-        showToast('Auto-refresh enabled (5s interval)', 'success');
+        showToast('Auto-refresh enabled (15s interval)', 'success');
     } else {
         stopAutoRefresh();
         showToast('Auto-refresh disabled', 'info');
@@ -1183,11 +1183,11 @@ function startActivityRefresh() {
     // Load immediately
     loadRecentActivity();
     
-    // Then refresh every 5 seconds
+    // Then refresh every 15 seconds
     if (activityRefreshInterval) {
         clearInterval(activityRefreshInterval);
     }
-    activityRefreshInterval = setInterval(loadRecentActivity, 5000);
+    activityRefreshInterval = setInterval(loadRecentActivity, 15000);
 }
 
 // ========================================================================

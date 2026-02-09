@@ -301,16 +301,31 @@ def get_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/notifications", methods=["PUT"])
-def update_notification_settings():
-    """Update notification settings"""
-    try:
-        data = request.json
-        config_manager.update_notification_settings(data)
-        return jsonify({"success": True, "message": "Notification settings updated"})
-    except Exception as e:
-        logger.error(f"Error updating notification settings: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+@app.route("/api/settings/notifications", methods=["GET", "PUT"])
+def handle_notification_settings():
+    """Get or update notification settings"""
+    if request.method == "GET":
+        try:
+            settings = config_manager.get_all_settings()
+            notifications = settings.get("notifications", {
+                "discord": {"enabled": False, "webhook_url": ""},
+                "slack": {"enabled": False, "webhook_url": ""},
+                "email": {"enabled": False, "smtp_server": "", "smtp_port": 587, "email_from": "", "email_to": ""},
+                "telegram": {"enabled": False, "bot_token": "", "chat_id": ""},
+                "webhook": {"enabled": False, "url": ""}
+            })
+            return jsonify(notifications)
+        except Exception as e:
+            logger.error(f"Error getting notification settings: {str(e)}")
+            return jsonify({"error": str(e)}), 500
+    else:  # PUT
+        try:
+            data = request.json
+            config_manager.update_notification_settings(data)
+            return jsonify({"success": True, "message": "Notification settings updated"})
+        except Exception as e:
+            logger.error(f"Error updating notification settings: {str(e)}")
+            return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/settings/strategies", methods=["PUT"])
