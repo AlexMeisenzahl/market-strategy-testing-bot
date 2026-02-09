@@ -689,9 +689,9 @@ def main():
     try:
         # Initialize logger first to ensure we can log errors
         logger = get_logger()
-        logger.log_warning("=" * 60)
-        logger.log_warning("🤖 Market Strategy Testing Bot - Starting")
-        logger.log_warning("=" * 60)
+        logger.log_info("=" * 60)
+        logger.log_info("🤖 Market Strategy Testing Bot - Starting")
+        logger.log_info("=" * 60)
         
         # Initialize and run the bot
         bot = BotRunner()
@@ -738,7 +738,7 @@ def main():
         sys.exit(0)
         
     except Exception as e:
-        error_msg = f"❌ Fatal error during startup: {str(e)}"
+        error_msg = f"❌ Fatal error: {str(e)}"
         if logger:
             logger.log_error(error_msg)
         else:

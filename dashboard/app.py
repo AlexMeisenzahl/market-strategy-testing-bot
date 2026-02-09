@@ -2187,7 +2187,7 @@ def api_health():
         return jsonify({"status": "error", "error": str(e)}), 500
 
 
-# Debug health endpoint moved to /api/health/debug - see line 2164
+# Debug health endpoint moved to /api/health/debug - see line 2165
 
 
 @app.route("/api/settings/export", methods=["GET"])
@@ -2363,7 +2363,7 @@ if __name__ == "__main__":
 # Production readiness endpoints
 
 
-# Duplicate /metrics route removed - see line 299 for primary prometheus_metrics endpoint
+# Duplicate /metrics route removed - see line 300 for primary prometheus_metrics endpoint
 
 
 @app.route("/api/feature-flags")
