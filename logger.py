@@ -259,6 +259,23 @@ class Logger:
         """Log an informational message"""
         self.log_error(message, level="INFO")
 
+    # Standard Python logging-style method aliases
+    def info(self, message: str) -> None:
+        """Alias for log_info for compatibility with standard logging"""
+        self.log_info(message)
+
+    def error(self, message: str) -> None:
+        """Alias for log_error for compatibility with standard logging"""
+        self.log_error(message, level="ERROR")
+
+    def warning(self, message: str) -> None:
+        """Alias for log_warning for compatibility with standard logging"""
+        self.log_warning(message)
+
+    def debug(self, message: str) -> None:
+        """Alias for log_info with DEBUG level for compatibility with standard logging"""
+        self.log_error(message, level="DEBUG")
+
     def log_connection(
         self, status: str, response_time_ms: Optional[int] = None, message: str = ""
     ) -> None:

@@ -42,6 +42,34 @@ class ConfigManager:
         except Exception as e:
             raise Exception(f"Error reading config: {str(e)}")
 
+    def get_config(self) -> Dict[str, Any]:
+        """
+        Alias for get_all_settings for compatibility
+
+        Returns:
+            Dictionary with all configuration
+        """
+        return self.get_all_settings()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get a specific setting value like a dictionary
+
+        Args:
+            key: Setting key to retrieve
+            default: Default value if key not found
+
+        Returns:
+            Setting value or default
+        """
+        config = self.get_all_settings()
+        return config.get(key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        """Allow dict-like access to config settings"""
+        config = self.get_all_settings()
+        return config[key]
+
     def _get_default_config(self) -> Dict[str, Any]:
         """Get default configuration"""
         return {
