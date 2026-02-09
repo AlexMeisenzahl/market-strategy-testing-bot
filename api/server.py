@@ -202,7 +202,8 @@ def run_server(bot, config):
 
 if __name__ == "__main__":
     # For development/testing
-    from config.config_loader import load_config
+    from config.config_loader import get_config
 
-    config = load_config("config.example.yaml")
+    config_loader = get_config()
+    config = config_loader.get_all()
     run_server(None, config)
