@@ -221,7 +221,7 @@ def get_overview():
         )
     except Exception as e:
         # Log error and return defaults - frontend can still render
-        logger.error(f"Error getting overview: {str(e)}", exc_info=True)
+        logger.error(f"Error getting overview: {str(e)}")
         return jsonify(
             {**DEFAULT_OVERVIEW_STATS, "message": f"Error loading data: {str(e)}"}
         )
