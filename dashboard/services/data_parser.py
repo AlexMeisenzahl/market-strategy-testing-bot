@@ -62,27 +62,29 @@ class DataParser:
                 reader = csv.DictReader(f)
                 for row in reader:
                     try:
-                        # Parse the trade data
+                        # Parse the trade data with proper column mapping
+                        # Handle actual CSV format: timestamp, market, yes_price, no_price, sum, profit_pct, profit_usd, status, strategy, arbitrage_type
                         trade = {
-                            "id": int(row.get("id", 0)),
-                            "symbol": row.get("symbol", ""),
-                            "strategy": row.get("strategy", ""),
-                            "entry_time": row.get("entry_time", ""),
-                            "exit_time": row.get("exit_time", ""),
+                            "id": int(row.get("id", 0)) if row.get("id") else 0,
+                            "symbol": row.get("symbol") or row.get("market", ""),  # Map market → symbol
+                            "strategy": row.get("strategy", "Unknown"),
+                            "timestamp": row.get("timestamp", ""),
+                            "entry_time": row.get("timestamp", ""),  # Legacy support
+                            "exit_time": row.get("timestamp", ""),   # Legacy support
                             "duration_minutes": int(
                                 float(row.get("duration_minutes", 0))
-                            ),
-                            "entry_price": float(row.get("entry_price", 0)),
-                            "exit_price": float(row.get("exit_price", 0)),
-                            "pnl_usd": float(row.get("pnl_usd", 0)),
-                            "pnl_pct": float(row.get("pnl_pct", 0)),
+                            ) if row.get("duration_minutes") else 0,
+                            "entry_price": float(row.get("entry_price", 0)) if row.get("entry_price") else 0,
+                            "exit_price": float(row.get("exit_price", 0)) if row.get("exit_price") else 0,
+                            "pnl_usd": float(row.get("pnl_usd") or row.get("profit_usd", 0)),  # Map profit_usd → pnl_usd
+                            "pnl_pct": float(row.get("pnl_pct") or row.get("profit_pct", 0)),  # Map profit_pct → pnl_pct
                             "status": row.get("status", "closed"),
                             "outcome": (
                                 "win"
-                                if float(row.get("pnl_usd", 0)) > 0
+                                if float(row.get("pnl_usd") or row.get("profit_usd", 0)) > 0
                                 else (
                                     "loss"
-                                    if float(row.get("pnl_usd", 0)) < 0
+                                    if float(row.get("pnl_usd") or row.get("profit_usd", 0)) < 0
                                     else "breakeven"
                                 )
                             ),
