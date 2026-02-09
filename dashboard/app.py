@@ -247,6 +247,7 @@ def handle_exception(error):
 
 
 @app.route("/health")
+@app.route("/api/health")
 def health_check():
     """
     Comprehensive health check endpoint.
@@ -2161,7 +2162,7 @@ def analyze_patterns():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/health")
+@app.route("/api/health/debug")
 def api_health():
     """Comprehensive health check for debug panel"""
     try:
@@ -2186,7 +2187,7 @@ def api_health():
         return jsonify({"status": "error", "error": str(e)}), 500
 
 
-# Duplicate /api/health route removed - see line 2165 for primary api_health endpoint
+# Debug health endpoint moved to /api/health/debug - see line 2164
 
 
 @app.route("/api/settings/export", methods=["GET"])
@@ -2352,19 +2353,7 @@ if __name__ == "__main__":
 # Production readiness endpoints
 
 
-@app.route("/metrics")
-def metrics_endpoint():
-    """Prometheus metrics endpoint"""
-    try:
-        # Import here to avoid circular dependency
-        from services.prometheus_metrics import metrics
-        from prometheus_client import CONTENT_TYPE_LATEST
-
-        metrics_data = metrics.get_metrics()
-        return Response(metrics_data, mimetype=CONTENT_TYPE_LATEST)
-    except Exception as e:
-        logger.error(f"Error generating metrics: {str(e)}")
-        return jsonify({"error": "Failed to generate metrics"}), 500
+# Duplicate /metrics route removed - see line 299 for primary prometheus_metrics endpoint
 
 
 @app.route("/api/feature-flags")
