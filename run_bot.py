@@ -177,7 +177,7 @@ class BotRunner:
             "id": "0x123456789abcdef",
             "question": "Will Bitcoin reach $100k by March 2026?",
             "yes_price": 0.45,
-            "no_price": 0.52,  # 0.45 + 0.52 = 0.97 (3% margin)
+            "no_price": 0.52,  # Sum: 0.97 (3% arbitrage margin - realistic edge case)
             "liquidity": 50000,
             "volume_24h": 12000,
             "category": "crypto"
@@ -267,8 +267,9 @@ class BotRunner:
                 opp_dict = opp.to_dict() if hasattr(opp, 'to_dict') else {}
                 
                 # Determine if we should trade
+                # Note: profit_margin from strategy is expected to be in percentage form (e.g., 3.0 for 3%)
                 profit_margin = opp.profit_margin if hasattr(opp, 'profit_margin') else 0
-                min_margin = self.config.get('min_profit_margin', 0.02) * 100  # Convert to percentage
+                min_margin = self.config.get('min_profit_margin', 0.02) * 100  # Convert 0.02 to 2.0%
                 
                 should_trade = profit_margin >= min_margin
                 

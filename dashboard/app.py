@@ -1252,7 +1252,7 @@ def get_recent_activity():
                             "message": f"{opp['strategy']}: {opp['symbol']} - Confidence: {opp['confidence']:.0%}",
                             "profit": None,
                             "timestamp": opp["timestamp"],
-                            "action": "executed" if opp.get("action_taken") else "skipped",
+                            "action": "executing" if opp.get("action_taken") else "skipped",  # Use 'executing' to match new format
                             "details": opp,
                         }
                     )

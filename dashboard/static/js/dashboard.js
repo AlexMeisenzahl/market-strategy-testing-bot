@@ -1206,7 +1206,7 @@ function createActivityElement(activity) {
     if (!message && activity.type === 'opportunity_found') {
         const strategy = activity.strategy || 'unknown';
         const marketName = activity.market_name || activity.market_id || 'Unknown Market';
-        const profitMargin = activity.profit_margin ? activity.profit_margin.toFixed(2) : '0.00';
+        const profitMargin = activity.profit_margin != null ? activity.profit_margin.toFixed(2) : '0.00';
         message = `${strategy}: ${marketName} - ${profitMargin}% profit margin`;
     }
     
