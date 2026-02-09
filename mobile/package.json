@@ -1,0 +1,20 @@
+{
+  "name": "polymarket-trading-pwa",
+  "version": "1.0.0",
+  "description": "Progressive Web App for Polymarket Trading Bot",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lightweight-charts": "^4.1.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "workbox-precaching": "^7.0.0",
+    "workbox-routing": "^7.0.0",
+    "workbox-strategies": "^7.0.0"
+  }
+}

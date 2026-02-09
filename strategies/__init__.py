@@ -9,6 +9,8 @@ Available strategies:
 - MeanReversionStrategy: Trades price deviations from moving average
 - VolatilityBreakoutStrategy: Trades breakouts from consolidation periods
 - PairsTradingStrategy: Simplified pairs trading on correlated markets
+- WeatherTradingStrategy: Weather-based prediction market trading
+- BTCArbitrageStrategy: Bitcoin volatility arbitrage on 15-min markets
 
 Tracking and Orchestration:
 - ArbitrageTracker: Performance metrics tracking for arbitrage
@@ -22,6 +24,8 @@ from .statistical_arb_strategy import StatisticalArbStrategy
 from .mean_reversion_strategy import MeanReversionStrategy
 from .volatility_breakout_strategy import VolatilityBreakoutStrategy
 from .pairs_trading_strategy import PairsTradingStrategy
+from .weather_trading import WeatherTradingStrategy
+from .btc_arbitrage import BTCArbitrageStrategy
 from .arbitrage_tracker import ArbitrageTracker
 from .arbitrage_orchestrator import ArbitrageOrchestrator
 
@@ -33,6 +37,8 @@ __all__ = [
     "MeanReversionStrategy",
     "VolatilityBreakoutStrategy",
     "PairsTradingStrategy",
+    "WeatherTradingStrategy",
+    "BTCArbitrageStrategy",
     "ArbitrageTracker",
     "ArbitrageOrchestrator",
 ]
