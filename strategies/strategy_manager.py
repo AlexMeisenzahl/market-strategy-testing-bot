@@ -31,6 +31,17 @@ from strategies.pairs_trading_strategy import (
 )
 
 
+# Strategy types that don't use arbitrage type classification
+NON_ARBITRAGE_STRATEGY_TYPES = {
+    "momentum",
+    "news",
+    "statistical_arb",
+    "mean_reversion",
+    "volatility_breakout",
+    "pairs_trading",
+}
+
+
 class StrategyManager:
     """
     Manages multiple trading strategies
@@ -285,7 +296,7 @@ class StrategyManager:
 
         if opp_type == "arbitrage":
             return opportunity.get("arbitrage_type", "Simple")
-        elif opp_type in ["momentum", "news", "statistical_arb", "mean_reversion", "volatility_breakout", "pairs_trading"]:
+        elif opp_type in NON_ARBITRAGE_STRATEGY_TYPES:
             return "N/A"
         else:
             return "Unknown"

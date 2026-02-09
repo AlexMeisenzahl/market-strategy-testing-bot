@@ -13,6 +13,10 @@ from collections import deque, defaultdict
 from logger import get_logger
 
 
+# Common stop words to filter out when comparing market names
+STOP_WORDS = {'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'will', 'be', 'by'}
+
+
 class PairTracker:
     """Track price history for a pair of markets"""
 
@@ -257,8 +261,7 @@ class PairsTradingStrategy:
         common_words = keywords1.intersection(keywords2)
         
         # Filter out common words
-        stop_words = {'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'will', 'be', 'by'}
-        meaningful_common = common_words - stop_words
+        meaningful_common = common_words - STOP_WORDS
 
         # Need at least 2 meaningful common words or 30% overlap
         if len(meaningful_common) >= 2:
