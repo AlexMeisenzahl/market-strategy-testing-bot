@@ -30,7 +30,10 @@ from strategies.pairs_trading_strategy import (
     PairsTradingOpportunity,
 )
 from strategies.weather_trading import WeatherTradingStrategy, WeatherOpportunity
-from strategies.btc_arbitrage import BTCArbitrageStrategy, ArbitrageOpportunity as BTCArbitrageOpportunity
+from strategies.btc_arbitrage import (
+    BTCArbitrageStrategy,
+    ArbitrageOpportunity as BTCArbitrageOpportunity,
+)
 
 # Strategy types that don't use arbitrage type classification
 NON_ARBITRAGE_STRATEGY_TYPES = {
@@ -241,14 +244,22 @@ class StrategyManager:
             try:
                 strategy_config = {
                     "noaa_api_key": weather_config.get("noaa_api_key", ""),
-                    "confidence_threshold": weather_config.get("confidence_threshold", 0.7),
+                    "confidence_threshold": weather_config.get(
+                        "confidence_threshold", 0.7
+                    ),
                     "max_bet_size": weather_config.get("max_bet_size", 100),
-                    "locations": weather_config.get("locations", ["New York", "Los Angeles", "Chicago"]),
-                    "update_interval_seconds": weather_config.get("update_interval_seconds", 3600),
+                    "locations": weather_config.get(
+                        "locations", ["New York", "Los Angeles", "Chicago"]
+                    ),
+                    "update_interval_seconds": weather_config.get(
+                        "update_interval_seconds", 3600
+                    ),
                     "max_holding_time": weather_config.get("max_holding_time", 86400),
                 }
 
-                self.strategies["weather_trading"] = WeatherTradingStrategy(strategy_config)
+                self.strategies["weather_trading"] = WeatherTradingStrategy(
+                    strategy_config
+                )
                 self.logger.log_info("Loaded Weather Trading strategy")
             except Exception as e:
                 self.logger.log_error(
@@ -263,7 +274,9 @@ class StrategyManager:
                     "min_profit_margin": btc_arb_config.get("min_profit_margin", 0.02),
                     "max_position_size": btc_arb_config.get("max_position_size", 500),
                     "expiry_minutes": btc_arb_config.get("expiry_minutes", 15),
-                    "slippage_tolerance": btc_arb_config.get("slippage_tolerance", 0.005),
+                    "slippage_tolerance": btc_arb_config.get(
+                        "slippage_tolerance", 0.005
+                    ),
                     "max_gas_price": btc_arb_config.get("max_gas_price", 50),
                 }
 
