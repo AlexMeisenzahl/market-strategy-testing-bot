@@ -367,6 +367,25 @@ strategies:
     z_score_threshold: 2.0           # Z-score threshold for entry
     spread_window: 20                # Window for spread calculations
     max_holding_time: 3600           # Maximum position hold time (seconds)
+  
+  # Weather Trading Strategy
+  weather_trading:
+    enabled: false
+    noaa_api_key: "${NOAA_API_KEY}"
+    confidence_threshold: 0.7
+    max_bet_size: 100
+    locations: ["New York", "Los Angeles", "Chicago"]
+    update_interval_seconds: 3600
+    max_holding_time: 86400
+  
+  # BTC Volatility Arbitrage
+  btc_arbitrage:
+    enabled: false
+    min_profit_margin: 0.02
+    max_position_size: 500
+    expiry_minutes: 15
+    slippage_tolerance: 0.005
+    max_gas_price: 50
 
 # ============================================================================
 # EXCHANGES CONFIGURATION
@@ -425,3 +444,38 @@ graduation:
     min_win_rate: 55.0
     max_drawdown: 15.0
     min_trades: 50
+
+# ============================================================================
+# MOBILE API CONFIGURATION
+# ============================================================================
+
+mobile_api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8000
+  jwt_secret: "${API_JWT_SECRET}"
+  jwt_expiration_hours: 24
+  cors_origins: ["*"]  # Restrict in production
+  rate_limit:
+    requests_per_minute: 60
+    burst: 10
+  websocket:
+    heartbeat_interval: 30
+    max_connections: 100
+
+# ============================================================================
+# TELEGRAM NOTIFICATIONS CONFIGURATION
+# ============================================================================
+
+telegram:
+  enabled: false
+  bot_token: "${TELEGRAM_BOT_TOKEN}"
+  chat_id: "${TELEGRAM_CHAT_ID}"
+  notifications:
+    trade_executed: true
+    strategy_triggered: true
+    profit_loss_updates: true
+    daily_summary: true
+    error_alerts: true
+  rate_limit:
+    max_per_minute: 10
