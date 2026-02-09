@@ -19,25 +19,21 @@ class MockMarketClient(BaseClient):
         "Will Ethereum surpass ${price}K this {season}?",
         "Will Solana reach ${price} by end of {quarter}?",
         "Will XRP win SEC case by {month} {year}?",
-        
         # Politics
         "Will {person} run for president in {year}?",
         "Will {party} win the {election} election?",
         "Will {policy} pass congress by {month}?",
         "Will {country} experience regime change in {year}?",
-        
         # Sports
         "Will {team} win the {sport} championship?",
         "Will {athlete} break the {record} record?",
         "Will {team} make the playoffs this season?",
         "Will {sport} see a perfect season in {year}?",
-        
         # Technology
         "Will {company} launch {product} in {quarter}?",
         "Will AI achieve AGI by {year}?",
         "Will {company} stock reach ${price} by {month}?",
         "Will {tech} become mainstream in {year}?",
-        
         # Entertainment
         "Will {movie} win Best Picture at Oscars?",
         "Will {show} be renewed for season {number}?",
@@ -47,8 +43,20 @@ class MockMarketClient(BaseClient):
 
     SUBSTITUTIONS = {
         "price": ["50", "100", "150", "200", "5", "10", "3"],
-        "month": ["January", "February", "March", "April", "May", "June", 
-                  "July", "August", "September", "October", "November", "December"],
+        "month": [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ],
         "year": ["2024", "2025", "2026"],
         "season": ["winter", "spring", "summer", "fall"],
         "quarter": ["Q1", "Q2", "Q3", "Q4"],
@@ -96,31 +104,31 @@ class MockMarketClient(BaseClient):
         return {
             "success": True,
             "message": "Mock market client ready (no API required)",
-            "error": ""
+            "error": "",
         }
 
     def _generate_market_name(self) -> str:
         """Generate a random market name from templates"""
         template = random.choice(self.MARKET_TEMPLATES)
-        
+
         # Replace placeholders with random substitutions
         result = template
         for key, values in self.SUBSTITUTIONS.items():
             placeholder = f"{{{key}}}"
             if placeholder in result:
                 result = result.replace(placeholder, random.choice(values))
-        
+
         return result
 
     def _generate_markets(self) -> List[Dict[str, Any]]:
         """Generate fake market data"""
         markets = []
-        
+
         # Generate 50 markets
         for i in range(50):
             # 30% of markets should have arbitrage opportunities
             has_arb = random.random() < 0.3
-            
+
             if has_arb:
                 # Create arbitrage opportunity (YES + NO < 0.98)
                 yes_price = random.uniform(0.40, 0.50)
@@ -135,16 +143,18 @@ class MockMarketClient(BaseClient):
                 yes_price = random.uniform(0.20, 0.80)
                 no_price = 1.0 - yes_price + random.uniform(-0.02, 0.02)
                 no_price = max(0.01, min(0.99, no_price))
-            
-            markets.append({
-                "market_id": f"mock_market_{i+1}",
-                "market_name": self._generate_market_name(),
-                "yes_price": round(yes_price, 4),
-                "no_price": round(no_price, 4),
-                "volume_24h": round(random.uniform(5000, 50000), 2),
-                "liquidity": round(random.uniform(10000, 100000), 2)
-            })
-        
+
+            markets.append(
+                {
+                    "market_id": f"mock_market_{i+1}",
+                    "market_name": self._generate_market_name(),
+                    "yes_price": round(yes_price, 4),
+                    "no_price": round(no_price, 4),
+                    "volume_24h": round(random.uniform(5000, 50000), 2),
+                    "liquidity": round(random.uniform(10000, 100000), 2),
+                }
+            )
+
         return markets
 
     def get_markets(
@@ -162,11 +172,11 @@ class MockMarketClient(BaseClient):
         """
         if not self.is_connected():
             self.connect()
-        
+
         # Generate markets if not already cached
         if self._markets is None:
             self._markets = self._generate_markets()
-        
+
         # Filter by volume and limit
         filtered = [m for m in self._markets if m["volume_24h"] >= min_volume]
         return filtered[:limit]

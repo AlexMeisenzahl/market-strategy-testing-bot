@@ -37,13 +37,13 @@ class SecureConfigManager:
             # Use config directory in project root
             base_dir = Path(__file__).resolve().parent.parent
             config_dir = base_dir / "config"
-        
+
         self.config_dir = Path(config_dir)
         self.config_dir.mkdir(exist_ok=True)
-        
+
         self.credentials_file = self.config_dir / "credentials.json"
         self.key_file = self.config_dir / "encryption.key"
-        
+
         # Initialize or load encryption key
         self._cipher = self._init_cipher()
 
@@ -66,7 +66,7 @@ class SecureConfigManager:
             # Secure the key file (Unix only)
             if hasattr(os, "chmod"):
                 os.chmod(self.key_file, 0o600)
-        
+
         return Fernet(key)
 
     def _load_credentials(self) -> Dict[str, Any]:
@@ -78,11 +78,11 @@ class SecureConfigManager:
         """
         if not self.credentials_file.exists():
             return {}
-        
+
         try:
             with open(self.credentials_file, "r") as f:
                 encrypted_data = json.load(f)
-            
+
             # Decrypt each service's credentials
             credentials = {}
             for service, encrypted_creds in encrypted_data.items():
@@ -90,7 +90,7 @@ class SecureConfigManager:
                     credentials[service] = self._decrypt_dict(encrypted_creds)
                 else:
                     credentials[service] = encrypted_creds
-            
+
             return credentials
         except Exception as e:
             print(f"Error loading credentials: {e}")
@@ -111,11 +111,11 @@ class SecureConfigManager:
                     encrypted_data[service] = self._encrypt_dict(creds)
                 else:
                     encrypted_data[service] = creds
-            
+
             # Save to file
             with open(self.credentials_file, "w") as f:
                 json.dump(encrypted_data, f, indent=2)
-            
+
             # Secure the credentials file (Unix only)
             if hasattr(os, "chmod"):
                 os.chmod(self.credentials_file, 0o600)
@@ -209,7 +209,7 @@ class SecureConfigManager:
         credentials = self.get_api_credentials(service)
         if not credentials:
             return None
-        
+
         masked = {}
         for key, value in credentials.items():
             if any(sensitive in key.lower() for sensitive in self.SENSITIVE_FIELDS):

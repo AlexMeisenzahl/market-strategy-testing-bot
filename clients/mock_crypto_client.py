@@ -45,7 +45,7 @@ class MockCryptoClient(BaseClient):
         return {
             "success": True,
             "message": "Mock crypto client ready (no API required)",
-            "error": ""
+            "error": "",
         }
 
     def _generate_prices(self, symbols: List[str]) -> Dict[str, float]:
@@ -59,7 +59,7 @@ class MockCryptoClient(BaseClient):
             Dictionary of symbol to price
         """
         prices = {}
-        
+
         for symbol in symbols:
             symbol_upper = symbol.upper()
             if symbol_upper in self.BASE_PRICES:
@@ -68,7 +68,7 @@ class MockCryptoClient(BaseClient):
                 variation = random.uniform(-0.02, 0.02)
                 price = base_price * (1 + variation)
                 prices[symbol_upper] = round(price, 2)
-        
+
         return prices
 
     def get_prices(self, symbols: List[str]) -> Dict[str, float]:
@@ -83,7 +83,7 @@ class MockCryptoClient(BaseClient):
         """
         if not self.is_connected():
             self.connect()
-        
+
         # Generate new prices with random variation each call
         return self._generate_prices(symbols)
 
