@@ -2,11 +2,19 @@
  * WebSocket Service
  * 
  * Manages WebSocket connection for real-time updates.
+ * 
+ * Configuration:
+ * - For production, set WS_URL via window.WS_URL before loading
+ * - For development, uses localhost:8000
  */
 
-const WS_URL = window.location.origin.includes('localhost')
-  ? 'ws://localhost:8000/ws/stream'
-  : `wss://${window.location.host}/ws/stream`;
+// Configure WebSocket URL
+// You can override this by setting window.WS_URL before loading this script
+const WS_URL = window.WS_URL || (
+  window.location.origin.includes('localhost')
+    ? 'ws://localhost:8000/ws/stream'
+    : `wss://${window.location.host}/ws/stream`
+);
 
 class WebSocketService {
   constructor() {

@@ -21,11 +21,14 @@ logger = get_logger()
 
 # Hardcoded user for simplicity (in production, use a database)
 # Default credentials: admin / admin123
+# WARNING: Change these credentials immediately in production!
+# TODO: Implement proper user database and require password change on first login
 USERS_DB = {
     "admin": {
         "username": "admin",
         "hashed_password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYqLWzBdCZK",  # admin123
-        "email": "admin@example.com"
+        "email": "admin@example.com",
+        "require_password_change": True  # Flag for password change requirement
     }
 }
 

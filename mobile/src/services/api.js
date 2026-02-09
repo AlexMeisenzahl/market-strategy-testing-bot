@@ -2,11 +2,19 @@
  * API Service
  * 
  * Handles all API communication with the trading bot backend.
+ * 
+ * Configuration:
+ * - For production, set API_BASE_URL environment variable
+ * - For development, uses localhost:8000
  */
 
-const API_BASE_URL = window.location.origin.includes('localhost') 
-  ? 'http://localhost:8000' 
-  : window.location.origin;
+// Configure API base URL
+// You can override this by setting window.API_BASE_URL before loading this script
+const API_BASE_URL = window.API_BASE_URL || (
+  window.location.origin.includes('localhost') 
+    ? 'http://localhost:8000' 
+    : window.location.origin
+);
 
 class APIService {
   constructor() {

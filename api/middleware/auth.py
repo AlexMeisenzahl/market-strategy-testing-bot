@@ -18,6 +18,13 @@ security = HTTPBearer()
 
 # JWT Configuration
 JWT_SECRET = os.getenv('API_JWT_SECRET', 'change-this-secret-key')
+
+# Security check - fail if using default secret
+if JWT_SECRET == 'change-this-secret-key':
+    logger.log_error("CRITICAL: Using default JWT secret! Set API_JWT_SECRET in .env file.")
+    # In production, you may want to raise an exception here:
+    # raise ValueError("JWT secret must be changed from default value")
+
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 

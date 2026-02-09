@@ -2,6 +2,10 @@
 Rate Limiting Middleware
 
 Implements rate limiting for API endpoints to prevent abuse.
+
+Note: This implementation uses a simple in-memory dictionary which is
+suitable for single-instance deployments. For multi-instance deployments,
+consider using Redis or another distributed cache.
 """
 
 from fastapi import FastAPI, Request, HTTPException, status
@@ -9,6 +13,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Tuple
 import asyncio
+import threading
 
 from logger import get_logger
 
@@ -20,6 +25,10 @@ class RateLimiter:
     Simple in-memory rate limiter
     
     Tracks request counts per IP address and enforces rate limits.
+    
+    Note: This uses a simple lock for thread safety. For high-performance
+    async applications, consider using an async-compatible lock or
+    a distributed cache like Redis.
     """
     
     def __init__(self, requests_per_minute: int = 60, burst: int = 10):
@@ -35,6 +44,9 @@ class RateLimiter:
         
         # Track requests: {ip: [(timestamp, count), ...]}
         self.requests: Dict[str, list] = defaultdict(list)
+        
+        # Thread lock for safe access to shared state
+        self._lock = threading.Lock()
         
         # Cleanup task
         self._cleanup_task = None
@@ -63,40 +75,41 @@ class RateLimiter:
         Returns:
             Tuple of (allowed, reason)
         """
-        now = datetime.now()
-        minute_ago = now - timedelta(minutes=1)
-        
-        # Get recent requests
-        recent_requests = [
-            (ts, count) for ts, count in self.requests[ip]
-            if ts > minute_ago
-        ]
-        
-        # Count total requests in the last minute
-        total_requests = sum(count for _, count in recent_requests)
-        
-        # Check burst limit (last 10 seconds)
-        ten_seconds_ago = now - timedelta(seconds=10)
-        burst_requests = sum(
-            count for ts, count in recent_requests
-            if ts > ten_seconds_ago
-        )
-        
-        # Enforce limits
-        if burst_requests >= self.burst:
-            return False, f"Burst limit exceeded ({self.burst} requests per 10 seconds)"
-        
-        if total_requests >= self.requests_per_minute:
-            return False, f"Rate limit exceeded ({self.requests_per_minute} requests per minute)"
-        
-        # Record this request
-        self.requests[ip].append((now, 1))
-        
-        # Cleanup old requests periodically
-        if len(self.requests) > 1000:  # Arbitrary threshold
-            self._cleanup_old_requests()
-        
-        return True, ""
+        with self._lock:  # Thread-safe access to shared state
+            now = datetime.now()
+            minute_ago = now - timedelta(minutes=1)
+            
+            # Get recent requests
+            recent_requests = [
+                (ts, count) for ts, count in self.requests[ip]
+                if ts > minute_ago
+            ]
+            
+            # Count total requests in the last minute
+            total_requests = sum(count for _, count in recent_requests)
+            
+            # Check burst limit (last 10 seconds)
+            ten_seconds_ago = now - timedelta(seconds=10)
+            burst_requests = sum(
+                count for ts, count in recent_requests
+                if ts > ten_seconds_ago
+            )
+            
+            # Enforce limits
+            if burst_requests >= self.burst:
+                return False, f"Burst limit exceeded ({self.burst} requests per 10 seconds)"
+            
+            if total_requests >= self.requests_per_minute:
+                return False, f"Rate limit exceeded ({self.requests_per_minute} requests per minute)"
+            
+            # Record this request
+            self.requests[ip].append((now, 1))
+            
+            # Cleanup old requests periodically
+            if len(self.requests) > 1000:  # Arbitrary threshold
+                self._cleanup_old_requests()
+            
+            return True, ""
 
 
 # Global rate limiter instance

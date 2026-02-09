@@ -496,4 +496,4 @@ class BTCArbitrageStrategy:
     
     def get_type(self) -> str:
         """Get strategy type"""
-        return "arbitrage"
+        return "btc_arbitrage"  # Match NON_ARBITRAGE_STRATEGY_TYPES

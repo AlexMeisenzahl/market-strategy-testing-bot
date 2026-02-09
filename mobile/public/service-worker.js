@@ -84,9 +84,11 @@ self.addEventListener('fetch', event => {
 });
 
 // Push notification handler
-self.addEventListener('push', event => {
+self.addEventListener('push', async event => {
+  const text = event.data ? await event.data.text() : 'New notification from Trading Bot';
+  
   const options = {
-    body: event.data ? event.data.text() : 'New notification from Trading Bot',
+    body: text,
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
     vibrate: [200, 100, 200],

@@ -455,7 +455,7 @@ mobile_api:
   port: 8000
   jwt_secret: "${API_JWT_SECRET}"
   jwt_expiration_hours: 24
-  cors_origins: ["*"]  # Restrict in production
+  cors_origins: ["http://localhost:3000", "http://localhost:8000"]  # Add your production domains here
   rate_limit:
     requests_per_minute: 60
     burst: 10
