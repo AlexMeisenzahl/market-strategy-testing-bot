@@ -14,7 +14,7 @@ from utils.error_handlers import with_retry
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class SafeDataClient:
@@ -23,8 +23,12 @@ class SafeDataClient:
     and resilient error handling.
     """
 
-    def __init__(self, primary_client: Any, fallback_client: Optional[Any] = None, 
-                 enable_caching: bool = True):
+    def __init__(
+        self,
+        primary_client: Any,
+        fallback_client: Optional[Any] = None,
+        enable_caching: bool = True,
+    ):
         """
         Initialize safe data client wrapper.
 
@@ -45,7 +49,7 @@ class SafeDataClient:
         """Get cached value if available and not expired."""
         if not self.enable_caching or key not in self._cache:
             return None
-            
+
         value, timestamp = self._cache[key]
         if time.time() - timestamp < self._cache_ttl:
             logger.debug(f"Cache hit for key: {key}")
@@ -63,11 +67,19 @@ class SafeDataClient:
 
     def _should_use_fallback(self) -> bool:
         """Determine if fallback should be used instead of primary."""
-        return (self.fallback_client is not None and 
-                self._primary_failures >= self._max_failures_before_fallback)
+        return (
+            self.fallback_client is not None
+            and self._primary_failures >= self._max_failures_before_fallback
+        )
 
-    def safe_call(self, method_name: str, *args, cache_key: Optional[str] = None, 
-                   use_fallback_on_error: bool = True, **kwargs) -> Optional[Any]:
+    def safe_call(
+        self,
+        method_name: str,
+        *args,
+        cache_key: Optional[str] = None,
+        use_fallback_on_error: bool = True,
+        **kwargs,
+    ) -> Optional[Any]:
         """
         Safely call a method on the data client with automatic fallback.
 
@@ -99,14 +111,14 @@ class SafeDataClient:
 
                 method = getattr(self.primary_client, method_name)
                 result = method(*args, **kwargs)
-                
+
                 # Success - reset failure counter
                 self._primary_failures = 0
-                
+
                 # Cache the result
                 if cache_key:
                     self._save_to_cache(cache_key, result)
-                
+
                 return result
 
             except Exception as e:
@@ -114,19 +126,24 @@ class SafeDataClient:
                 logger.warning(
                     f"Primary client '{method_name}' failed (failures: {self._primary_failures}): {e}"
                 )
-                
+
                 # Try fallback if enabled
                 if use_fallback_on_error and self.fallback_client:
-                    return self._try_fallback(method_name, *args, cache_key=cache_key, **kwargs)
-                
+                    return self._try_fallback(
+                        method_name, *args, cache_key=cache_key, **kwargs
+                    )
+
                 return None
         else:
             # Too many primary failures, use fallback directly
-            logger.info(f"Using fallback client for '{method_name}' due to repeated primary failures")
+            logger.info(
+                f"Using fallback client for '{method_name}' due to repeated primary failures"
+            )
             return self._try_fallback(method_name, *args, cache_key=cache_key, **kwargs)
 
-    def _try_fallback(self, method_name: str, *args, cache_key: Optional[str] = None, 
-                       **kwargs) -> Optional[Any]:
+    def _try_fallback(
+        self, method_name: str, *args, cache_key: Optional[str] = None, **kwargs
+    ) -> Optional[Any]:
         """Try calling method on fallback client."""
         if not self.fallback_client:
             return None
@@ -138,11 +155,11 @@ class SafeDataClient:
 
             method = getattr(self.fallback_client, method_name)
             result = method(*args, **kwargs)
-            
+
             # Cache fallback result too
             if cache_key:
                 self._save_to_cache(cache_key, result)
-            
+
             logger.info(f"Fallback client '{method_name}' succeeded")
             return result
 
@@ -189,6 +206,7 @@ def safe_api_call(
     Returns:
         Decorator function
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., Union[T, Any]]:
         @wraps(func)
         @with_retry(max_retries=retry_attempts, backoff_factor=retry_backoff)
@@ -199,9 +217,9 @@ def safe_api_call(
                 if log_errors:
                     logger.error(f"API call {func.__name__} failed: {e}")
                 return default_return
-        
+
         return wrapper
-    
+
     return decorator
 
 
@@ -210,9 +228,7 @@ class DataClientFactory:
 
     @staticmethod
     def create_market_client(
-        primary: Any,
-        fallback: Optional[Any] = None,
-        enable_caching: bool = True
+        primary: Any, fallback: Optional[Any] = None, enable_caching: bool = True
     ) -> SafeDataClient:
         """
         Create a safe market data client.
@@ -228,14 +244,12 @@ class DataClientFactory:
         return SafeDataClient(
             primary_client=primary,
             fallback_client=fallback,
-            enable_caching=enable_caching
+            enable_caching=enable_caching,
         )
 
     @staticmethod
     def create_crypto_client(
-        primary: Any,
-        fallback: Optional[Any] = None,
-        enable_caching: bool = True
+        primary: Any, fallback: Optional[Any] = None, enable_caching: bool = True
     ) -> SafeDataClient:
         """
         Create a safe crypto data client.
@@ -251,5 +265,5 @@ class DataClientFactory:
         return SafeDataClient(
             primary_client=primary,
             fallback_client=fallback,
-            enable_caching=enable_caching
+            enable_caching=enable_caching,
         )

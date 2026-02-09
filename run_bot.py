@@ -53,16 +53,16 @@ class BotRunner:
         """
         self.logger = get_logger()
         self.running = False
-        
+
         # Load configuration using ConfigLoader (ENV > YAML > DEFAULT)
         try:
             config_loader = get_config(config_path=config_path)
             self.config_loader = config_loader
-            
+
             # Convert to dict for backward compatibility
             self.config = self._load_config_from_loader(config_loader, config_path)
-            
-            env_name = config_loader.get('trading_bot_env', 'development')
+
+            env_name = config_loader.get("trading_bot_env", "development")
             self.logger.log_warning(f"Configuration loaded: ENVIRONMENT={env_name}")
         except Exception as e:
             self.logger.log_error(f"Failed to load config via ConfigLoader: {e}")
@@ -101,21 +101,23 @@ class BotRunner:
         self.logger.log_warning("🚀 Market Strategy Testing Bot - Starting Up")
         self.logger.log_warning("=" * 60)
 
-    def _load_config_from_loader(self, config_loader, config_path: str) -> Dict[str, Any]:
+    def _load_config_from_loader(
+        self, config_loader, config_path: str
+    ) -> Dict[str, Any]:
         """
         Load configuration from ConfigLoader and merge with YAML config.
         Environment variables take precedence over YAML.
-        
+
         Args:
             config_loader: ConfigLoader instance
             config_path: Path to YAML config file
-        
+
         Returns:
             Merged configuration dictionary
         """
         # Start with YAML config if it exists
         config = self._load_config(config_path)
-        
+
         # Override with environment variables where applicable
         env_overrides = {
             "paper_trading": config_loader.get("paper_trading"),
@@ -125,18 +127,18 @@ class BotRunner:
             "max_trade_size": config_loader.get("max_trade_size"),
             "min_profit_margin": config_loader.get("min_profit_margin"),
         }
-        
+
         # Apply overrides only if values are different from defaults
         for key, value in env_overrides.items():
             if value is not None:
                 config[key] = value
-        
+
         # Merge feature flags
         feature_flags = config_loader.get_feature_flags()
         if "feature_flags" not in config:
             config["feature_flags"] = {}
         config["feature_flags"].update(feature_flags)
-        
+
         return config
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:

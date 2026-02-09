@@ -11,7 +11,15 @@ from pathlib import Path
 # Add parent directory to path FIRST, before any other imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from flask import Flask, render_template, jsonify, request, send_file, Response, make_response
+from flask import (
+    Flask,
+    render_template,
+    jsonify,
+    request,
+    send_file,
+    Response,
+    make_response,
+)
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -66,7 +74,9 @@ try:
     config_loader = get_config(config_path="config.yaml")
     logger_instance.info("Configuration loaded successfully")
 except Exception as e:
-    logger_instance.warning(f"Could not load config via ConfigLoader: {e}, using defaults")
+    logger_instance.warning(
+        f"Could not load config via ConfigLoader: {e}, using defaults"
+    )
     config_loader = None
 
 # Initialize rate limiter
@@ -154,16 +164,17 @@ process_manager = ProcessManager(BASE_DIR)
 # Security Headers and Middleware
 # ============================================================================
 
+
 @app.after_request
 def add_security_headers(response):
     """Add security headers to all responses"""
     # XSS Protection
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+
     # Content Security Policy
-    response.headers['Content-Security-Policy'] = (
+    response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
@@ -171,24 +182,29 @@ def add_security_headers(response):
         "img-src 'self' data: https:; "
         "connect-src 'self' ws: wss:;"
     )
-    
+
     # Prevent MIME-sniffing
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
     # HSTS (HTTP Strict Transport Security) - uncomment in production with HTTPS
     # response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    
+
     return response
 
 
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors"""
-    return jsonify({
-        "error": "Not Found",
-        "message": "The requested resource was not found",
-        "status": 404
-    }), 404
+    return (
+        jsonify(
+            {
+                "error": "Not Found",
+                "message": "The requested resource was not found",
+                "status": 404,
+            }
+        ),
+        404,
+    )
 
 
 @app.errorhandler(500)
@@ -196,11 +212,16 @@ def internal_error(error):
     """Handle 500 errors"""
     logger.error(f"Internal server error: {error}")
     logger.error(traceback.format_exc())
-    return jsonify({
-        "error": "Internal Server Error",
-        "message": "An unexpected error occurred",
-        "status": 500
-    }), 500
+    return (
+        jsonify(
+            {
+                "error": "Internal Server Error",
+                "message": "An unexpected error occurred",
+                "status": 500,
+            }
+        ),
+        500,
+    )
 
 
 @app.errorhandler(Exception)
@@ -208,25 +229,25 @@ def handle_exception(error):
     """Global exception handler"""
     logger.error(f"Unhandled exception: {error}")
     logger.error(traceback.format_exc())
-    
+
     # Return JSON response for API calls
-    if request.path.startswith('/api/'):
-        return jsonify({
-            "error": "Internal Error",
-            "message": str(error),
-            "status": 500
-        }), 500
-    
+    if request.path.startswith("/api/"):
+        return (
+            jsonify({"error": "Internal Error", "message": str(error), "status": 500}),
+            500,
+        )
+
     # Return HTML for regular pages
-    return render_template('error.html', error=str(error)), 500
+    return render_template("error.html", error=str(error)), 500
 
 
 # ============================================================================
 # Health and Monitoring Endpoints
 # ============================================================================
 
-@app.route('/health')
-@app.route('/api/health')
+
+@app.route("/health")
+@app.route("/api/health")
 def health_check():
     """
     Comprehensive health check endpoint.
@@ -235,38 +256,49 @@ def health_check():
     try:
         # Get comprehensive health check
         health_status = health_service.check_all()
-        
+
         # Add application-specific health checks
         health_status["application"] = {
             "status": "healthy",
-            "version": version_manager.get_current_version() if version_manager else "unknown",
-            "uptime_seconds": metrics_collector.get_system_stats()["uptime_seconds"] if metrics_collector else 0,
+            "version": (
+                version_manager.get_current_version() if version_manager else "unknown"
+            ),
+            "uptime_seconds": (
+                metrics_collector.get_system_stats()["uptime_seconds"]
+                if metrics_collector
+                else 0
+            ),
         }
-        
+
         # Add metrics collector stats if available
         if metrics_collector:
             health_status["metrics"] = metrics_collector.get_comprehensive_stats()
-        
+
         # Determine HTTP status code based on overall health
         status_code = 200
         if health_status.get("overall_status") == "degraded":
             status_code = 503  # Service Unavailable
         elif health_status.get("overall_status") == "down":
             status_code = 503
-        
+
         return jsonify(health_status), status_code
-        
+
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return jsonify({
-            "overall_status": "unhealthy",
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        }), 503
+        return (
+            jsonify(
+                {
+                    "overall_status": "unhealthy",
+                    "error": str(e),
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            ),
+            503,
+        )
 
 
-@app.route('/metrics')
-@app.route('/api/metrics')
+@app.route("/metrics")
+@app.route("/api/metrics")
 def prometheus_metrics():
     """
     Prometheus metrics endpoint.
@@ -275,17 +307,18 @@ def prometheus_metrics():
     try:
         # Get Prometheus-formatted metrics
         metrics_data = metrics.get_metrics()
-        
+
         # Return in Prometheus format
         from prometheus_client import CONTENT_TYPE_LATEST
+
         return Response(metrics_data, mimetype=CONTENT_TYPE_LATEST)
-        
+
     except Exception as e:
         logger.error(f"Error generating metrics: {e}")
         return jsonify({"error": "Metrics generation failed"}), 500
 
 
-@app.route('/api/metrics/stats')
+@app.route("/api/metrics/stats")
 def metrics_stats():
     """
     Get human-readable metrics statistics.
@@ -294,10 +327,10 @@ def metrics_stats():
     try:
         if not metrics_collector:
             return jsonify({"error": "Metrics collector not initialized"}), 503
-        
+
         stats = metrics_collector.get_comprehensive_stats()
         return jsonify(stats)
-        
+
     except Exception as e:
         logger.error(f"Error getting metrics stats: {e}")
         return jsonify({"error": str(e)}), 500

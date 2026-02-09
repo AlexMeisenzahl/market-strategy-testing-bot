@@ -36,7 +36,7 @@ class MetricsCollector:
         """
         self.enable_prometheus = enable_prometheus and Counter is not None
         self._lock = Lock()
-        
+
         # In-memory statistics
         self._api_calls: Dict[str, int] = defaultdict(int)
         self._api_latencies: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
@@ -50,7 +50,7 @@ class MetricsCollector:
         }
         self._opportunities: Dict[str, int] = defaultdict(int)
         self._start_time = time.time()
-        
+
         # Initialize Prometheus metrics if enabled
         if self.enable_prometheus:
             self._init_prometheus_metrics()
@@ -64,40 +64,29 @@ class MetricsCollector:
 
         # API metrics
         self.prom_api_calls = Counter(
-            'bot_api_calls_total',
-            'Total API calls made',
-            ['service', 'endpoint', 'status']
+            "bot_api_calls_total",
+            "Total API calls made",
+            ["service", "endpoint", "status"],
         )
         self.prom_api_latency = Histogram(
-            'bot_api_latency_seconds',
-            'API call latency in seconds',
-            ['service', 'endpoint']
+            "bot_api_latency_seconds",
+            "API call latency in seconds",
+            ["service", "endpoint"],
         )
-        
+
         # Trading metrics
         self.prom_trades = Counter(
-            'bot_trades_total',
-            'Total trades executed',
-            ['strategy', 'status']
+            "bot_trades_total", "Total trades executed", ["strategy", "status"]
         )
         self.prom_opportunities = Counter(
-            'bot_opportunities_total',
-            'Total opportunities detected',
-            ['strategy']
+            "bot_opportunities_total", "Total opportunities detected", ["strategy"]
         )
-        self.prom_profit = Gauge(
-            'bot_total_profit',
-            'Total profit/loss'
-        )
-        
+        self.prom_profit = Gauge("bot_total_profit", "Total profit/loss")
+
         # System metrics
-        self.prom_uptime = Gauge(
-            'bot_uptime_seconds',
-            'Bot uptime in seconds'
-        )
+        self.prom_uptime = Gauge("bot_uptime_seconds", "Bot uptime in seconds")
         self.prom_health = Gauge(
-            'bot_health_status',
-            'Bot health status (1=healthy, 0=unhealthy)'
+            "bot_health_status", "Bot health status (1=healthy, 0=unhealthy)"
         )
 
     def record_api_call(
@@ -106,7 +95,7 @@ class MetricsCollector:
         endpoint: str,
         latency: float,
         status: str = "success",
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ):
         """
         Record an API call with latency and status.
@@ -122,22 +111,19 @@ class MetricsCollector:
             key = f"{service}:{endpoint}"
             self._api_calls[key] += 1
             self._api_latencies[key].append(latency)
-            
+
             if status != "success":
                 self._api_errors[key] += 1
                 if error:
                     logger.warning(f"API call failed: {key} - {error}")
-            
+
             # Prometheus metrics
             if self.enable_prometheus:
                 self.prom_api_calls.labels(
-                    service=service,
-                    endpoint=endpoint,
-                    status=status
+                    service=service, endpoint=endpoint, status=status
                 ).inc()
                 self.prom_api_latency.labels(
-                    service=service,
-                    endpoint=endpoint
+                    service=service, endpoint=endpoint
                 ).observe(latency)
 
     def record_trade(
@@ -145,7 +131,7 @@ class MetricsCollector:
         strategy: str,
         success: bool,
         profit: float = 0.0,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ):
         """
         Record a trade execution.
@@ -159,20 +145,22 @@ class MetricsCollector:
         with self._lock:
             self._trade_metrics["total_trades"] += 1
             self._trade_metrics["trades_by_strategy"][strategy] += 1
-            
+
             if success:
                 self._trade_metrics["successful_trades"] += 1
                 self._trade_metrics["total_profit"] += profit
             else:
                 self._trade_metrics["failed_trades"] += 1
-            
+
             # Prometheus metrics
             if self.enable_prometheus:
                 status = "success" if success else "failed"
                 self.prom_trades.labels(strategy=strategy, status=status).inc()
                 self.prom_profit.set(self._trade_metrics["total_profit"])
 
-    def record_opportunity(self, strategy: str, details: Optional[Dict[str, Any]] = None):
+    def record_opportunity(
+        self, strategy: str, details: Optional[Dict[str, Any]] = None
+    ):
         """
         Record an opportunity detection.
 
@@ -182,7 +170,7 @@ class MetricsCollector:
         """
         with self._lock:
             self._opportunities[strategy] += 1
-            
+
             # Prometheus metrics
             if self.enable_prometheus:
                 self.prom_opportunities.labels(strategy=strategy).inc()
@@ -202,12 +190,12 @@ class MetricsCollector:
                 "errors_by_endpoint": dict(self._api_errors),
                 "average_latencies": {},
             }
-            
+
             # Calculate average latencies
             for key, latencies in self._api_latencies.items():
                 if latencies:
                     stats["average_latencies"][key] = sum(latencies) / len(latencies)
-            
+
             return stats
 
     def get_trade_stats(self) -> Dict[str, Any]:
@@ -223,8 +211,10 @@ class MetricsCollector:
                 "successful_trades": self._trade_metrics["successful_trades"],
                 "failed_trades": self._trade_metrics["failed_trades"],
                 "success_rate": (
-                    self._trade_metrics["successful_trades"] / self._trade_metrics["total_trades"]
-                    if self._trade_metrics["total_trades"] > 0 else 0.0
+                    self._trade_metrics["successful_trades"]
+                    / self._trade_metrics["total_trades"]
+                    if self._trade_metrics["total_trades"] > 0
+                    else 0.0
                 ),
                 "total_profit": self._trade_metrics["total_profit"],
                 "trades_by_strategy": dict(self._trade_metrics["trades_by_strategy"]),
@@ -251,11 +241,11 @@ class MetricsCollector:
             Dictionary with system statistics
         """
         uptime = time.time() - self._start_time
-        
+
         # Update Prometheus uptime
         if self.enable_prometheus:
             self.prom_uptime.set(uptime)
-        
+
         return {
             "uptime_seconds": uptime,
             "uptime_formatted": str(timedelta(seconds=int(uptime))),
@@ -319,8 +309,8 @@ def get_metrics_collector(enable_prometheus: bool = True) -> MetricsCollector:
         MetricsCollector instance
     """
     global _metrics_collector
-    
+
     if _metrics_collector is None:
         _metrics_collector = MetricsCollector(enable_prometheus=enable_prometheus)
-    
+
     return _metrics_collector
