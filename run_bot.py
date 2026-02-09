@@ -213,7 +213,9 @@ class BotRunner:
         # Initialize Crypto Client (CoinGecko or Mock)
         crypto_client = None
         if config_manager.has_crypto_api():
-            self.logger.log_warning("🔗 Crypto API configured, attempting connection...")
+            self.logger.log_warning(
+                "🔗 Crypto API configured, attempting connection..."
+            )
             creds = config_manager.get_api_credentials("crypto")
             try:
                 provider = creds.get("provider", "coingecko")

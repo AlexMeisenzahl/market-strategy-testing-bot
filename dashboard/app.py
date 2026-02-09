@@ -800,9 +800,9 @@ def export_trades():
         output.seek(0)
         response = make_response(output.getvalue())
         response.headers["Content-Type"] = "text/csv"
-        response.headers[
-            "Content-Disposition"
-        ] = f'attachment; filename=trades_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        response.headers["Content-Disposition"] = (
+            f'attachment; filename=trades_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        )
 
         return response
     except Exception as e:
