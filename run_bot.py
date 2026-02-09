@@ -145,14 +145,16 @@ class BotRunner:
         Returns:
             List of market data dictionaries
         """
-        try:
-            # Try to fetch from Polymarket API
-            markets = self.polymarket_api.get_markets()
-            if markets:
-                self.logger.log_warning(f"📊 Fetched {len(markets)} markets from Polymarket API")
-                return markets
-        except Exception as e:
-            self.logger.log_warning(f"⚠️  Failed to fetch from API: {str(e)}")
+        # For testing, use mock data
+        # TODO: Uncomment below to use real API
+        # try:
+        #     # Try to fetch from Polymarket API
+        #     markets = self.polymarket_api.get_markets()
+        #     if markets:
+        #         self.logger.log_warning(f"📊 Fetched {len(markets)} markets from Polymarket API")
+        #         return markets
+        # except Exception as e:
+        #     self.logger.log_warning(f"⚠️  Failed to fetch from API: {str(e)}")
         
         # Use mock data for testing
         self.logger.log_warning("📊 Using mock market data for testing")
@@ -165,35 +167,67 @@ class BotRunner:
         Returns:
             List of mock market dictionaries
         """
-        return [
-            {
-                "id": "0x123456789abcdef",
-                "question": "Will Bitcoin reach $100k by March 2026?",
-                "yes_price": 0.45,
-                "no_price": 0.53,
-                "liquidity": 50000,
-                "volume_24h": 12000,
-                "category": "crypto"
-            },
-            {
-                "id": "0x234567890abcdef",
-                "question": "Will Ethereum surpass $3000 in February 2026?",
-                "yes_price": 0.62,
-                "no_price": 0.36,
-                "liquidity": 75000,
-                "volume_24h": 25000,
-                "category": "crypto"
-            },
-            {
-                "id": "0x345678901abcdef",
-                "question": "Will the Fed cut interest rates in Q1 2026?",
-                "yes_price": 0.71,
-                "no_price": 0.28,
-                "liquidity": 100000,
-                "volume_24h": 35000,
-                "category": "politics"
-            }
-        ]
+        import random
+        
+        # Create markets with various profit margins for testing
+        markets = []
+        
+        # High profit opportunity (should be executed)
+        markets.append({
+            "id": "0x123456789abcdef",
+            "question": "Will Bitcoin reach $100k by March 2026?",
+            "yes_price": 0.45,
+            "no_price": 0.52,  # 0.45 + 0.52 = 0.97 (3% margin)
+            "liquidity": 50000,
+            "volume_24h": 12000,
+            "category": "crypto"
+        })
+        
+        # Low profit opportunity (should be skipped)
+        markets.append({
+            "id": "0x234567890abcdef",
+            "question": "Will Ethereum surpass $3000 in February 2026?",
+            "yes_price": 0.62,
+            "no_price": 0.37,  # 0.62 + 0.37 = 0.99 (1% margin - below threshold)
+            "liquidity": 75000,
+            "volume_24h": 25000,
+            "category": "crypto"
+        })
+        
+        # Medium profit opportunity
+        markets.append({
+            "id": "0x345678901abcdef",
+            "question": "Will the Fed cut interest rates in Q1 2026?",
+            "yes_price": 0.48,
+            "no_price": 0.49,  # 0.48 + 0.49 = 0.97 (3% margin)
+            "liquidity": 100000,
+            "volume_24h": 35000,
+            "category": "politics"
+        })
+        
+        # Another low profit (should be skipped)
+        markets.append({
+            "id": "0x456789012abcdef",
+            "question": "Will S&P 500 reach new high in February?",
+            "yes_price": 0.51,
+            "no_price": 0.48,  # 0.51 + 0.48 = 0.99 (1% margin)
+            "liquidity": 80000,
+            "volume_24h": 20000,
+            "category": "finance"
+        })
+        
+        # High profit opportunity
+        markets.append({
+            "id": "0x567890123abcdef",
+            "question": "Will Solana hit $200 by March 2026?",
+            "yes_price": 0.44,
+            "no_price": 0.51,  # 0.44 + 0.51 = 0.95 (5% margin)
+            "liquidity": 60000,
+            "volume_24h": 18000,
+            "category": "crypto"
+        })
+        
+        return markets
 
     def _convert_markets_to_prices_dict(self, markets: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
         """
