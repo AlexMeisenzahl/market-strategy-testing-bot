@@ -62,7 +62,8 @@ class BotRunner:
             # Convert to dict for backward compatibility
             self.config = self._load_config_from_loader(config_loader, config_path)
             
-            self.logger.log_warning(f"Configuration loaded: ENV={config_loader.is_production()}")
+            env_name = config_loader.get('trading_bot_env', 'development')
+            self.logger.log_warning(f"Configuration loaded: ENVIRONMENT={env_name}")
         except Exception as e:
             self.logger.log_error(f"Failed to load config via ConfigLoader: {e}")
             # Fallback to old method

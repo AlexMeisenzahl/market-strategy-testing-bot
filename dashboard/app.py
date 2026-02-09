@@ -57,13 +57,14 @@ from config.config_loader import get_config
 app = Flask(__name__)
 CORS(app)  # Enable CORS for API access
 
+# Initialize logger first for error handling
+logger_instance = get_logger()
+
 # Load configuration with environment variable support
 try:
     config_loader = get_config(config_path="config.yaml")
-    logger_instance = get_logger()
     logger_instance.info("Configuration loaded successfully")
 except Exception as e:
-    logger_instance = get_logger()
     logger_instance.warning(f"Could not load config via ConfigLoader: {e}, using defaults")
     config_loader = None
 
