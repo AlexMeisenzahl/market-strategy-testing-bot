@@ -63,7 +63,7 @@ class VolatilityTracker:
 
         # Calculate standard deviation
         variance = sum((x - middle) ** 2 for x in recent_closes) / window
-        std_dev = variance ** 0.5
+        std_dev = variance**0.5
 
         upper = middle + (num_std * std_dev)
         lower = middle - (num_std * std_dev)

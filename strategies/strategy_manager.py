@@ -30,7 +30,6 @@ from strategies.pairs_trading_strategy import (
     PairsTradingOpportunity,
 )
 
-
 # Strategy types that don't use arbitrage type classification
 NON_ARBITRAGE_STRATEGY_TYPES = {
     "momentum",
@@ -200,7 +199,9 @@ class StrategyManager:
                     "breakout_threshold_pct": vol_breakout_config.get(
                         "breakout_threshold_pct", 1.0
                     ),
-                    "max_holding_time": vol_breakout_config.get("max_holding_time", 1800),
+                    "max_holding_time": vol_breakout_config.get(
+                        "max_holding_time", 1800
+                    ),
                 }
 
                 self.strategies["volatility_breakout"] = VolatilityBreakoutStrategy(
@@ -223,9 +224,7 @@ class StrategyManager:
                     "max_holding_time": pairs_config.get("max_holding_time", 3600),
                 }
 
-                self.strategies["pairs_trading"] = PairsTradingStrategy(
-                    strategy_config
-                )
+                self.strategies["pairs_trading"] = PairsTradingStrategy(strategy_config)
                 self.logger.log_info("Loaded Pairs Trading strategy")
             except Exception as e:
                 self.logger.log_error(

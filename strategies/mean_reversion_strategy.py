@@ -61,7 +61,7 @@ class PriceTracker:
         recent_prices = [p[1] for p in list(self.prices)[-window:]]
         mean = sum(recent_prices) / window
         variance = sum((x - mean) ** 2 for x in recent_prices) / window
-        return variance ** 0.5
+        return variance**0.5
 
     def get_current_price(self) -> Optional[float]:
         """Get the most recent price"""

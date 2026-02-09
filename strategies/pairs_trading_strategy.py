@@ -12,9 +12,8 @@ from datetime import datetime, timedelta
 from collections import deque, defaultdict
 from logger import get_logger
 
-
 # Common stop words to filter out when comparing market names
-STOP_WORDS = {'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'will', 'be', 'by'}
+STOP_WORDS = {"the", "a", "an", "in", "on", "at", "to", "for", "of", "will", "be", "by"}
 
 
 class PairTracker:
@@ -32,7 +31,10 @@ class PairTracker:
         self.timestamps: deque = deque(maxlen=max_history)
 
     def add_prices(
-        self, market1_price: float, market2_price: float, timestamp: Optional[datetime] = None
+        self,
+        market1_price: float,
+        market2_price: float,
+        timestamp: Optional[datetime] = None,
     ) -> None:
         """Add price data for both markets"""
         if timestamp is None:
@@ -116,7 +118,7 @@ class PairTracker:
         # Calculate mean and std dev of spreads
         mean_spread = sum(spreads) / len(spreads)
         variance = sum((s - mean_spread) ** 2 for s in spreads) / len(spreads)
-        std_spread = variance ** 0.5
+        std_spread = variance**0.5
 
         if std_spread == 0:
             return None
@@ -229,9 +231,7 @@ class PairsTradingStrategy:
         """Get consistent pair key regardless of order"""
         return tuple(sorted([market1_id, market2_id]))
 
-    def _get_or_create_tracker(
-        self, market1_id: str, market2_id: str
-    ) -> PairTracker:
+    def _get_or_create_tracker(self, market1_id: str, market2_id: str) -> PairTracker:
         """Get or create pair tracker"""
         pair_key = self._get_pair_key(market1_id, market2_id)
         if pair_key not in self.pair_trackers:
@@ -259,7 +259,7 @@ class PairsTradingStrategy:
 
         # Markets are related if they share significant keywords
         common_words = keywords1.intersection(keywords2)
-        
+
         # Filter out common words
         meaningful_common = common_words - STOP_WORDS
 
