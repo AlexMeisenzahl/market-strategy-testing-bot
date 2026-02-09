@@ -1206,23 +1206,23 @@ def get_recent_activity():
         # Read from activity.json if it exists
         if activity_log_path.exists():
             try:
-                with open(activity_log_path, 'r') as f:
+                with open(activity_log_path, "r") as f:
                     activities = json.load(f)
                     if not isinstance(activities, list):
                         activities = []
             except json.JSONDecodeError:
                 logger.warning("activity.json is malformed, returning empty list")
                 activities = []
-        
+
         # If no activity.json, fall back to old behavior (trades + opportunities CSV)
         if not activities:
             # Get recent trades
             trades = data_parser.get_all_trades()
             if trades:
                 # Get last 10 trades
-                recent_trades = sorted(trades, key=lambda x: x["entry_time"], reverse=True)[
-                    :10
-                ]
+                recent_trades = sorted(
+                    trades, key=lambda x: x["entry_time"], reverse=True
+                )[:10]
 
                 for trade in recent_trades:
                     activities.append(
@@ -1252,7 +1252,9 @@ def get_recent_activity():
                             "message": f"{opp['strategy']}: {opp['symbol']} - Confidence: {opp['confidence']:.0%}",
                             "profit": None,
                             "timestamp": opp["timestamp"],
-                            "action": "executing" if opp.get("action_taken") else "skipped",  # Use 'executing' to match new format
+                            "action": (
+                                "executing" if opp.get("action_taken") else "skipped"
+                            ),  # Use 'executing' to match new format
                             "details": opp,
                         }
                     )
