@@ -257,8 +257,8 @@
     <nav class="bg-dark-card border-b border-dark-border sticky top-0 z-50 desktop-nav">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <h1 class="text-xl font-bold">📊 Market Strategy Bot</h1>
+                <div class="flex items-center space-x-2">
+                    <h1 class="text-2xl font-bold tracking-tight">📊 Market Strategy Bot</h1>
                 </div>
                 
                 <div class="flex items-center space-x-6">
@@ -289,25 +289,19 @@
                         <i class="fas fa-sync-alt"></i>
                     </button>
                     
-                    <!-- Connection Status -->
-                    <div id="connection-status" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
-                        <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                        <span id="connection-status-text">Connected</span>
+                    <!-- Combined Status Indicator -->
+                    <div id="combined-status" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400">
+                        <span class="relative flex h-3 w-3 mr-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" id="status-ping"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500" id="status-dot"></span>
+                        </span>
+                        <span id="combined-status-text">Bot Running • Connected</span>
                     </div>
                     
                     <!-- Data Source Indicator -->
                     <div id="data-source-indicator" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-900/20 text-blue-400">
                         <i class="fas fa-database mr-2"></i>
                         <span id="data-source-text">📊 Historical Data</span>
-                    </div>
-                    
-                    <!-- Bot Status Indicator -->
-                    <div class="flex items-center">
-                        <span class="relative flex h-3 w-3 mr-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" id="status-ping"></span>
-                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500" id="status-dot"></span>
-                        </span>
-                        <span class="text-sm text-gray-400" id="bot-status-text">Running</span>
                     </div>
                 </div>
             </div>
@@ -319,40 +313,40 @@
         <div class="crypto-ticker-container">
             <div class="ticker-items">
                 <!-- BTC -->
-                <div class="ticker-item" data-tooltip="Bitcoin">
+                <a href="https://www.tradingview.com/chart/?symbol=BTCUSD" target="_blank" rel="noopener noreferrer" class="ticker-item ticker-link" data-tooltip="Bitcoin - Click to view chart">
                     <div class="ticker-symbol">BTC</div>
                     <div class="ticker-data">
                         <div id="ticker-price-BTC" class="ticker-price">$0.00</div>
                         <div id="ticker-change-BTC" class="ticker-change text-gray-500">0.00%</div>
                     </div>
-                </div>
+                </a>
                 
                 <!-- ETH -->
-                <div class="ticker-item" data-tooltip="Ethereum">
+                <a href="https://www.tradingview.com/chart/?symbol=ETHUSD" target="_blank" rel="noopener noreferrer" class="ticker-item ticker-link" data-tooltip="Ethereum - Click to view chart">
                     <div class="ticker-symbol">ETH</div>
                     <div class="ticker-data">
                         <div id="ticker-price-ETH" class="ticker-price">$0.00</div>
                         <div id="ticker-change-ETH" class="ticker-change text-gray-500">0.00%</div>
                     </div>
-                </div>
+                </a>
                 
                 <!-- SOL -->
-                <div class="ticker-item" data-tooltip="Solana">
+                <a href="https://www.tradingview.com/chart/?symbol=SOLUSD" target="_blank" rel="noopener noreferrer" class="ticker-item ticker-link" data-tooltip="Solana - Click to view chart">
                     <div class="ticker-symbol">SOL</div>
                     <div class="ticker-data">
                         <div id="ticker-price-SOL" class="ticker-price">$0.00</div>
                         <div id="ticker-change-SOL" class="ticker-change text-gray-500">0.00%</div>
                     </div>
-                </div>
+                </a>
                 
                 <!-- XRP -->
-                <div class="ticker-item" data-tooltip="Ripple">
+                <a href="https://www.tradingview.com/chart/?symbol=XRPUSD" target="_blank" rel="noopener noreferrer" class="ticker-item ticker-link" data-tooltip="Ripple - Click to view chart">
                     <div class="ticker-symbol">XRP</div>
                     <div class="ticker-data">
                         <div id="ticker-price-XRP" class="ticker-price">$0.00</div>
                         <div id="ticker-change-XRP" class="ticker-change text-gray-500">0.00%</div>
                     </div>
-                </div>
+                </a>
             </div>
             
             <div class="ticker-info">
@@ -681,7 +675,7 @@
                     <p class="text-gray-400 mb-4">Analyze P&L by strategy, symbol, time, and day of week</p>
                     <div class="text-center py-8">
                         <i class="fas fa-chart-pie text-4xl text-gray-600 mb-2"></i>
-                        <p class="text-sm text-gray-500">Coming soon</p>
+                        <p class="text-sm text-gray-500">Portfolio breakdown chart will appear here when data is available</p>
                     </div>
                 </div>
                 
@@ -716,7 +710,7 @@
                 <p class="text-gray-400 mb-4">Compare your bot vs market benchmarks and strategies</p>
                 <div class="text-center py-8">
                     <i class="fas fa-balance-scale text-4xl text-gray-600 mb-2"></i>
-                    <p class="text-sm text-gray-500">Coming soon: Compare to SPY, QQQ, and individual strategies</p>
+                    <p class="text-sm text-gray-500">Strategy comparison benchmarks (SPY, QQQ) will be available when multiple strategies are active</p>
                 </div>
             </div>
             
@@ -726,7 +720,7 @@
                 <p class="text-gray-400 mb-4">Visualize performance by time, strategy, and symbol</p>
                 <div class="text-center py-8">
                     <i class="fas fa-th text-4xl text-gray-600 mb-2"></i>
-                    <p class="text-sm text-gray-500">Coming soon: Time-of-day, day-of-week, and monthly heatmaps</p>
+                    <p class="text-sm text-gray-500">Time-based performance heatmaps (hour, day, month) will appear when sufficient trading data is collected</p>
                 </div>
             </div>
         </div>
@@ -956,7 +950,8 @@
             <div id="settings-strategies" class="settings-content hidden">
                 <div class="text-center py-20">
                     <i class="fas fa-chess text-6xl text-gray-600 mb-4"></i>
-                    <p class="text-xl text-gray-400">Strategy configuration coming soon</p>
+                    <p class="text-xl text-gray-400">Strategy configuration is managed in config.yaml</p>
+                    <p class="text-sm text-gray-500 mt-2">Edit the config file to add or modify trading strategies</p>
                 </div>
             </div>
             
@@ -970,20 +965,17 @@
                             <p class="font-medium">Dark Mode</p>
                             <p class="text-xs text-gray-400">Current</p>
                         </button>
-                        <button class="p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-transparent hover:border-gray-600 transition">
+                        <button class="p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-transparent hover:border-gray-600 transition" disabled title="Theme customization not yet available">
                             <i class="fas fa-sun text-2xl mb-2"></i>
                             <p class="font-medium">Light Mode</p>
-                            <p class="text-xs text-gray-400">Coming soon</p>
+                            <p class="text-xs text-gray-500">Not available</p>
                         </button>
-                        <button class="p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-transparent hover:border-gray-600 transition">
+                        <button class="p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border-2 border-transparent hover:border-gray-600 transition" disabled title="Custom themes not yet available">
                             <i class="fas fa-palette text-2xl mb-2"></i>
                             <p class="font-medium">Custom</p>
-                            <p class="text-xs text-gray-400">Coming soon</p>
+                            <p class="text-xs text-gray-500">Not available</p>
                         </button>
                     </div>
-                </div>
-                <div class="text-center py-8">
-                    <p class="text-gray-400">Additional display preferences coming soon</p>
                 </div>
             </div>
             

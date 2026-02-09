@@ -4,6 +4,18 @@
  * Handles all frontend interactions, data fetching, and chart rendering
  */
 
+// Debounce helper function to prevent API spam
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 // Global state
 let currentPage = 'overview';
 let cumulativePNLChart = null;
@@ -13,6 +25,7 @@ let currentTimeRange = '1M';
 let autoRefreshEnabled = true;
 let autoRefreshInterval = null;
 let isRefreshing = false;
+let lastRefreshTime = 0;
 
 // API Base URL
 const API_BASE = window.location.origin;
@@ -20,8 +33,9 @@ const API_BASE = window.location.origin;
 // Initialize API client
 const apiClient = new APIClient(API_BASE);
 
-// Auto-refresh interval (5 seconds for real-time updates)
-const REFRESH_INTERVAL = 5000;
+// Auto-refresh interval (15 seconds to prevent spam)
+const REFRESH_INTERVAL = 15000;
+const MIN_REFRESH_DELAY = 2000; // Minimum 2 seconds between manual refreshes
 
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -63,20 +77,50 @@ async function checkConnectionStatus() {
     }
 }
 
-// Update connection indicator UI
-function updateConnectionIndicator(isConnected) {
-    const indicator = document.getElementById('connection-status');
-    const statusText = document.getElementById('connection-status-text');
+// Update combined status indicator (bot + connection)
+function updateCombinedStatus(botStatus = {}, isConnected = true) {
+    const indicator = document.getElementById('combined-status');
+    const statusText = document.getElementById('combined-status-text');
+    const statusDot = document.getElementById('status-dot');
+    const statusPing = document.getElementById('status-ping');
     
-    if (indicator && statusText) {
-        if (isConnected) {
-            indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400';
-            statusText.textContent = 'Connected';
-        } else {
-            indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-900/20 text-red-400';
-            statusText.textContent = 'Disconnected';
-        }
+    if (!indicator || !statusText || !statusDot || !statusPing) return;
+    
+    // Determine overall status
+    const botRunning = botStatus.running || false;
+    const mode = botStatus.mode === 'paper' ? 'Paper' : 'Live';
+    
+    if (!isConnected) {
+        // Disconnected - red
+        indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-900/20 text-red-400';
+        statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-red-500';
+        statusPing.className = 'hidden';
+        statusText.textContent = 'Disconnected';
+    } else if (botRunning) {
+        // Bot running and connected - green
+        indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400';
+        statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-green-500';
+        statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75';
+        statusText.textContent = `Bot Running (${mode}) • Connected`;
+    } else if (botStatus.status_text === 'Error') {
+        // Bot error - yellow
+        indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-900/20 text-yellow-400';
+        statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-yellow-500';
+        statusPing.className = 'hidden';
+        statusText.textContent = 'Bot Error • Connected';
+    } else {
+        // Bot stopped but connected - gray
+        indicator.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-700/20 text-gray-400';
+        statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-gray-500';
+        statusPing.className = 'hidden';
+        statusText.textContent = 'Bot Stopped • Connected';
     }
+}
+
+// Update connection indicator UI (legacy - now uses combined status)
+function updateConnectionIndicator(isConnected) {
+    // Update combined status with current connection state
+    updateCombinedStatus({}, isConnected);
 }
 
 // Start auto-refresh
@@ -106,7 +150,7 @@ function handleAutoRefreshToggle(event) {
     
     if (autoRefreshEnabled) {
         startAutoRefresh();
-        showToast('Auto-refresh enabled (5s interval)', 'success');
+        showToast('Auto-refresh enabled (15s interval)', 'success');
     } else {
         stopAutoRefresh();
         showToast('Auto-refresh disabled', 'info');
@@ -118,11 +162,20 @@ function handleAutoRefreshToggle(event) {
 
 // Handle manual refresh
 async function handleManualRefresh() {
+    // Debounce: prevent rapid clicking
+    const now = Date.now();
+    if (now - lastRefreshTime < MIN_REFRESH_DELAY) {
+        console.log('Refresh debounced - too soon since last refresh');
+        showToast('Please wait before refreshing again', 'info');
+        return;
+    }
+    
     if (isRefreshing) {
         showToast('Refresh already in progress', 'info');
         return;
     }
     
+    lastRefreshTime = now;
     const refreshBtn = document.getElementById('manual-refresh-btn');
     const refreshIcon = refreshBtn?.querySelector('i');
     
@@ -479,33 +532,14 @@ async function loadBotStatus() {
         const response = await fetch(`${API_BASE}/api/bot/status`);
         const data = await response.json();
         
-        // Update status indicator
-        const statusText = document.getElementById('bot-status-text');
-        const statusDot = document.getElementById('status-dot');
-        const statusPing = document.getElementById('status-ping');
+        // Update combined status indicator with bot data
+        updateCombinedStatus(data, true);
         
+        // Update data source based on bot status
         if (data.running) {
-            // Format: "🟢 Running | Paper Mode" (no PID)
-            const mode = data.mode === 'paper' ? 'Paper Mode' : 'Live Mode';
-            statusText.textContent = `${data.status_emoji} Running | ${mode}`;
-            statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-green-500';
-            statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75';
-            
-            // Update data source to Live when bot is running
-            updateDataSourceIndicator('live', data.mode || 'paper');
-        } else if (data.status_text === 'Error') {
-            statusText.textContent = data.status_emoji + ' Error';
-            statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-yellow-500';
-            statusPing.className = 'hidden';
-            
-            // Use historical data when there's an error
-            updateDataSourceIndicator('historical');
+            const mode = data.mode || 'paper';
+            updateDataSourceIndicator('live', mode);
         } else {
-            statusText.textContent = data.status_emoji + ' Stopped';
-            statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-red-500';
-            statusPing.className = 'hidden';
-            
-            // Use historical data when bot is stopped
             updateDataSourceIndicator('historical');
         }
         
@@ -517,6 +551,8 @@ async function loadBotStatus() {
         
     } catch (error) {
         console.error('Error loading bot status:', error);
+        // Update to show disconnected on error
+        updateCombinedStatus({}, false);
         // Default to historical data on error
         updateDataSourceIndicator('historical');
     }
@@ -1183,11 +1219,11 @@ function startActivityRefresh() {
     // Load immediately
     loadRecentActivity();
     
-    // Then refresh every 5 seconds
+    // Then refresh every 15 seconds
     if (activityRefreshInterval) {
         clearInterval(activityRefreshInterval);
     }
-    activityRefreshInterval = setInterval(loadRecentActivity, 5000);
+    activityRefreshInterval = setInterval(loadRecentActivity, 15000);
 }
 
 // ========================================================================

@@ -54,6 +54,24 @@
     transition: all 0.3s ease;
 }
 
+/* Clickable ticker link styles */
+.ticker-link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+.ticker-link:hover {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.ticker-link:active {
+    transform: translateY(0);
+}
+
 .ticker-item:hover {
     background: rgba(30, 41, 59, 0.8);
     transform: translateY(-2px);
