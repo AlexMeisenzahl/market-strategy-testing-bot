@@ -685,11 +685,66 @@ class BotRunner:
 
 def main():
     """Main entry point"""
+    logger = None
     try:
+        # Initialize logger first to ensure we can log errors
+        logger = get_logger()
+        logger.log_info("=" * 60)
+        logger.log_info("🤖 Market Strategy Testing Bot - Starting")
+        logger.log_info("=" * 60)
+
+        # Initialize and run the bot
         bot = BotRunner()
         bot.run()
+
+    except FileNotFoundError as e:
+        error_msg = f"❌ Configuration file not found: {str(e)}"
+        if logger:
+            logger.log_error(error_msg)
+        else:
+            print(error_msg)
+        print("\n💡 Tip: Make sure config.yaml exists in the current directory")
+        print("   You can copy config.example.yaml to config.yaml to get started")
+        traceback.print_exc()
+        sys.exit(1)
+
+    except ImportError as e:
+        error_msg = f"❌ Missing dependency: {str(e)}"
+        if logger:
+            logger.log_error(error_msg)
+        else:
+            print(error_msg)
+        print("\n💡 Tip: Install dependencies with: pip install -r requirements.txt")
+        traceback.print_exc()
+        sys.exit(1)
+
+    except KeyError as e:
+        error_msg = f"❌ Configuration error - missing key: {str(e)}"
+        if logger:
+            logger.log_error(error_msg)
+        else:
+            print(error_msg)
+        print("\n💡 Tip: Check your config.yaml for missing required fields")
+        print("   Compare with config.example.yaml for reference")
+        traceback.print_exc()
+        sys.exit(1)
+
+    except KeyboardInterrupt:
+        msg = "\n\n🛑 Bot stopped by user (Ctrl+C)"
+        if logger:
+            logger.log_warning(msg)
+        else:
+            print(msg)
+        sys.exit(0)
+
     except Exception as e:
-        print(f"❌ Fatal error: {str(e)}")
+        error_msg = f"❌ Fatal error: {str(e)}"
+        if logger:
+            logger.log_error(error_msg)
+        else:
+            print(error_msg)
+        print("\n💡 Check the logs for more details")
+        print("   Run with FLASK_DEBUG=true for verbose output")
         traceback.print_exc()
         sys.exit(1)
 

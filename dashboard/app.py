@@ -247,6 +247,7 @@ def handle_exception(error):
 
 
 @app.route("/health")
+@app.route("/api/health")
 def health_check():
     """
     Comprehensive health check endpoint.
@@ -2161,7 +2162,7 @@ def analyze_patterns():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/health")
+@app.route("/api/health/debug")
 def api_health():
     """Comprehensive health check for debug panel"""
     try:
@@ -2186,7 +2187,7 @@ def api_health():
         return jsonify({"status": "error", "error": str(e)}), 500
 
 
-# Duplicate /api/health route removed - see line 2165 for primary api_health endpoint
+# Debug health endpoint moved to /api/health/debug - see line 2165
 
 
 @app.route("/api/settings/export", methods=["GET"])
@@ -2321,50 +2322,49 @@ def import_settings():
 
 
 if __name__ == "__main__":
-    # Check if config exists
-    if not CONFIG_PATH.exists():
-        print(f"ERROR: Config file not found: {CONFIG_PATH}")
-        print("Please copy config.example.yaml to config.yaml and configure it")
+    try:
+        # Check if config exists
+        if not CONFIG_PATH.exists():
+            print(f"ERROR: Config file not found: {CONFIG_PATH}")
+            print("Please copy config.example.yaml to config.yaml and configure it")
+            sys.exit(1)
+
+        # Create logs directory if it doesn't exist
+        LOGS_DIR.mkdir(exist_ok=True)
+
+        # Get debug mode from environment (default to False for security)
+        debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+
+        print("\n" + "=" * 60)
+        print("🚀 Market Strategy Testing Bot - Web Dashboard")
+        print("=" * 60)
+        print(f"\n📊 Dashboard URL: http://localhost:5000")
+        print(f"📁 Config file: {CONFIG_PATH}")
+        print(f"📂 Logs directory: {LOGS_DIR}")
+        if debug_mode:
+            print("\n⚠️  DEBUG MODE ENABLED - For development only!")
+        print("\nPress Ctrl+C to stop the server\n")
+
+        # Run Flask app
+        # Debug mode is disabled by default for security
+        # Set FLASK_DEBUG=true environment variable to enable it
+        app.run(host="0.0.0.0", port=5000, debug=debug_mode, use_reloader=debug_mode)
+
+    except KeyboardInterrupt:
+        print("\n\n🛑 Dashboard stopped by user (Ctrl+C)")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n❌ Failed to start dashboard: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)
-
-    # Create logs directory if it doesn't exist
-    LOGS_DIR.mkdir(exist_ok=True)
-
-    # Get debug mode from environment (default to False for security)
-    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
-
-    print("\n" + "=" * 60)
-    print("🚀 Market Strategy Testing Bot - Web Dashboard")
-    print("=" * 60)
-    print(f"\n📊 Dashboard URL: http://localhost:5000")
-    print(f"📁 Config file: {CONFIG_PATH}")
-    print(f"📂 Logs directory: {LOGS_DIR}")
-    if debug_mode:
-        print("\n⚠️  DEBUG MODE ENABLED - For development only!")
-    print("\nPress Ctrl+C to stop the server\n")
-
-    # Run Flask app
-    # Debug mode is disabled by default for security
-    # Set FLASK_DEBUG=true environment variable to enable it
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode, use_reloader=debug_mode)
 
 
 # Production readiness endpoints
 
 
-@app.route("/metrics")
-def metrics_endpoint():
-    """Prometheus metrics endpoint"""
-    try:
-        # Import here to avoid circular dependency
-        from services.prometheus_metrics import metrics
-        from prometheus_client import CONTENT_TYPE_LATEST
-
-        metrics_data = metrics.get_metrics()
-        return Response(metrics_data, mimetype=CONTENT_TYPE_LATEST)
-    except Exception as e:
-        logger.error(f"Error generating metrics: {str(e)}")
-        return jsonify({"error": "Failed to generate metrics"}), 500
+# Duplicate /metrics route removed - see line 300 for primary prometheus_metrics endpoint
 
 
 @app.route("/api/feature-flags")
