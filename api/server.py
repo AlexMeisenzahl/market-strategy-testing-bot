@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from typing import Dict, Any
 import os
+import sys
 from datetime import datetime
 
 from api.models.schemas import HealthResponse, ErrorResponse
@@ -179,31 +180,52 @@ def run_server(bot, config):
     """
     import uvicorn
 
-    # Set global bot instance
-    set_bot_instance(bot, config)
-
-    # Get API configuration
-    mobile_api_config = config.get("mobile_api", {})
-    host = mobile_api_config.get("host", "0.0.0.0")
-    port = mobile_api_config.get("port", 8000)
-
     logger = get_logger()
-    logger.log_info(f"Starting Mobile API server on {host}:{port}")
+    
+    try:
+        # Set global bot instance
+        set_bot_instance(bot, config)
 
-    # Run server
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        log_level="info",
-        access_log=True,
-    )
+        # Get API configuration
+        mobile_api_config = config.get("mobile_api", {})
+        host = mobile_api_config.get("host", "0.0.0.0")
+        port = mobile_api_config.get("port", 8000)
+
+        logger.log_info(f"Starting Mobile API server on {host}:{port}")
+
+        # Run server
+        uvicorn.run(
+            app,
+            host=host,
+            port=port,
+            log_level="info",
+            access_log=True,
+        )
+    except Exception as e:
+        logger.log_error(f"Failed to start API server: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 if __name__ == "__main__":
     # For development/testing
     from config.config_loader import get_config
-
-    config_loader = get_config()
-    config = config_loader.get_all()
-    run_server(None, config)
+    import traceback
+    
+    try:
+        logger = get_logger()
+        logger.log_info("Starting API server in standalone mode...")
+        
+        config_loader = get_config()
+        config = config_loader.get_all()
+        run_server(None, config)
+    except FileNotFoundError as e:
+        print(f"❌ Configuration file not found: {str(e)}")
+        print("💡 Tip: Make sure config.yaml exists")
+        traceback.print_exc()
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Failed to start API server: {str(e)}")
+        traceback.print_exc()
+        sys.exit(1)

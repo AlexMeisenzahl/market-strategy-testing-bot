@@ -2322,32 +2322,42 @@ def import_settings():
 
 
 if __name__ == "__main__":
-    # Check if config exists
-    if not CONFIG_PATH.exists():
-        print(f"ERROR: Config file not found: {CONFIG_PATH}")
-        print("Please copy config.example.yaml to config.yaml and configure it")
+    try:
+        # Check if config exists
+        if not CONFIG_PATH.exists():
+            print(f"ERROR: Config file not found: {CONFIG_PATH}")
+            print("Please copy config.example.yaml to config.yaml and configure it")
+            sys.exit(1)
+
+        # Create logs directory if it doesn't exist
+        LOGS_DIR.mkdir(exist_ok=True)
+
+        # Get debug mode from environment (default to False for security)
+        debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+
+        print("\n" + "=" * 60)
+        print("🚀 Market Strategy Testing Bot - Web Dashboard")
+        print("=" * 60)
+        print(f"\n📊 Dashboard URL: http://localhost:5000")
+        print(f"📁 Config file: {CONFIG_PATH}")
+        print(f"📂 Logs directory: {LOGS_DIR}")
+        if debug_mode:
+            print("\n⚠️  DEBUG MODE ENABLED - For development only!")
+        print("\nPress Ctrl+C to stop the server\n")
+
+        # Run Flask app
+        # Debug mode is disabled by default for security
+        # Set FLASK_DEBUG=true environment variable to enable it
+        app.run(host="0.0.0.0", port=5000, debug=debug_mode, use_reloader=debug_mode)
+        
+    except KeyboardInterrupt:
+        print("\n\n🛑 Dashboard stopped by user (Ctrl+C)")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n❌ Failed to start dashboard: {str(e)}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
-
-    # Create logs directory if it doesn't exist
-    LOGS_DIR.mkdir(exist_ok=True)
-
-    # Get debug mode from environment (default to False for security)
-    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
-
-    print("\n" + "=" * 60)
-    print("🚀 Market Strategy Testing Bot - Web Dashboard")
-    print("=" * 60)
-    print(f"\n📊 Dashboard URL: http://localhost:5000")
-    print(f"📁 Config file: {CONFIG_PATH}")
-    print(f"📂 Logs directory: {LOGS_DIR}")
-    if debug_mode:
-        print("\n⚠️  DEBUG MODE ENABLED - For development only!")
-    print("\nPress Ctrl+C to stop the server\n")
-
-    # Run Flask app
-    # Debug mode is disabled by default for security
-    # Set FLASK_DEBUG=true environment variable to enable it
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode, use_reloader=debug_mode)
 
 
 # Production readiness endpoints
