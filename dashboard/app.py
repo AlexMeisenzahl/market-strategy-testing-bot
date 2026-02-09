@@ -137,7 +137,7 @@ def health_check():
             200,
         )
     except Exception as e:
-        logger.log_error(f"Health check failed: {str(e)}")
+        logger.error(f"Health check failed: {str(e)}")
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
 
@@ -174,7 +174,7 @@ def get_overview():
         stats = analytics.get_overview_stats()
         return jsonify(stats)
     except Exception as e:
-        logger.log_error(f"Error getting overview: {str(e)}")
+        logger.error(f"Error getting overview: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -203,7 +203,7 @@ def get_trades():
 
         return jsonify(trades)
     except Exception as e:
-        logger.log_error(f"Error getting trades: {str(e)}")
+        logger.error(f"Error getting trades: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -227,7 +227,7 @@ def get_opportunities():
 
         return jsonify(opportunities)
     except Exception as e:
-        logger.log_error(f"Error getting opportunities: {str(e)}")
+        logger.error(f"Error getting opportunities: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -239,7 +239,7 @@ def get_cumulative_pnl():
         data = chart_data.get_cumulative_pnl(time_range)
         return jsonify(data)
     except Exception as e:
-        logger.log_error(f"Error getting cumulative P&L: {str(e)}")
+        logger.error(f"Error getting cumulative P&L: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -250,7 +250,7 @@ def get_daily_pnl():
         data = chart_data.get_daily_pnl()
         return jsonify(data)
     except Exception as e:
-        logger.log_error(f"Error getting daily P&L: {str(e)}")
+        logger.error(f"Error getting daily P&L: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -261,7 +261,7 @@ def get_strategy_performance():
         data = chart_data.get_strategy_performance()
         return jsonify(data)
     except Exception as e:
-        logger.log_error(f"Error getting strategy performance: {str(e)}")
+        logger.error(f"Error getting strategy performance: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -272,7 +272,7 @@ def get_strategies():
         strategies = data_parser.get_all_strategy_names()
         return jsonify({"strategies": strategies})
     except Exception as e:
-        logger.log_error(f"Error getting strategies: {str(e)}")
+        logger.error(f"Error getting strategies: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -286,7 +286,7 @@ def get_strategy_details(strategy_name):
         else:
             return jsonify({"error": "Strategy not found"}), 404
     except Exception as e:
-        logger.log_error(f"Error getting strategy details: {str(e)}")
+        logger.error(f"Error getting strategy details: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -297,7 +297,7 @@ def get_settings():
         settings = config_manager.get_all_settings()
         return jsonify(settings)
     except Exception as e:
-        logger.log_error(f"Error getting settings: {str(e)}")
+        logger.error(f"Error getting settings: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -309,7 +309,7 @@ def update_notification_settings():
         config_manager.update_notification_settings(data)
         return jsonify({"success": True, "message": "Notification settings updated"})
     except Exception as e:
-        logger.log_error(f"Error updating notification settings: {str(e)}")
+        logger.error(f"Error updating notification settings: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -321,7 +321,7 @@ def update_strategy_settings():
         config_manager.update_strategy_settings(data)
         return jsonify({"success": True, "message": "Strategy settings updated"})
     except Exception as e:
-        logger.log_error(f"Error updating strategy settings: {str(e)}")
+        logger.error(f"Error updating strategy settings: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -394,7 +394,7 @@ def analytics_overview():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error getting analytics overview: {str(e)}")
+        logger.error(f"Error getting analytics overview: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -446,7 +446,7 @@ def analytics_charts():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error getting analytics charts: {str(e)}")
+        logger.error(f"Error getting analytics charts: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -532,7 +532,7 @@ def export_trades():
 
         return response
     except Exception as e:
-        logger.log_error(f"Error exporting trades: {str(e)}")
+        logger.error(f"Error exporting trades: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -570,7 +570,7 @@ def test_notification():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error sending test notification: {str(e)}")
+        logger.error(f"Error sending test notification: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -582,7 +582,7 @@ def get_notification_history():
         # For now, return empty array
         return jsonify([])
     except Exception as e:
-        logger.log_error(f"Error getting notification history: {str(e)}")
+        logger.error(f"Error getting notification history: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -627,7 +627,7 @@ def get_bot_status():
 
         return jsonify(bot_status)
     except Exception as e:
-        logger.log_error(f"Error getting bot status: {str(e)}")
+        logger.error(f"Error getting bot status: {str(e)}")
         # Return default status on error
         return (
             jsonify(
@@ -653,7 +653,7 @@ def start_bot():
         bot_status["last_restart"] = datetime.now().isoformat()
         return jsonify({"success": True, "message": "Bot started"})
     except Exception as e:
-        logger.log_error(f"Error starting bot: {str(e)}")
+        logger.error(f"Error starting bot: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -665,7 +665,7 @@ def stop_bot():
         bot_status["running"] = False
         return jsonify({"success": True, "message": "Bot stopped"})
     except Exception as e:
-        logger.log_error(f"Error stopping bot: {str(e)}")
+        logger.error(f"Error stopping bot: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -677,7 +677,7 @@ def restart_bot():
         bot_status["last_restart"] = datetime.now().isoformat()
         return jsonify({"success": True, "message": "Bot restarted"})
     except Exception as e:
-        logger.log_error(f"Error restarting bot: {str(e)}")
+        logger.error(f"Error restarting bot: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -711,11 +711,11 @@ def get_recent_logs():
                                 }
                             )
             except Exception as e:
-                logger.log_error(f"Error reading log file: {str(e)}")
+                logger.error(f"Error reading log file: {str(e)}")
 
         return jsonify(logs)
     except Exception as e:
-        logger.log_error(f"Error getting logs: {str(e)}")
+        logger.error(f"Error getting logs: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -748,7 +748,7 @@ def get_tax_summary():
 
         return jsonify(summary)
     except Exception as e:
-        logger.log_error(f"Error getting tax summary: {str(e)}")
+        logger.error(f"Error getting tax summary: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -778,7 +778,7 @@ def get_tax_positions():
 
         return jsonify(positions_data)
     except Exception as e:
-        logger.log_error(f"Error getting tax positions: {str(e)}")
+        logger.error(f"Error getting tax positions: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -832,7 +832,7 @@ def export_tax_report(format):
             return jsonify({"error": "Unknown format"}), 400
 
     except Exception as e:
-        logger.log_error(f"Error exporting tax report: {str(e)}")
+        logger.error(f"Error exporting tax report: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -918,7 +918,7 @@ def get_risk_analytics():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error calculating risk analytics: {str(e)}")
+        logger.error(f"Error calculating risk analytics: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1000,7 +1000,7 @@ def get_strategy_breakdown():
 
         return jsonify(breakdown)
     except Exception as e:
-        logger.log_error(f"Error getting strategy breakdown: {str(e)}")
+        logger.error(f"Error getting strategy breakdown: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1078,7 +1078,7 @@ def verify_data_quality():
 
         return jsonify(results)
     except Exception as e:
-        logger.log_error(f"Error verifying data quality: {str(e)}")
+        logger.error(f"Error verifying data quality: {str(e)}")
         return (
             jsonify({"status": "error", "issues": [f"Verification failed: {str(e)}"]}),
             500,
@@ -1139,7 +1139,7 @@ def get_recent_activity():
         # Return last 20
         return jsonify(activities[:20])
     except Exception as e:
-        logger.log_error(f"Error getting recent activity: {str(e)}")
+        logger.error(f"Error getting recent activity: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1177,7 +1177,7 @@ def get_crypto_current_prices():
 
         return jsonify({"prices": result})
     except Exception as e:
-        logger.log_error(f"Error getting crypto prices: {str(e)}")
+        logger.error(f"Error getting crypto prices: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1224,7 +1224,7 @@ def get_crypto_price_history():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error getting price history: {str(e)}")
+        logger.error(f"Error getting price history: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1245,7 +1245,7 @@ def get_crypto_alerts():
             {"active_alerts": active_alerts, "enabled": alert_manager.enabled}
         )
     except Exception as e:
-        logger.log_error(f"Error getting alerts: {str(e)}")
+        logger.error(f"Error getting alerts: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1330,7 +1330,7 @@ def get_market_reality_status():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error getting market reality status: {str(e)}")
+        logger.error(f"Error getting market reality status: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1368,7 +1368,7 @@ def check_specific_price():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error checking price: {str(e)}")
+        logger.error(f"Error checking price: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1396,7 +1396,7 @@ def get_strategy_performance_analytics():
 
         return jsonify({"strategies": strategies})
     except Exception as e:
-        logger.log_error(f"Error getting strategy performance: {str(e)}")
+        logger.error(f"Error getting strategy performance: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1425,7 +1425,7 @@ def get_market_performance_analytics():
 
         return jsonify({"markets": markets})
     except Exception as e:
-        logger.log_error(f"Error getting market performance: {str(e)}")
+        logger.error(f"Error getting market performance: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1444,7 +1444,7 @@ def get_top_markets():
 
         return jsonify({"markets": markets})
     except Exception as e:
-        logger.log_error(f"Error getting top markets: {str(e)}")
+        logger.error(f"Error getting top markets: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1463,7 +1463,7 @@ def get_worst_markets():
 
         return jsonify({"markets": markets})
     except Exception as e:
-        logger.log_error(f"Error getting worst markets: {str(e)}")
+        logger.error(f"Error getting worst markets: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1478,7 +1478,7 @@ def get_hour_analysis():
 
         return jsonify(analysis)
     except Exception as e:
-        logger.log_error(f"Error getting hour analysis: {str(e)}")
+        logger.error(f"Error getting hour analysis: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1493,7 +1493,7 @@ def get_day_analysis():
 
         return jsonify(analysis)
     except Exception as e:
-        logger.log_error(f"Error getting day analysis: {str(e)}")
+        logger.error(f"Error getting day analysis: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1508,7 +1508,7 @@ def get_monthly_performance():
 
         return jsonify({"months": months})
     except Exception as e:
-        logger.log_error(f"Error getting monthly performance: {str(e)}")
+        logger.error(f"Error getting monthly performance: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1523,7 +1523,7 @@ def get_best_trading_times():
 
         return jsonify(best_times)
     except Exception as e:
-        logger.log_error(f"Error getting best trading times: {str(e)}")
+        logger.error(f"Error getting best trading times: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1541,7 +1541,7 @@ def get_risk_metrics_analytics():
 
         return jsonify(metrics)
     except Exception as e:
-        logger.log_error(f"Error getting risk metrics: {str(e)}")
+        logger.error(f"Error getting risk metrics: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1559,7 +1559,7 @@ def get_drawdown_history():
 
         return jsonify(history)
     except Exception as e:
-        logger.log_error(f"Error getting drawdown history: {str(e)}")
+        logger.error(f"Error getting drawdown history: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1596,7 +1596,7 @@ def export_analytics():
 
         return response
     except Exception as e:
-        logger.log_error(f"Error exporting analytics: {str(e)}")
+        logger.error(f"Error exporting analytics: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1742,7 +1742,7 @@ def manage_workspaces():
             return jsonify({"success": True, "workspace": data})
 
     except Exception as e:
-        logger.log_error(f"Error managing workspaces: {str(e)}")
+        logger.error(f"Error managing workspaces: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1761,7 +1761,7 @@ def workspace_layout(workspace_id):
             return jsonify({"success": True})
 
     except Exception as e:
-        logger.log_error(f"Error managing workspace layout: {str(e)}")
+        logger.error(f"Error managing workspace layout: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1793,7 +1793,7 @@ def generate_tax_report():
         )
 
     except Exception as e:
-        logger.log_error(f"Error generating tax report: {str(e)}")
+        logger.error(f"Error generating tax report: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1814,7 +1814,7 @@ def tax_summary():
         return jsonify(summary)
 
     except Exception as e:
-        logger.log_error(f"Error calculating tax summary: {str(e)}")
+        logger.error(f"Error calculating tax summary: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1833,7 +1833,7 @@ def analyze_patterns():
         return jsonify({"patterns": patterns, "suggestions": suggestions})
 
     except Exception as e:
-        logger.log_error(f"Error analyzing patterns: {str(e)}")
+        logger.error(f"Error analyzing patterns: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1858,7 +1858,7 @@ def api_health():
         }
         return jsonify(health)
     except Exception as e:
-        logger.log_error(f"Error in health check: {str(e)}")
+        logger.error(f"Error in health check: {str(e)}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 
@@ -1874,7 +1874,7 @@ def api_health_check():
         health_status = health_service.check_all()
         return jsonify(health_status), 200
     except Exception as e:
-        logger.log_error(f"Error in API health check: {str(e)}")
+        logger.error(f"Error in API health check: {str(e)}")
         return (
             jsonify(
                 {
@@ -1929,7 +1929,7 @@ def export_settings():
         return response
 
     except Exception as e:
-        logger.log_error(f"Error exporting settings: {str(e)}")
+        logger.error(f"Error exporting settings: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2014,7 +2014,7 @@ def import_settings():
         return jsonify({"success": True, "results": results}), 200
 
     except Exception as e:
-        logger.log_error(f"Error importing settings: {str(e)}")
+        logger.error(f"Error importing settings: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2061,7 +2061,7 @@ def metrics_endpoint():
         metrics_data = metrics.get_metrics()
         return Response(metrics_data, mimetype=CONTENT_TYPE_LATEST)
     except Exception as e:
-        logger.log_error(f"Error generating metrics: {str(e)}")
+        logger.error(f"Error generating metrics: {str(e)}")
         return jsonify({"error": "Failed to generate metrics"}), 500
 
 
@@ -2079,7 +2079,7 @@ def get_feature_flags():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error getting feature flags: {str(e)}")
+        logger.error(f"Error getting feature flags: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2120,7 +2120,7 @@ def toggle_feature_flag(flag):
             return jsonify({"error": "Failed to toggle flag"}), 400
 
     except Exception as e:
-        logger.log_error(f"Error toggling feature flag: {str(e)}")
+        logger.error(f"Error toggling feature flag: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2147,7 +2147,7 @@ def get_positions():
             }
         )
     except Exception as e:
-        logger.log_error(f"Error getting positions: {str(e)}")
+        logger.error(f"Error getting positions: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2159,7 +2159,7 @@ def get_portfolio():
 
         return jsonify(portfolio_manager.export_to_dict())
     except Exception as e:
-        logger.log_error(f"Error getting portfolio: {str(e)}")
+        logger.error(f"Error getting portfolio: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2175,7 +2175,7 @@ def get_realtime_status():
                 {"enabled": False, "message": "WebSocket server not initialized"}
             )
     except Exception as e:
-        logger.log_error(f"Error getting realtime status: {str(e)}")
+        logger.error(f"Error getting realtime status: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2184,7 +2184,7 @@ if __name__ == "__main__":
     port = config_manager.get("dashboard", {}).get("port", 5000)
     debug = config_manager.get("dashboard", {}).get("debug", False)
 
-    logger.log_event(f"Starting dashboard with WebSocket support on port {port}")
+    logger.info(f"Starting dashboard with WebSocket support on port {port}")
 
     # Use SocketIO's run method instead of Flask's
     realtime_server.run(host="0.0.0.0", port=port, debug=debug)
@@ -2235,7 +2235,7 @@ def list_api_keys():
         keys = APIKey.get_all()
         return jsonify({"success": True, "keys": keys})
     except Exception as e:
-        logger.log_error(f"Error listing API keys: {e}")
+        logger.error(f"Error listing API keys: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2257,7 +2257,7 @@ def test_api_key():
             return jsonify({"success": False, "error": "Connection failed"})
 
     except Exception as e:
-        logger.log_error(f"Error testing API key: {e}")
+        logger.error(f"Error testing API key: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2275,7 +2275,7 @@ def save_api_key():
 
         return jsonify({"success": True})
     except Exception as e:
-        logger.log_error(f"Error saving API key: {e}")
+        logger.error(f"Error saving API key: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2292,7 +2292,7 @@ def list_strategies():
         ]
         return jsonify({"success": True, "strategies": strategies})
     except Exception as e:
-        logger.log_error(f"Error listing strategies: {e}")
+        logger.error(f"Error listing strategies: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2320,7 +2320,7 @@ def compare_strategies():
             {"success": True, "comparison": comparison, "equity_curves": equity_curves}
         )
     except Exception as e:
-        logger.log_error(f"Error comparing strategies: {e}")
+        logger.error(f"Error comparing strategies: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2332,7 +2332,7 @@ def list_journal_entries():
         entries = TradeJournal.get_all()
         return jsonify({"success": True, "entries": entries})
     except Exception as e:
-        logger.log_error(f"Error listing journal entries: {e}")
+        logger.error(f"Error listing journal entries: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2357,7 +2357,7 @@ def save_journal_entry():
 
         return jsonify({"success": True, "entry_id": entry_id})
     except Exception as e:
-        logger.log_error(f"Error saving journal entry: {e}")
+        logger.error(f"Error saving journal entry: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2369,7 +2369,7 @@ def list_alerts():
         alerts = alert_manager.get_all_alerts()
         return jsonify({"success": True, "alerts": alerts})
     except Exception as e:
-        logger.log_error(f"Error listing alerts: {e}")
+        logger.error(f"Error listing alerts: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2385,7 +2385,7 @@ def create_alert():
         )
         return jsonify({"success": True, "alert_id": alert_id})
     except Exception as e:
-        logger.log_error(f"Error creating alert: {e}")
+        logger.error(f"Error creating alert: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2397,7 +2397,7 @@ def toggle_alert(alert_id):
         alert_manager.update_alert(alert_id, enabled=data.get("enabled"))
         return jsonify({"success": True})
     except Exception as e:
-        logger.log_error(f"Error toggling alert: {e}")
+        logger.error(f"Error toggling alert: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2408,7 +2408,7 @@ def delete_alert(alert_id):
         alert_manager.delete_alert(alert_id)
         return jsonify({"success": True})
     except Exception as e:
-        logger.log_error(f"Error deleting alert: {e}")
+        logger.error(f"Error deleting alert: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2431,7 +2431,7 @@ def run_backtest():
 
         return jsonify(result)
     except Exception as e:
-        logger.log_error(f"Error running backtest: {e}")
+        logger.error(f"Error running backtest: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -2447,7 +2447,7 @@ def check_for_updates():
         update_info = version_manager.check_for_updates()
         return jsonify(update_info)
     except Exception as e:
-        logger.log_error(f"Error checking for updates: {e}")
+        logger.error(f"Error checking for updates: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2458,7 +2458,7 @@ def get_update_history():
         history = version_manager.get_update_history()
         return jsonify({"history": history})
     except Exception as e:
-        logger.log_error(f"Error getting update history: {e}")
+        logger.error(f"Error getting update history: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2505,7 +2505,7 @@ def start_update():
         )
 
     except Exception as e:
-        logger.log_error(f"Error starting update: {e}")
+        logger.error(f"Error starting update: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2525,7 +2525,7 @@ def get_update_progress():
             )
         return jsonify(progress)
     except Exception as e:
-        logger.log_error(f"Error getting update progress: {e}")
+        logger.error(f"Error getting update progress: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2544,7 +2544,7 @@ def cancel_update():
             return jsonify({"success": False, "error": "Failed to cancel update"}), 500
 
     except Exception as e:
-        logger.log_error(f"Error cancelling update: {e}")
+        logger.error(f"Error cancelling update: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2568,7 +2568,7 @@ def manual_rollback():
             return jsonify({"success": False, "error": "Rollback failed"}), 500
 
     except Exception as e:
-        logger.log_error(f"Error during rollback: {e}")
+        logger.error(f"Error during rollback: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2617,7 +2617,7 @@ def get_system_health():
         )
 
     except Exception as e:
-        logger.log_error(f"Error getting system health: {e}")
+        logger.error(f"Error getting system health: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2664,7 +2664,7 @@ def list_backups():
         return jsonify({"backups": backups})
 
     except Exception as e:
-        logger.log_error(f"Error listing backups: {e}")
+        logger.error(f"Error listing backups: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -2688,7 +2688,7 @@ def restore_backup():
             return jsonify({"success": False, "error": "Restore failed"}), 500
 
     except Exception as e:
-        logger.log_error(f"Error restoring backup: {e}")
+        logger.error(f"Error restoring backup: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2704,7 +2704,7 @@ def force_stop_all():
             return jsonify({"success": False, "error": "Force stop failed"}), 500
 
     except Exception as e:
-        logger.log_error(f"Error force stopping: {e}")
+        logger.error(f"Error force stopping: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -2731,5 +2731,5 @@ def unlock_update_system():
             )
 
     except Exception as e:
-        logger.log_error(f"Error unlocking update: {e}")
+        logger.error(f"Error unlocking update: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
