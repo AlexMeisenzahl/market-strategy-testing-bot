@@ -7,7 +7,7 @@ and fallback to mock/cached data when APIs are unavailable.
 
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, Tuple
 from functools import wraps
 
 from utils.error_handlers import with_retry
@@ -36,7 +36,7 @@ class SafeDataClient:
         self.primary_client = primary_client
         self.fallback_client = fallback_client
         self.enable_caching = enable_caching
-        self._cache: Dict[str, tuple[Any, float]] = {}
+        self._cache: Dict[str, Tuple[Any, float]] = {}
         self._cache_ttl = 300  # 5 minutes default
         self._primary_failures = 0
         self._max_failures_before_fallback = 3

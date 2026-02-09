@@ -59,6 +59,7 @@ CORS(app)  # Enable CORS for API access
 
 # Initialize logger first for error handling
 logger_instance = get_logger()
+logger = logger_instance  # Alias for backward compatibility
 
 # Load configuration with environment variable support
 try:
@@ -96,7 +97,7 @@ CONFIG_PATH = BASE_DIR / "config.yaml"
 LOGS_DIR = BASE_DIR / "logs"
 
 # Initialize services
-logger = get_logger()
+# Note: logger already initialized above for error handlers
 config_manager = ConfigManager(CONFIG_PATH)
 data_parser = DataParser(LOGS_DIR)
 analytics = AnalyticsService(data_parser)
