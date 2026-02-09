@@ -221,7 +221,7 @@ def get_overview():
         )
     except Exception as e:
         # Log error and return defaults - frontend can still render
-        logger.error(f"Error getting overview: {str(e)}", exc_info=True)
+        logger.error(f"Error getting overview: {str(e)}")
         return jsonify(
             {**DEFAULT_OVERVIEW_STATS, "message": f"Error loading data: {str(e)}"}
         )
@@ -1189,59 +1189,84 @@ def verify_data_quality():
 @app.route("/api/recent_activity")
 def get_recent_activity():
     """
-    Get recent activity feed (trades, opportunities, events)
+    Get recent activity feed (trades, opportunities, events, errors)
 
-    Returns last 20 activities sorted by timestamp
+    Returns last 100 activities from activity.json sorted by timestamp
+    This includes:
+    - Opportunities found (even if skipped)
+    - Trades executed
+    - Position exits
+    - Bot start/stop events
+    - Errors
     """
     try:
         activities = []
+        activity_log_path = LOGS_DIR / "activity.json"
 
-        # Get recent trades
-        trades = data_parser.get_all_trades()
-        if trades:
-            # Get last 10 trades
-            recent_trades = sorted(trades, key=lambda x: x["entry_time"], reverse=True)[
-                :10
-            ]
+        # Read from activity.json if it exists
+        if activity_log_path.exists():
+            try:
+                with open(activity_log_path, "r") as f:
+                    activities = json.load(f)
+                    if not isinstance(activities, list):
+                        activities = []
+            except json.JSONDecodeError:
+                logger.warning("activity.json is malformed, returning empty list")
+                activities = []
 
-            for trade in recent_trades:
-                activities.append(
-                    {
-                        "type": "trade",
-                        "message": f"{trade['strategy']}: {trade['symbol']} - ${trade['pnl_usd']:.2f}",
-                        "profit": trade["pnl_usd"],
-                        "timestamp": trade["entry_time"],
-                        "details": trade,
-                    }
-                )
+        # If no activity.json, fall back to old behavior (trades + opportunities CSV)
+        if not activities:
+            # Get recent trades
+            trades = data_parser.get_all_trades()
+            if trades:
+                # Get last 10 trades
+                recent_trades = sorted(
+                    trades, key=lambda x: x["entry_time"], reverse=True
+                )[:10]
 
-        # Get recent opportunities
-        opportunities = data_parser.get_all_opportunities()
-        if opportunities:
-            # Get last 10 opportunities
-            recent_opps = sorted(
-                opportunities, key=lambda x: x["timestamp"], reverse=True
-            )[:10]
+                for trade in recent_trades:
+                    activities.append(
+                        {
+                            "type": "trade_executed",
+                            "strategy": trade.get("strategy", "unknown"),
+                            "message": f"{trade['strategy']}: {trade['symbol']} - ${trade['pnl_usd']:.2f}",
+                            "profit": trade["pnl_usd"],
+                            "timestamp": trade["entry_time"],
+                            "details": trade,
+                        }
+                    )
 
-            for opp in recent_opps:
-                activities.append(
-                    {
-                        "type": "opportunity",
-                        "message": f"{opp['strategy']}: {opp['symbol']} - Confidence: {opp['confidence']:.0%}",
-                        "profit": None,
-                        "timestamp": opp["timestamp"],
-                        "details": opp,
-                    }
-                )
+            # Get recent opportunities
+            opportunities = data_parser.get_all_opportunities()
+            if opportunities:
+                # Get last 10 opportunities
+                recent_opps = sorted(
+                    opportunities, key=lambda x: x["timestamp"], reverse=True
+                )[:10]
+
+                for opp in recent_opps:
+                    activities.append(
+                        {
+                            "type": "opportunity_found",
+                            "strategy": opp.get("strategy", "unknown"),
+                            "message": f"{opp['strategy']}: {opp['symbol']} - Confidence: {opp['confidence']:.0%}",
+                            "profit": None,
+                            "timestamp": opp["timestamp"],
+                            "action": (
+                                "executing" if opp.get("action_taken") else "skipped"
+                            ),  # Use 'executing' to match new format
+                            "details": opp,
+                        }
+                    )
 
         # Sort all activities by timestamp (newest first)
-        activities.sort(key=lambda x: x["timestamp"], reverse=True)
+        activities.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
-        # Return last 20
-        return jsonify(activities[:20])
+        # Return last 100
+        return jsonify(activities[:100])
     except Exception as e:
         logger.error(f"Error getting recent activity: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify([])
 
 
 # ============================================================================

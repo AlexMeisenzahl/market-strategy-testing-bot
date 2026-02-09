@@ -1113,40 +1113,114 @@ function createActivityElement(activity) {
     const div = document.createElement('div');
     div.className = 'p-3 rounded-lg cursor-pointer hover:bg-gray-800 transition';
     
-    // Color coding
+    // Color coding and icons for different activity types
     let bgColor = 'bg-gray-800';
     let textColor = 'text-gray-300';
     let icon = 'fa-circle';
+    let typeLabel = '';
+    let actionText = '';
     
-    if (activity.type === 'trade') {
-        if (activity.profit > 0) {
+    // Handle different activity types with visual distinction
+    switch(activity.type) {
+        case 'trade_executed':
+        case 'trade':
+            typeLabel = '⚡ Trade Executed';
+            if (activity.profit > 0) {
+                bgColor = 'bg-green-900/20';
+                textColor = 'text-green-400';
+                icon = 'fa-check-circle';
+            } else if (activity.profit < 0) {
+                bgColor = 'bg-red-900/20';
+                textColor = 'text-red-400';
+                icon = 'fa-times-circle';
+            } else {
+                bgColor = 'bg-blue-900/20';
+                textColor = 'text-blue-400';
+                icon = 'fa-equals';
+            }
+            break;
+            
+        case 'opportunity_found':
+        case 'opportunity':
+            // Distinguish between executed and skipped opportunities
+            if (activity.action === 'skipped') {
+                typeLabel = '🔍 Opportunity Found (Skipped)';
+                bgColor = 'bg-yellow-900/20';
+                textColor = 'text-yellow-400';
+                icon = 'fa-exclamation-circle';
+                actionText = activity.reason ? `Reason: ${activity.reason}` : '';
+            } else if (activity.action === 'executing') {
+                typeLabel = '🔍 Opportunity Found (Executing)';
+                bgColor = 'bg-purple-900/20';
+                textColor = 'text-purple-400';
+                icon = 'fa-bolt';
+                actionText = activity.reason ? `${activity.reason}` : '';
+            } else {
+                typeLabel = '🔍 Opportunity Found';
+                bgColor = 'bg-yellow-900/20';
+                textColor = 'text-yellow-400';
+                icon = 'fa-lightbulb';
+            }
+            break;
+            
+        case 'position_closed':
+            typeLabel = '📊 Position Closed';
+            bgColor = 'bg-blue-900/20';
+            textColor = 'text-blue-400';
+            icon = 'fa-door-closed';
+            break;
+            
+        case 'bot_started':
+            typeLabel = '🚀 Bot Started';
             bgColor = 'bg-green-900/20';
             textColor = 'text-green-400';
-            icon = 'fa-arrow-up';
-        } else if (activity.profit < 0) {
+            icon = 'fa-play-circle';
+            break;
+            
+        case 'bot_stopped':
+            typeLabel = '🛑 Bot Stopped';
             bgColor = 'bg-red-900/20';
             textColor = 'text-red-400';
-            icon = 'fa-arrow-down';
-        }
-    } else if (activity.type === 'opportunity') {
-        bgColor = 'bg-yellow-900/20';
-        textColor = 'text-yellow-400';
-        icon = 'fa-lightbulb';
-    } else if (activity.type === 'error') {
-        bgColor = 'bg-orange-900/20';
-        textColor = 'text-orange-400';
-        icon = 'fa-exclamation-triangle';
+            icon = 'fa-stop-circle';
+            break;
+            
+        case 'error':
+            typeLabel = '❌ Error';
+            bgColor = 'bg-red-900/20';
+            textColor = 'text-red-400';
+            icon = 'fa-exclamation-triangle';
+            break;
+            
+        default:
+            typeLabel = '📌 Event';
+            bgColor = 'bg-gray-800';
+            textColor = 'text-gray-300';
+            icon = 'fa-circle';
     }
     
     // Format timestamp
     const time = new Date(activity.timestamp).toLocaleTimeString();
+    
+    // Build message from activity data
+    let message = activity.message || '';
+    if (!message && activity.type === 'opportunity_found') {
+        const strategy = activity.strategy || 'unknown';
+        const marketName = activity.market_name || activity.market_id || 'Unknown Market';
+        const profitMargin = activity.profit_margin != null ? activity.profit_margin.toFixed(2) : '0.00';
+        message = `${strategy}: ${marketName} - ${profitMargin}% profit margin`;
+    }
     
     div.className = `p-3 rounded-lg cursor-pointer hover:bg-gray-700 transition ${bgColor}`;
     div.innerHTML = `
         <div class="flex items-start">
             <i class="fas ${icon} ${textColor} mt-1 mr-3"></i>
             <div class="flex-1">
-                <p class="text-sm ${textColor}">${activity.message}</p>
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-semibold ${textColor}">${typeLabel}</span>
+                    ${activity.strategy ? `<span class="text-xs text-gray-500">${activity.strategy}</span>` : ''}
+                </div>
+                <p class="text-sm ${textColor}">${message}</p>
+                ${actionText ? `<p class="text-xs text-gray-400 mt-1">${actionText}</p>` : ''}
                 <p class="text-xs text-gray-500 mt-1">${time}</p>
             </div>
         </div>
