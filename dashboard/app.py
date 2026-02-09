@@ -247,7 +247,6 @@ def handle_exception(error):
 
 
 @app.route("/health")
-@app.route("/api/health")
 def health_check():
     """
     Comprehensive health check endpoint.
