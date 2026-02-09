@@ -800,9 +800,9 @@ def export_trades():
         output.seek(0)
         response = make_response(output.getvalue())
         response.headers["Content-Type"] = "text/csv"
-        response.headers["Content-Disposition"] = (
-            f'attachment; filename=trades_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-        )
+        response.headers[
+            "Content-Disposition"
+        ] = f'attachment; filename=trades_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
 
         return response
     except Exception as e:
@@ -2349,13 +2349,14 @@ if __name__ == "__main__":
         # Debug mode is disabled by default for security
         # Set FLASK_DEBUG=true environment variable to enable it
         app.run(host="0.0.0.0", port=5000, debug=debug_mode, use_reloader=debug_mode)
-        
+
     except KeyboardInterrupt:
         print("\n\n🛑 Dashboard stopped by user (Ctrl+C)")
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ Failed to start dashboard: {str(e)}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

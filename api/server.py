@@ -181,7 +181,7 @@ def run_server(bot, config):
     import uvicorn
 
     logger = get_logger()
-    
+
     try:
         # Set global bot instance
         set_bot_instance(bot, config)
@@ -204,6 +204,7 @@ def run_server(bot, config):
     except Exception as e:
         logger.log_error(f"Failed to start API server: {str(e)}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -212,11 +213,11 @@ if __name__ == "__main__":
     # For development/testing
     from config.config_loader import get_config
     import traceback
-    
+
     try:
         logger = get_logger()
         logger.log_info("Starting API server in standalone mode...")
-        
+
         config_loader = get_config()
         config = config_loader.get_all()
         run_server(None, config)

@@ -213,9 +213,7 @@ class BotRunner:
         # Initialize Crypto Client (CoinGecko or Mock)
         crypto_client = None
         if config_manager.has_crypto_api():
-            self.logger.log_warning(
-                "🔗 Crypto API configured, attempting connection..."
-            )
+            self.logger.log_warning("🔗 Crypto API configured, attempting connection...")
             creds = config_manager.get_api_credentials("crypto")
             try:
                 provider = creds.get("provider", "coingecko")
@@ -692,11 +690,11 @@ def main():
         logger.log_info("=" * 60)
         logger.log_info("🤖 Market Strategy Testing Bot - Starting")
         logger.log_info("=" * 60)
-        
+
         # Initialize and run the bot
         bot = BotRunner()
         bot.run()
-        
+
     except FileNotFoundError as e:
         error_msg = f"❌ Configuration file not found: {str(e)}"
         if logger:
@@ -707,7 +705,7 @@ def main():
         print("   You can copy config.example.yaml to config.yaml to get started")
         traceback.print_exc()
         sys.exit(1)
-        
+
     except ImportError as e:
         error_msg = f"❌ Missing dependency: {str(e)}"
         if logger:
@@ -717,7 +715,7 @@ def main():
         print("\n💡 Tip: Install dependencies with: pip install -r requirements.txt")
         traceback.print_exc()
         sys.exit(1)
-        
+
     except KeyError as e:
         error_msg = f"❌ Configuration error - missing key: {str(e)}"
         if logger:
@@ -728,7 +726,7 @@ def main():
         print("   Compare with config.example.yaml for reference")
         traceback.print_exc()
         sys.exit(1)
-        
+
     except KeyboardInterrupt:
         msg = "\n\n🛑 Bot stopped by user (Ctrl+C)"
         if logger:
@@ -736,7 +734,7 @@ def main():
         else:
             print(msg)
         sys.exit(0)
-        
+
     except Exception as e:
         error_msg = f"❌ Fatal error: {str(e)}"
         if logger:
