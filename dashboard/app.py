@@ -200,7 +200,7 @@ def offline():
 def get_overview():
     """
     Get overview dashboard summary statistics
-    
+
     Note: Always returns 200 status even when no data exists or errors occur.
     This is intentional - the frontend can still render with default values.
     An empty dashboard with zeros is a valid state, not an error condition.
@@ -208,25 +208,23 @@ def get_overview():
     try:
         # Attempt to get stats from analytics service
         stats = analytics.get_overview_stats()
-        
+
         # Merge with defaults to ensure no missing keys
         final_stats = {**DEFAULT_OVERVIEW_STATS, **stats}
-        
+
         return jsonify(final_stats)
     except FileNotFoundError as e:
         # No data files exist yet - return defaults with message
         logger.warning(f"No trade data found: {str(e)}")
-        return jsonify({
-            **DEFAULT_OVERVIEW_STATS,
-            "message": "No trading data available yet"
-        })
+        return jsonify(
+            {**DEFAULT_OVERVIEW_STATS, "message": "No trading data available yet"}
+        )
     except Exception as e:
         # Log error and return defaults - frontend can still render
         logger.error(f"Error getting overview: {str(e)}", exc_info=True)
-        return jsonify({
-            **DEFAULT_OVERVIEW_STATS,
-            "message": f"Error loading data: {str(e)}"
-        })
+        return jsonify(
+            {**DEFAULT_OVERVIEW_STATS, "message": f"Error loading data: {str(e)}"}
+        )
 
 
 @app.route("/api/trades")
@@ -358,13 +356,22 @@ def handle_notification_settings():
     if request.method == "GET":
         try:
             settings = config_manager.get_all_settings()
-            notifications = settings.get("notifications", {
-                "discord": {"enabled": False, "webhook_url": ""},
-                "slack": {"enabled": False, "webhook_url": ""},
-                "email": {"enabled": False, "smtp_server": "", "smtp_port": 587, "email_from": "", "email_to": ""},
-                "telegram": {"enabled": False, "bot_token": "", "chat_id": ""},
-                "webhook": {"enabled": False, "url": ""}
-            })
+            notifications = settings.get(
+                "notifications",
+                {
+                    "discord": {"enabled": False, "webhook_url": ""},
+                    "slack": {"enabled": False, "webhook_url": ""},
+                    "email": {
+                        "enabled": False,
+                        "smtp_server": "",
+                        "smtp_port": 587,
+                        "email_from": "",
+                        "email_to": "",
+                    },
+                    "telegram": {"enabled": False, "bot_token": "", "chat_id": ""},
+                    "webhook": {"enabled": False, "url": ""},
+                },
+            )
             return jsonify(notifications)
         except Exception as e:
             logger.error(f"Error getting notification settings: {str(e)}")
@@ -373,7 +380,9 @@ def handle_notification_settings():
         try:
             data = request.json
             config_manager.update_notification_settings(data)
-            return jsonify({"success": True, "message": "Notification settings updated"})
+            return jsonify(
+                {"success": True, "message": "Notification settings updated"}
+            )
         except Exception as e:
             logger.error(f"Error updating notification settings: {str(e)}")
             return jsonify({"error": str(e)}), 500
@@ -1074,7 +1083,7 @@ def get_strategy_breakdown():
 def verify_data_quality():
     """
     Run comprehensive data quality checks
-    
+
     Note: Always returns 200 status. The 'status' field in the response
     indicates data health ('healthy', 'warning', 'error'). Returning 200
     allows the frontend to display partial results even when issues exist.
@@ -1150,21 +1159,31 @@ def verify_data_quality():
     except FileNotFoundError as e:
         # No data files - return warning status
         logger.warning(f"Data files not found: {str(e)}")
-        return jsonify({
-            "status": "warning",
-            "checks": {},
-            "issues": ["No trading data files found yet"],
-            "message": "Bot hasn't generated any trades yet"
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "warning",
+                    "checks": {},
+                    "issues": ["No trading data files found yet"],
+                    "message": "Bot hasn't generated any trades yet",
+                }
+            ),
+            200,
+        )
     except Exception as e:
         # Return safe error response instead of 500
         logger.error(f"Error verifying data quality: {str(e)}", exc_info=True)
-        return jsonify({
-            "status": "error",
-            "checks": {},
-            "issues": [f"Verification failed: {str(e)}"],
-            "message": "Could not verify data quality"
-        }), 200  # Return 200 instead of 500
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "checks": {},
+                    "issues": [f"Verification failed: {str(e)}"],
+                    "message": "Could not verify data quality",
+                }
+            ),
+            200,
+        )  # Return 200 instead of 500
 
 
 @app.route("/api/recent_activity")
