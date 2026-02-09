@@ -1,6 +1,6 @@
 # Trading Strategies Module
 
-This directory contains 4 production-quality trading strategies for the arbitrage bot.
+This directory contains 7 production-quality trading strategies for the arbitrage bot.
 
 ## Available Strategies
 
@@ -81,6 +81,69 @@ Finds correlated markets that diverge, bets on convergence.
 - Profit target hit (+20%)
 - Stop loss triggered (-20%)
 - Correlation breakdown (< 0.5)
+
+---
+
+### 5. MeanReversionStrategy (`mean_reversion_strategy.py`)
+**Type:** Mean Reversion  
+**Risk Level:** Medium  
+**Expected Return:** 8-15% per trade  
+
+Trades when prices deviate significantly from their moving average, expecting reversion to the mean.
+
+**Entry Criteria:**
+- Price deviation from MA >10%
+- Z-score >2.0 (statistical significance)
+- Sufficient historical data (20+ periods)
+- Clear direction (long/short)
+
+**Exit Criteria:**
+- Price reverted to MA (within 2%)
+- Profit target hit (+10%)
+- Stop loss triggered (-5%)
+- Max hold time (1 hour)
+
+---
+
+### 6. VolatilityBreakoutStrategy (`volatility_breakout_strategy.py`)
+**Type:** Breakout / Trend Following  
+**Risk Level:** Medium  
+**Expected Return:** 12-20% per trade  
+
+Detects when price breaks out from a low-volatility consolidation period into expansion.
+
+**Entry Criteria:**
+- Price breaks Bollinger Bands (>1% beyond)
+- Breakout from low/normal volatility state
+- Clear directional breakout (bullish/bearish)
+- ATR confirms volatility expansion
+
+**Exit Criteria:**
+- Price reverts to middle band
+- Profit target hit (+15%)
+- Stop loss triggered (-7%)
+- Max hold time (30 minutes)
+
+---
+
+### 7. PairsTradingStrategy (`pairs_trading_strategy.py`)
+**Type:** Pairs Trading (Simplified)  
+**Risk Level:** Medium  
+**Expected Return:** 10-18% per trade  
+
+Simplified pairs trading that identifies correlated prediction markets and trades divergence/convergence.
+
+**Entry Criteria:**
+- Markets are related (name similarity)
+- Correlation >0.7
+- Spread z-score >2.0
+- Clear trade direction
+
+**Exit Criteria:**
+- Spread converged (z-score < 0.5)
+- Profit target hit (50% spread reduction)
+- Correlation breakdown (< 0.5)
+- Max hold time (1 hour)
 
 ---
 
