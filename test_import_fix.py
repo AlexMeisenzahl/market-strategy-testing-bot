@@ -20,6 +20,7 @@ def test_dashboard_app_import():
     """Test that dashboard.app can be imported"""
     try:
         from dashboard.app import app
+
         print("✅ dashboard.app imported successfully")
         return True
     except ModuleNotFoundError as e:
@@ -35,7 +36,7 @@ def test_service_imports():
         ("services.time_analytics", "TimeAnalytics"),
         ("services.risk_metrics", "RiskMetrics"),
     ]
-    
+
     all_passed = True
     for module_name, class_name in services:
         try:
@@ -45,7 +46,7 @@ def test_service_imports():
         except Exception as e:
             print(f"❌ Failed to import {module_name}.{class_name}: {e}")
             all_passed = False
-    
+
     return all_passed
 
 
@@ -56,7 +57,7 @@ def test_route_imports():
         "dashboard.routes.emergency",
         "dashboard.routes.leaderboard",
     ]
-    
+
     all_passed = True
     for route in routes:
         try:
@@ -65,7 +66,7 @@ def test_route_imports():
         except Exception as e:
             print(f"❌ Failed to import {route}: {e}")
             all_passed = False
-    
+
     return all_passed
 
 
@@ -75,22 +76,22 @@ def main():
     print("Testing Import Fixes")
     print("=" * 70)
     print()
-    
+
     print("Test 1: Dashboard App Import")
     print("-" * 70)
     test1 = test_dashboard_app_import()
     print()
-    
+
     print("Test 2: Service Imports")
     print("-" * 70)
     test2 = test_service_imports()
     print()
-    
+
     print("Test 3: Route Imports")
     print("-" * 70)
     test3 = test_route_imports()
     print()
-    
+
     print("=" * 70)
     if test1 and test2 and test3:
         print("✅ All import tests passed!")

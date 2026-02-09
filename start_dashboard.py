@@ -112,12 +112,14 @@ def start_dashboard():
     try:
         # Import and run dashboard
         from dashboard.app import app
-        app.run(host='0.0.0.0', port=5000, debug=False)
+
+        app.run(host="0.0.0.0", port=5000, debug=False)
     except KeyboardInterrupt:
         print("\n\n👋 Dashboard stopped by user")
     except Exception as e:
         print(f"\n❌ Error starting dashboard: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
