@@ -88,7 +88,7 @@ class RealtimeServer:
         """Register WebSocket event handlers"""
 
         @self.socketio.on("connect")
-        def handle_connect():
+        def handle_connect(auth=None):
             """Handle client connection"""
             client_id = self._get_client_id()
 
@@ -113,10 +113,10 @@ class RealtimeServer:
             )
 
             if self.logger:
-                self.logger.log_event(f"WebSocket client connected: {client_id}")
+                self.logger.info(f"WebSocket client connected: {client_id}")
 
         @self.socketio.on("disconnect")
-        def handle_disconnect():
+        def handle_disconnect(auth=None):
             """Handle client disconnection"""
             client_id = self._get_client_id()
 
@@ -125,7 +125,7 @@ class RealtimeServer:
                     del self.active_connections[client_id]
 
             if self.logger:
-                self.logger.log_event(f"WebSocket client disconnected: {client_id}")
+                self.logger.info(f"WebSocket client disconnected: {client_id}")
 
         @self.socketio.on("subscribe")
         def handle_subscribe(data):
@@ -364,7 +364,7 @@ class RealtimeServer:
             debug: Enable debug mode
         """
         if self.logger:
-            self.logger.log_event(f"Starting WebSocket server on {host}:{port}")
+            self.logger.info(f"Starting WebSocket server on {host}:{port}")
 
         self.socketio.run(
             self.app,
