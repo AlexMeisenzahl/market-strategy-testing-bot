@@ -66,6 +66,29 @@ data_parser = DataParser(LOGS_DIR)
 analytics = AnalyticsService(data_parser)
 chart_data = ChartDataService(data_parser)
 
+# Default statistics for error handling
+DEFAULT_OVERVIEW_STATS = {
+    "total_pnl": 0,
+    "pnl_change_pct": 0,
+    "win_rate": 0,
+    "active_trades": 0,
+    "today_opportunities": 0,
+    "total_trades": 0,
+    "profit_factor": 0,
+    "avg_trade_duration": 0,
+    "best_strategy": "N/A",
+    "gross_profit": 0,
+    "gross_loss": 0,
+    "largest_win": 0,
+    "largest_loss": 0,
+    "avg_win": 0,
+    "avg_loss": 0,
+    "win_loss_ratio": 0,
+    "sharpe_ratio": 0,
+    "max_drawdown": 0,
+    "max_drawdown_pct": 0,
+}
+
 # Initialize WebSocket server for real-time updates
 try:
     realtime_server = init_realtime_server(app, logger)
@@ -175,88 +198,35 @@ def offline():
 
 @app.route("/api/overview")
 def get_overview():
-    """Get overview dashboard summary statistics"""
+    """
+    Get overview dashboard summary statistics
+    
+    Note: Always returns 200 status even when no data exists or errors occur.
+    This is intentional - the frontend can still render with default values.
+    An empty dashboard with zeros is a valid state, not an error condition.
+    """
     try:
         # Attempt to get stats from analytics service
         stats = analytics.get_overview_stats()
         
-        # Ensure all required fields exist with defaults
-        default_stats = {
-            "total_pnl": 0,
-            "pnl_change_pct": 0,
-            "win_rate": 0,
-            "active_trades": 0,
-            "today_opportunities": 0,
-            "total_trades": 0,
-            "profit_factor": 0,
-            "avg_trade_duration": 0,
-            "best_strategy": "N/A",
-            "gross_profit": 0,
-            "gross_loss": 0,
-            "largest_win": 0,
-            "largest_loss": 0,
-            "avg_win": 0,
-            "avg_loss": 0,
-            "win_loss_ratio": 0,
-            "sharpe_ratio": 0,
-            "max_drawdown": 0,
-            "max_drawdown_pct": 0,
-        }
-        
         # Merge with defaults to ensure no missing keys
-        final_stats = {**default_stats, **stats}
+        final_stats = {**DEFAULT_OVERVIEW_STATS, **stats}
         
         return jsonify(final_stats)
     except FileNotFoundError as e:
-        # No data files exist yet - return defaults
+        # No data files exist yet - return defaults with message
         logger.warning(f"No trade data found: {str(e)}")
         return jsonify({
-            "total_pnl": 0,
-            "pnl_change_pct": 0,
-            "win_rate": 0,
-            "active_trades": 0,
-            "today_opportunities": 0,
-            "total_trades": 0,
-            "profit_factor": 0,
-            "avg_trade_duration": 0,
-            "best_strategy": "N/A",
-            "gross_profit": 0,
-            "gross_loss": 0,
-            "largest_win": 0,
-            "largest_loss": 0,
-            "avg_win": 0,
-            "avg_loss": 0,
-            "win_loss_ratio": 0,
-            "sharpe_ratio": 0,
-            "max_drawdown": 0,
-            "max_drawdown_pct": 0,
+            **DEFAULT_OVERVIEW_STATS,
             "message": "No trading data available yet"
         })
     except Exception as e:
-        # Log error but return safe defaults instead of 500
+        # Log error and return defaults - frontend can still render
         logger.error(f"Error getting overview: {str(e)}", exc_info=True)
         return jsonify({
-            "total_pnl": 0,
-            "pnl_change_pct": 0,
-            "win_rate": 0,
-            "active_trades": 0,
-            "today_opportunities": 0,
-            "total_trades": 0,
-            "profit_factor": 0,
-            "avg_trade_duration": 0,
-            "best_strategy": "N/A",
-            "gross_profit": 0,
-            "gross_loss": 0,
-            "largest_win": 0,
-            "largest_loss": 0,
-            "avg_win": 0,
-            "avg_loss": 0,
-            "win_loss_ratio": 0,
-            "sharpe_ratio": 0,
-            "max_drawdown": 0,
-            "max_drawdown_pct": 0,
-            "error": str(e)
-        }), 200  # Return 200 with error message instead of 500
+            **DEFAULT_OVERVIEW_STATS,
+            "message": f"Error loading data: {str(e)}"
+        })
 
 
 @app.route("/api/trades")
@@ -1104,6 +1074,10 @@ def get_strategy_breakdown():
 def verify_data_quality():
     """
     Run comprehensive data quality checks
+    
+    Note: Always returns 200 status. The 'status' field in the response
+    indicates data health ('healthy', 'warning', 'error'). Returning 200
+    allows the frontend to display partial results even when issues exist.
 
     Returns health status, issues, and check results
     """
