@@ -54,9 +54,9 @@ class ExecutionEngine:
 
     def execute_trade(self, signal: Any) -> Dict[str, Any]:
         """
-        Execute a single trade from a signal.
-
-        signal: TradeSignal, or dict with symbol, side, quantity, order_type, price.
+        Execute a single trade from a signal (buy or sell).
+        Buy and sell signals use the same path: place_order -> execute_order.
+        Sell signals reduce/close positions, update realized PnL, append to trade history.
         """
         if isinstance(signal, TradeSignal):
             symbol = signal.symbol

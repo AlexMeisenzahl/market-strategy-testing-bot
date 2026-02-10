@@ -131,8 +131,9 @@ class BotRunner:
             retry_attempts=self.config.get("api_retry_attempts", 3),
         )
 
-        # Initialize data flow manager for dashboard updates
+        # Initialize data flow manager (read-only consumer; reads from engine when set)
         self.data_flow_manager = DataFlowManager(self.config)
+        self.data_flow_manager.set_execution_engine(self.execution_engine)
 
         # Initialize data clients (market and crypto data)
         self.market_client, self.crypto_client = self._initialize_data_clients()
@@ -666,35 +667,8 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
                     }
                 )
 
-        # Process signals through data flow manager for dashboard updates
-        for strategy_name, opportunities in all_opportunities.items():
-            for opp in opportunities:
-                # Convert opportunity to signal format
-                opp_dict = opp.to_dict() if hasattr(opp, "to_dict") else {}
-
-                # Only process opportunities that meet threshold
-                profit_margin = (
-                    opp.profit_margin if hasattr(opp, "profit_margin") else 0
-                )
-                min_margin = self.config.get("min_profit_margin", 0.02) * 100
-
-                if profit_margin >= min_margin:
-                    signal = {
-                        "action": opp_dict.get(
-                            "action", "BUY"
-                        ),  # Get action from opportunity, default to BUY
-                        "symbol": opp_dict.get(
-                            "market_id", opp_dict.get("market_name", "")
-                        ),
-                        "market_id": opp_dict.get("market_id", ""),
-                        "price": opp_dict.get("yes_price", 0.5),
-                        "quantity": 1,  # Default quantity
-                        "confidence": profit_margin,
-                        "strategy": strategy_name,
-                    }
-
-                    # Process signal through data flow manager
-                    self.data_flow_manager.process_signal(strategy_name, signal)
+        # Execution is done only via strategy_manager -> execution_engine above.
+        # Dashboard/state updates can consume from execution_engine (read-only).
 
     def _check_alerts(
         self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
@@ -707,17 +681,27 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
             prices_dict: Dictionary of prices by market_id
         """
         try:
-            # Prepare alert data with prices and portfolio metrics
-            portfolio_value = (
-                self.paper_trader.get_total_value()
-                if hasattr(self.paper_trader, "get_total_value")
-                else 10000
-            )
+            # Prepare alert data with prices and portfolio metrics from execution engine
+            current_prices = {
+                market_id: price_data.get("yes", 0.5)
+                for market_id, price_data in prices_dict.items()
+            }
+            positions = self.execution_engine.get_positions(current_prices)
+            position_value = sum(p.get("current_value", 0) for p in positions)
+            portfolio_value = self.execution_engine.get_balance() + position_value
+            if portfolio_value <= 0:
+                portfolio_value = self.execution_engine.trading_engine.initial_balance
 
-            # Calculate daily P&L percentage from paper trader if available
-            daily_pnl_percent = 0.0
-            if hasattr(self.paper_trader, "get_daily_pnl_percent"):
-                daily_pnl_percent = self.paper_trader.get_daily_pnl_percent()
+            # Daily P&L % from engine trade history (today's realized PnL)
+            today_prefix = datetime.now(timezone.utc).date().isoformat()
+            daily_pnl = sum(
+                t.get("realized_pnl", 0)
+                for t in self.execution_engine.get_trade_history()
+                if (t.get("timestamp") or "").startswith(today_prefix)
+            )
+            daily_pnl_percent = (
+                (daily_pnl / portfolio_value * 100) if portfolio_value else 0.0
+            )
 
             alert_data = {
                 "portfolio_value": portfolio_value,

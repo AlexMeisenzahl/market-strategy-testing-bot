@@ -334,8 +334,25 @@ class PaperTradingEngine:
                     "available": self.cash_balance,
                 }
 
+        # For sell: cap quantity to current position (close/reduce only, no shorting)
+        fill_quantity = order.quantity
+        if order.side == OrderSide.SELL:
+            pos = self.positions.get(order.symbol)
+            available = pos.quantity if pos and pos.quantity > 0 else 0
+            if available <= 0:
+                return {
+                    "success": False,
+                    "error": "No position to close",
+                    "symbol": order.symbol,
+                }
+            fill_quantity = min(order.quantity, available)
+            trade_value = fill_quantity * execution_price
+            commission = trade_value * self.commission_rate
+        else:
+            fill_quantity = order.quantity
+
         # Execute the trade
-        order.filled_quantity = order.quantity
+        order.filled_quantity = fill_quantity
         order.avg_fill_price = execution_price
         order.commission = commission
         order.status = OrderStatus.FILLED
@@ -347,9 +364,9 @@ class PaperTradingEngine:
         else:
             self.cash_balance += trade_value - commission
 
-        # Update position
+        # Update position (reduce/close for sell, add for buy)
         quantity_change = (
-            order.quantity if order.side == OrderSide.BUY else -order.quantity
+            fill_quantity if order.side == OrderSide.BUY else -fill_quantity
         )
         realized_pnl = self._update_position(
             order.symbol, quantity_change, execution_price
@@ -373,7 +390,7 @@ class PaperTradingEngine:
             "order_id": order_id,
             "symbol": order.symbol,
             "side": order.side.value,
-            "quantity": order.quantity,
+            "quantity": fill_quantity,
             "price": execution_price,
             "commission": commission,
             "realized_pnl": realized_pnl,
