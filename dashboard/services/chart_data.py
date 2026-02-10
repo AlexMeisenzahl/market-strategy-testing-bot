@@ -55,11 +55,11 @@ class ChartDataService:
 
         # Filter trades by date range
         filtered_trades = [
-            t for t in trades if datetime.fromisoformat(t["entry_time"]) >= start_date
+            t for t in trades if datetime.fromisoformat(t["timestamp"]) >= start_date
         ]
 
         # Sort by entry time
-        filtered_trades.sort(key=lambda x: x["entry_time"])
+        filtered_trades.sort(key=lambda x: x["timestamp"])
 
         # Use data_parser's Decimal-based cumulative calculation
         chart_data = self.data_parser.prepare_cumulative_pnl_chart_data(filtered_trades)
@@ -78,7 +78,7 @@ class ChartDataService:
             trades_on_date = [
                 t
                 for t in filtered_trades
-                if datetime.fromisoformat(t["entry_time"]).date() == date_obj
+                if datetime.fromisoformat(t["timestamp"]).date() == date_obj
             ]
 
             # Use last trade of the day for display
@@ -86,7 +86,7 @@ class ChartDataService:
                 last_trade = trades_on_date[-1]
                 data_points.append(
                     {
-                        "timestamp": last_trade["exit_time"],
+                        "timestamp": last_trade["timestamp"],
                         "value": round(value, 2),
                         "trade_id": last_trade["id"],
                         "symbol": last_trade["symbol"],
