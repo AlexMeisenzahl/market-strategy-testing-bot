@@ -40,14 +40,19 @@ function throttle(func, limit) {
 }
 
 /**
- * Format currency value
+ * Format currency value with commas
  * @param {number} value - Value to format
- * @param {boolean} showSign - Whether to show +/- sign
+ * @param {boolean} showSign - Whether to show +/- sign (default: false)
  * @returns {string} Formatted currency string
  */
-function formatCurrency(value, showSign = true) {
-    const sign = showSign && value >= 0 ? '+' : '';
-    return sign + '$' + value.toFixed(2);
+function formatCurrency(value, showSign = false) {
+    if (value === null || value === undefined) return '$0.00';
+    const formatted = Math.abs(value).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    const sign = value < 0 ? '-' : (showSign && value >= 0 ? '+' : '');
+    return sign + '$' + formatted;
 }
 
 /**
@@ -57,8 +62,38 @@ function formatCurrency(value, showSign = true) {
  * @returns {string} Formatted percentage string
  */
 function formatPercentage(value, showSign = true) {
+    if (value === null || value === undefined) return '0.0%';
     const sign = showSign && value >= 0 ? '+' : '';
-    return sign + value.toFixed(2) + '%';
+    return sign + value.toFixed(1) + '%';
+}
+
+/**
+ * Format number as percentage with proper rounding
+ * @param {number} value - Value to format (e.g., 0.25 for 25%)
+ * @returns {string} Formatted percentage string
+ */
+function formatPercent(value) {
+    if (value === null || value === undefined) return '0.0%';
+    return `${(value * 100).toFixed(1)}%`;
+}
+
+/**
+ * Apply formatting to all currency and percentage elements
+ */
+function applyNumberFormatting() {
+    document.querySelectorAll('[data-format="currency"]').forEach(el => {
+        const value = parseFloat(el.textContent.replace(/[$,]/g, ''));
+        if (!isNaN(value)) {
+            el.textContent = formatCurrency(value);
+        }
+    });
+    
+    document.querySelectorAll('[data-format="percent"]').forEach(el => {
+        const value = parseFloat(el.textContent.replace('%', ''));
+        if (!isNaN(value)) {
+            el.textContent = formatPercentage(value, false);
+        }
+    });
 }
 
 /**
@@ -370,6 +405,8 @@ if (typeof module !== 'undefined' && module.exports) {
         throttle,
         formatCurrency,
         formatPercentage,
+        formatPercent,
+        applyNumberFormatting,
         formatDate,
         APIClient,
         destroyChart,

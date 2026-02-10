@@ -207,3 +207,64 @@ class ChartDataService:
             ],
             "total": total,
         }
+
+    def get_pnl_over_time(self) -> Dict[str, Any]:
+        """
+        Get P&L over time formatted for Chart.js
+
+        Returns:
+            Dictionary with labels and values for chart
+        """
+        trades = self.data_parser.get_all_trades()
+
+        if not trades:
+            return {"labels": [], "values": []}
+
+        # Filter trades that have valid timestamp and pnl
+        valid_trades = []
+        for trade in trades:
+            # Get timestamp from various possible keys
+            timestamp_val = (
+                trade.get("timestamp") or trade.get("entry_time") or trade.get("date")
+            )
+            if timestamp_val:
+                trade["_sort_timestamp"] = timestamp_val
+                valid_trades.append(trade)
+
+        if not valid_trades:
+            return {"labels": [], "values": []}
+
+        # Sort by timestamp
+        valid_trades.sort(key=lambda x: x["_sort_timestamp"])
+
+        # Calculate cumulative P&L
+        cumulative_pnl = Decimal(0)
+        labels = []
+        values = []
+
+        for trade in valid_trades:
+            cumulative_pnl += Decimal(str(trade.get("pnl_usd", 0)))
+
+            # Parse timestamp safely - handle both string and datetime objects
+            timestamp_val = trade["_sort_timestamp"]
+            if isinstance(timestamp_val, str):
+                try:
+                    timestamp = datetime.fromisoformat(
+                        timestamp_val.replace("Z", "+00:00")
+                    )
+                except (ValueError, AttributeError):
+                    # Skip trades with invalid timestamps
+                    continue
+            elif isinstance(timestamp_val, datetime):
+                timestamp = timestamp_val
+            else:
+                # Skip trades with unexpected timestamp formats
+                continue
+
+            # Format timestamp as date
+            date_label = timestamp.strftime("%Y-%m-%d")
+
+            labels.append(date_label)
+            values.append(float(cumulative_pnl))
+
+        return {"labels": labels, "values": values}

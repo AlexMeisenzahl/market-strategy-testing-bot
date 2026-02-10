@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#16213e">
+    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <title>Market Strategy Testing Bot - Dashboard</title>
     
     <!-- PWA Manifest -->
@@ -44,6 +45,7 @@
     
     <!-- New UX Feature CSS -->
     <link rel="stylesheet" href="/static/css/mobile.css">
+    <link rel="stylesheet" href="/static/css/mobile-dark.css">
     <link rel="stylesheet" href="/static/css/skeletons.css">
     
     <!-- Custom Tailwind Config -->
@@ -1189,6 +1191,7 @@
     
     <!-- Load utilities first, then realtime client, then dashboard -->
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chart-init.js') }}"></script>
     <script src="{{ url_for('static', filename='js/realtime_client.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script src="{{ url_for('static', filename='js/crypto_ticker.js') }}"></script>
