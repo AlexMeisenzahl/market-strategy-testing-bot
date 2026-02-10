@@ -125,5 +125,19 @@
             loadEntries();
         }
     </script>
+    
+    <!-- Socket.IO for WebSocket support -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- NEW: Load notification and loading libraries -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/loading.css') }}">
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    
+    <!-- Auto-refresh journal every 30 seconds -->
+    <script>
+        setInterval(function() {
+            loadEntries();
+        }, 30000);
+    </script>
 </body>
 </html>

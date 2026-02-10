@@ -1189,6 +1189,11 @@
     <!-- Socket.IO for WebSocket support -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     
+    <!-- NEW: Load notification and chart libraries -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/loading.css') }}">
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    
     <!-- Load utilities first, then realtime client, then dashboard -->
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chart-init.js') }}"></script>
@@ -1203,5 +1208,128 @@
     <script src="{{ url_for('static', filename='js/enhanced_charts.js') }}"></script>
     <script src="{{ url_for('static', filename='js/favorites.js') }}"></script>
     <script src="{{ url_for('static', filename='js/debug_panel.js') }}"></script>
+    
+    <!-- WebSocket Real-Time Updates -->
+    <script>
+        // Initialize WebSocket connection
+        const socket = io();
+        
+        socket.on('connect', function() {
+            console.log('WebSocket connected');
+        });
+        
+        socket.on('portfolio_update', function(data) {
+            console.log('Portfolio update received:', data);
+            updatePortfolioDisplay(data);
+        });
+        
+        socket.on('trades_update', function(data) {
+            console.log('Trades update received:', data);
+            updateTradesTable(data);
+        });
+        
+        socket.on('strategies_update', function(data) {
+            console.log('Strategies update received:', data);
+            updateStrategyCards(data);
+        });
+        
+        socket.on('alerts_update', function(data) {
+            console.log('Alerts update received:', data);
+            if (data && data.length > 0) {
+                data.forEach(alert => {
+                    showNotification(alert.message, alert.type || 'info');
+                });
+            }
+        });
+        
+        // Update functions
+        function updatePortfolioDisplay(data) {
+            if (!data) return;
+            
+            // Update portfolio values in the dashboard
+            if (data.total_value !== undefined) {
+                const el = document.getElementById('portfolio-value');
+                if (el) el.textContent = '$' + data.total_value.toLocaleString();
+            }
+            
+            if (data.total_return !== undefined) {
+                const el = document.getElementById('total-return');
+                if (el) {
+                    el.textContent = '$' + data.total_return.toLocaleString();
+                    el.className = data.total_return >= 0 ? 'text-profit' : 'text-loss';
+                }
+            }
+            
+            if (data.total_return_pct !== undefined) {
+                const el = document.getElementById('return-pct');
+                if (el) {
+                    el.textContent = data.total_return_pct.toFixed(2) + '%';
+                    el.className = data.total_return_pct >= 0 ? 'text-profit' : 'text-loss';
+                }
+            }
+        }
+        
+        function updateTradesTable(trades) {
+            if (!trades || trades.length === 0) return;
+            
+            const tableBody = document.getElementById('trades-table-body');
+            if (!tableBody) return;
+            
+            // Add new trades to the top of the table
+            trades.forEach(trade => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-dark-border hover:bg-gray-800';
+                row.innerHTML = `
+                    <td class="px-4 py-3">${new Date(trade.timestamp).toLocaleString()}</td>
+                    <td class="px-4 py-3">${trade.symbol}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 rounded ${trade.side === 'BUY' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}">${trade.side}</span></td>
+                    <td class="px-4 py-3">${trade.quantity}</td>
+                    <td class="px-4 py-3">$${trade.price.toFixed(2)}</td>
+                    <td class="px-4 py-3 ${trade.pnl >= 0 ? 'text-profit' : 'text-loss'}">$${trade.pnl.toFixed(2)}</td>
+                `;
+                tableBody.insertBefore(row, tableBody.firstChild);
+                
+                // Keep only last 20 rows
+                if (tableBody.children.length > 20) {
+                    tableBody.removeChild(tableBody.lastChild);
+                }
+            });
+        }
+        
+        function updateStrategyCards(strategies) {
+            if (!strategies) return;
+            
+            Object.keys(strategies).forEach(strategyName => {
+                const stats = strategies[strategyName];
+                const card = document.getElementById(`strategy-${strategyName}`);
+                
+                if (card) {
+                    const tradesEl = card.querySelector('.strategy-trades');
+                    const pnlEl = card.querySelector('.strategy-pnl');
+                    
+                    if (tradesEl) tradesEl.textContent = stats.trades;
+                    if (pnlEl) {
+                        pnlEl.textContent = '$' + stats.total_pnl.toFixed(2);
+                        pnlEl.className = 'strategy-pnl ' + (stats.total_pnl >= 0 ? 'text-profit' : 'text-loss');
+                    }
+                }
+            });
+        }
+        
+        // Auto-refresh dashboard every 30 seconds
+        setInterval(function() {
+            fetch('/api/dashboard/refresh')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.summary) {
+                        updatePortfolioDisplay(data.summary);
+                    }
+                    if (data.recent_trades) {
+                        updateTradesTable(data.recent_trades);
+                    }
+                })
+                .catch(error => console.error('Auto-refresh error:', error));
+        }, 30000);
+    </script>
 </body>
 </html>

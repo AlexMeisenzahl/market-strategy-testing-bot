@@ -33,6 +33,7 @@ from services.paper_trading_engine import PaperTradingEngine
 from polymarket_api import PolymarketAPI
 from services.secure_config_manager import SecureConfigManager
 from config.config_loader import get_config
+from services.data_flow_manager import DataFlowManager
 from clients import (
     PolymarketClient,
     CoinGeckoClient,
@@ -88,6 +89,9 @@ class BotRunner:
             timeout=self.config.get("api_timeout_seconds", 10),
             retry_attempts=self.config.get("api_retry_attempts", 3),
         )
+
+        # Initialize data flow manager for dashboard updates
+        self.data_flow_manager = DataFlowManager(self.config)
 
         # Initialize data clients (market and crypto data)
         self.market_client, self.crypto_client = self._initialize_data_clients()
@@ -551,6 +555,34 @@ class BotRunner:
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
                 )
+
+        # Process signals through data flow manager for dashboard updates
+        for strategy_name, opportunities in all_opportunities.items():
+            for opp in opportunities:
+                # Convert opportunity to signal format
+                opp_dict = opp.to_dict() if hasattr(opp, "to_dict") else {}
+
+                # Only process opportunities that meet threshold
+                profit_margin = (
+                    opp.profit_margin if hasattr(opp, "profit_margin") else 0
+                )
+                min_margin = self.config.get("min_profit_margin", 0.02) * 100
+
+                if profit_margin >= min_margin:
+                    signal = {
+                        "action": "BUY",  # Default action
+                        "symbol": opp_dict.get(
+                            "market_id", opp_dict.get("market_name", "")
+                        ),
+                        "market_id": opp_dict.get("market_id", ""),
+                        "price": opp_dict.get("yes_price", 0.5),
+                        "quantity": 1,  # Default quantity
+                        "confidence": profit_margin,
+                        "strategy": strategy_name,
+                    }
+
+                    # Process signal through data flow manager
+                    self.data_flow_manager.process_signal(strategy_name, signal)
 
     def run_cycle(self) -> None:
         """Run a single bot cycle"""

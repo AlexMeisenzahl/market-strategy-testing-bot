@@ -226,6 +226,28 @@
         </div>
     </div>
     
+    <!-- Socket.IO for WebSocket support -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- NEW: Load notification and chart libraries -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/loading.css') }}">
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    
     <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+    
+    <!-- Auto-refresh analytics every 30 seconds -->
+    <script>
+        setInterval(function() {
+            fetch('/api/analytics')
+                .then(r => r.json())
+                .then(data => {
+                    if (data && typeof updateAnalyticsData === 'function') {
+                        updateAnalyticsData(data);
+                    }
+                })
+                .catch(error => console.error('Analytics auto-refresh error:', error));
+        }, 30000);
+    </script>
 </body>
 </html>
