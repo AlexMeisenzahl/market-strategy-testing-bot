@@ -3776,64 +3776,6 @@ def import_settings():
 
 
 # ============================================================================
-# STRATEGY CONTROL API ENDPOINTS
-# ============================================================================
-
-
-@app.route("/api/strategies/<strategy_name>/start", methods=["POST"])
-def start_strategy(strategy_name):
-    """Start a specific strategy"""
-    try:
-        # TODO: Implement strategy start/stop control in strategy_manager
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Strategy {strategy_name} started",
-                "note": "Strategy control not yet fully implemented",
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error starting strategy: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/strategies/<strategy_name>/stop", methods=["POST"])
-def stop_strategy(strategy_name):
-    """Stop a specific strategy"""
-    try:
-        # TODO: Implement strategy start/stop control in strategy_manager
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Strategy {strategy_name} stopped",
-                "note": "Strategy control not yet fully implemented",
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error stopping strategy: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/strategies/<strategy_name>/config", methods=["POST"])
-def configure_strategy(strategy_name):
-    """Configure strategy parameters"""
-    try:
-        data = request.get_json()
-        # TODO: Implement strategy configuration in strategy_manager
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Strategy {strategy_name} configured",
-                "config": data,
-                "note": "Strategy configuration not yet fully implemented",
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error configuring strategy: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-# ============================================================================
 # API KEY TESTING ENDPOINTS
 # ============================================================================
 
