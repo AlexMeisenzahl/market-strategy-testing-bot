@@ -37,6 +37,7 @@ from dashboard.services.data_parser import DataParser
 from dashboard.services.analytics import AnalyticsService
 from dashboard.services.chart_data import ChartDataService
 from dashboard.services.config_manager import ConfigManager
+from dashboard.services.engine_state import EngineStateReader
 from services.strategy_analytics import StrategyAnalytics
 from services.market_analytics import MarketAnalytics
 from services.time_analytics import TimeAnalytics
@@ -111,6 +112,10 @@ app.register_blueprint(data_sources_api)
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
 LOGS_DIR = BASE_DIR / "logs"
+STATE_DIR = BASE_DIR / "state"
+
+# Engine state reader (read-only: state/bot_state.json, logs/activity.json)
+engine_state_reader = EngineStateReader(BASE_DIR)
 
 # Initialize services
 # Note: logger already initialized above for error handlers
@@ -404,20 +409,23 @@ def offline():
 @app.route("/api/overview")
 def get_overview():
     """
-    Get overview dashboard summary statistics
+    Get overview dashboard summary statistics.
 
-    Note: Always returns 200 status even when no data exists or errors occur.
-    This is intentional - the frontend can still render with default values.
-    An empty dashboard with zeros is a valid state, not an error condition.
+    Prefers engine state (state/bot_state.json) when available.
+    Falls back to analytics (CSV data) when engine not running.
+    Never uses mock/sample data.
     """
     try:
-        # Attempt to get stats from analytics service
-        stats = analytics.get_overview_stats()
+        # Prefer engine state when available
+        engine_overview = engine_state_reader.get_overview_from_engine()
+        if engine_overview is not None:
+            final_stats = {**DEFAULT_OVERVIEW_STATS, **engine_overview}
+            return jsonify(final_stats)
 
-        # Merge with defaults to ensure no missing keys
-        final_stats = {**DEFAULT_OVERVIEW_STATS, **stats}
-
-        return jsonify(final_stats)
+        # No engine state: return zeros (no mock/sample data)
+        return jsonify(
+            {**DEFAULT_OVERVIEW_STATS, "message": "Engine not running (start python main.py)"}
+        )
     except FileNotFoundError as e:
         # No data files exist yet - return defaults with message
         logger.warning(f"No trade data found: {str(e)}")
@@ -868,44 +876,50 @@ def get_notification_history():
 
 @app.route("/api/bot/status")
 def get_bot_status():
-    """Get current bot status"""
+    """Get current bot status. Prefers engine state (state/bot_state.json)."""
     try:
-        # Check if bot.py process is actually running
+        # Prefer engine state when available
+        engine_status = engine_state_reader.get_bot_status_from_engine()
+        if engine_status is not None:
+            result = {**bot_status, **engine_status}
+            result["control_disabled"] = True
+            result["control_note"] = "Engine runs via python main.py. Use TUI (python bot.py) for pause/resume."
+            return jsonify(result)
+
+        # Fallback: check for main.py or run_bot.py process
         bot_running = False
         bot_pid = None
         bot_uptime = 0
-
         for proc in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
             try:
                 cmdline = proc.info.get("cmdline", [])
-                if cmdline and any("bot.py" in str(cmd) for cmd in cmdline):
-                    bot_running = True
-                    bot_pid = proc.info["pid"]
-                    # Calculate uptime in seconds
-                    bot_uptime = int(
-                        (datetime.now().timestamp() - proc.info["create_time"])
-                    )
-                    break
+                if cmdline:
+                    c = " ".join(str(c) for c in cmdline)
+                    if "main.py" in c or "run_bot.py" in c or "bot.py" in c:
+                        bot_running = True
+                        bot_pid = proc.info["pid"]
+                        bot_uptime = int(
+                            datetime.now().timestamp() - proc.info["create_time"]
+                        )
+                        break
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
 
-        # Update global status
-        bot_status["running"] = bot_running
-        bot_status["pid"] = bot_pid
-        bot_status["uptime"] = bot_uptime
-
-        # Add status emoji
+        result = {
+            **bot_status,
+            "running": bot_running,
+            "pid": bot_pid,
+            "uptime": bot_uptime,
+            "control_disabled": True,
+            "control_note": "Engine runs via python main.py. Use TUI (python bot.py) for pause/resume.",
+        }
         if bot_running:
-            bot_status["status_emoji"] = "🟢"
-            bot_status["status_text"] = "Running"
-        elif bot_status.get("paused", False):
-            bot_status["status_emoji"] = "🟡"
-            bot_status["status_text"] = "Paused"
+            result["status_emoji"] = "🟢"
+            result["status_text"] = "Running"
         else:
-            bot_status["status_emoji"] = "🔴"
-            bot_status["status_text"] = "Stopped"
-
-        return jsonify(bot_status)
+            result["status_emoji"] = "🔴"
+            result["status_text"] = "Stopped"
+        return jsonify(result)
     except Exception as e:
         logger.error(f"Error getting bot status: {str(e)}")
         # Return default status on error
@@ -1394,80 +1408,15 @@ def verify_data_quality():
 @app.route("/api/recent_activity")
 def get_recent_activity():
     """
-    Get recent activity feed (trades, opportunities, events, errors)
+    Get recent activity from logs/activity.json (engine-written).
 
-    Returns last 100 activities from activity.json sorted by timestamp
-    This includes:
-    - Opportunities found (even if skipped)
-    - Trades executed
-    - Position exits
-    - Bot start/stop events
-    - Errors
+    Returns last 100 activities sorted by timestamp.
+    Tolerates missing or malformed file; returns [] on error.
+    No mock/sample data.
     """
     try:
-        activities = []
-        activity_log_path = LOGS_DIR / "activity.json"
-
-        # Read from activity.json if it exists
-        if activity_log_path.exists():
-            try:
-                with open(activity_log_path, "r") as f:
-                    activities = json.load(f)
-                    if not isinstance(activities, list):
-                        activities = []
-            except json.JSONDecodeError:
-                logger.warning("activity.json is malformed, returning empty list")
-                activities = []
-
-        # If no activity.json, fall back to old behavior (trades + opportunities CSV)
-        if not activities:
-            # Get recent trades
-            trades = data_parser.get_all_trades()
-            if trades:
-                # Get last 10 trades
-                recent_trades = sorted(
-                    trades, key=lambda x: x["entry_time"], reverse=True
-                )[:10]
-
-                for trade in recent_trades:
-                    activities.append(
-                        {
-                            "type": "trade_executed",
-                            "strategy": trade.get("strategy", "unknown"),
-                            "message": f"{trade['strategy']}: {trade['symbol']} - ${trade['pnl_usd']:.2f}",
-                            "profit": trade["pnl_usd"],
-                            "timestamp": trade["entry_time"],
-                            "details": trade,
-                        }
-                    )
-
-            # Get recent opportunities
-            opportunities = data_parser.get_all_opportunities()
-            if opportunities:
-                # Get last 10 opportunities
-                recent_opps = sorted(
-                    opportunities, key=lambda x: x["timestamp"], reverse=True
-                )[:10]
-
-                for opp in recent_opps:
-                    activities.append(
-                        {
-                            "type": "opportunity_found",
-                            "strategy": opp.get("strategy", "unknown"),
-                            "message": f"{opp['strategy']}: {opp['symbol']} - Confidence: {opp['confidence']:.0%}",
-                            "profit": None,
-                            "timestamp": opp["timestamp"],
-                            "action": (
-                                "executing" if opp.get("action_taken") else "skipped"
-                            ),  # Use 'executing' to match new format
-                            "details": opp,
-                        }
-                    )
-
-        # Sort all activities by timestamp (newest first)
+        activities = engine_state_reader.get_activity()
         activities.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-
-        # Return last 100
         return jsonify(activities[:100])
     except Exception as e:
         logger.error(f"Error getting recent activity: {str(e)}")
@@ -2434,14 +2383,24 @@ def toggle_feature_flag(flag):
 
 @app.route("/api/positions")
 def get_positions():
-    """Get all positions"""
+    """Get all positions. Prefers engine state (state/bot_state.json)."""
     try:
-        # Read-only dashboard view.
-        # ExecutionEngine is the source of truth when available.
+        # Prefer engine state when available
+        engine_positions = engine_state_reader.get_positions_from_engine()
+        if engine_state_reader.has_engine_state():
+            status_filter = request.args.get("status", "all")
+            if status_filter == "open":
+                positions = [p for p in engine_positions if p.get("quantity", 0)]
+            else:
+                positions = engine_positions
+            return jsonify(
+                {"positions": positions, "count": len(positions), "stats": {}, "source": "engine"}
+            )
+
+        # Fallback: position_tracker (legacy)
         from services.position_tracker import position_tracker
 
         status_filter = request.args.get("status", "all")
-
         if status_filter == "open":
             positions = position_tracker.get_open_positions()
         elif status_filter == "closed":
@@ -2463,10 +2422,14 @@ def get_positions():
 
 @app.route("/api/portfolio")
 def get_portfolio():
-    """Get portfolio information"""
+    """Get portfolio information. Prefers engine state (state/bot_state.json)."""
     try:
-        # Read-only dashboard view.
-        # ExecutionEngine is the source of truth when available.
+        # Prefer engine state when available
+        engine_portfolio = engine_state_reader.get_portfolio_from_engine()
+        if engine_portfolio is not None:
+            return jsonify(engine_portfolio)
+
+        # Fallback: portfolio_manager (legacy)
         from services.portfolio_manager import portfolio_manager
 
         return jsonify(portfolio_manager.export_to_dict())
@@ -3214,22 +3177,33 @@ def download_tax_report():
 
 @app.route("/api/dashboard/refresh")
 def refresh_dashboard_data():
-    """Get latest dashboard data for auto-refresh"""
+    """Get latest dashboard data for auto-refresh. Prefers engine state."""
     try:
-        # Get summary data
-        summary = analytics.get_overview_stats()
+        # Prefer engine state when available
+        engine_overview = engine_state_reader.get_overview_from_engine()
+        if engine_overview is not None:
+            summary = {**DEFAULT_OVERVIEW_STATS, **engine_overview}
+            activities = engine_state_reader.get_activity()[:10]
+            return jsonify(
+                {
+                    "summary": summary,
+                    "recent_trades": [],
+                    "recent_activity": activities,
+                    "pnl_chart": [],
+                    "last_updated": engine_overview.get("last_update", datetime.now(timezone.utc).isoformat()),
+                    "source": "engine",
+                }
+            )
 
-        # Get recent trades
+        # Fallback to analytics
+        summary = analytics.get_overview_stats()
         trades_response = data_parser.get_trades(page=1, per_page=10)
         recent_trades = (
             trades_response.get("trades", [])
             if isinstance(trades_response, dict)
             else []
         )
-
-        # Get P&L chart data
         pnl_chart = chart_data.get_pnl_over_time()
-
         return jsonify(
             {
                 "summary": summary,

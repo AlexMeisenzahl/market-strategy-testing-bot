@@ -205,7 +205,9 @@ class BotRunner:
         self.state_dir = Path("state")
         self.state_dir.mkdir(exist_ok=True)
         self.state_path = self.state_dir / "bot_state.json"
+        self.control_path = self.state_dir / "control.json"
         self._last_prices_dict = {}
+        self.paused = False
 
         # Statistics
         self.start_time = datetime.now(timezone.utc)
@@ -411,6 +413,21 @@ class BotRunner:
         )
         self.running = False
 
+    def _read_control(self) -> None:
+        """
+        Read state/control.json and update self.paused.
+        Graceful: missing or invalid file => not paused. Never raises.
+        """
+        try:
+            if not self.control_path.exists():
+                return
+            with open(self.control_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and "pause" in data:
+                self.paused = bool(data["pause"])
+        except (json.JSONDecodeError, OSError, TypeError):
+            pass
+
     def _write_bot_state(self) -> None:
         """
         Write state/bot_state.json with canonical schema.
@@ -444,7 +461,13 @@ class BotRunner:
                 "positions": positions,
                 "balance": float(self.execution_engine.get_balance()),
                 "last_update": now.isoformat(),
-                "status": "running" if self.running else "stopped",
+                "status": (
+                    "paused"
+                    if self.running and self.paused
+                    else "running"
+                    if self.running
+                    else "stopped"
+                ),
                 "runtime_seconds": runtime_seconds,
             }
 
@@ -1022,11 +1045,17 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         loop_cycles = 0
         while self.running:
             try:
+                self._read_control()
+                if self.paused:
+                    self.logger.log_warning("⏸ Engine PAUSED – skipping cycle")
+                    self._write_bot_state()
+                    if self.running:
+                        time.sleep(self.scan_interval_seconds)
+                    continue
                 self.logger.log_warning("Bot heartbeat – cycle started")
                 print("❤️ Bot heartbeat – cycle started", flush=True)
                 opp_before = self.total_opportunities_found
                 trades_before = self.total_trades_executed
-                # Run one cycle
                 self.run_cycle()
                 opp_this_cycle = self.total_opportunities_found - opp_before
                 trades_this_cycle = self.total_trades_executed - trades_before
