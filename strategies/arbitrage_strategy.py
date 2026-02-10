@@ -685,6 +685,7 @@ class ArbitrageStrategy:
             if self.logger:
                 self.logger.log_error(f"Error detecting reality arbitrage: {str(e)}")
             return []
+
     def evaluate(self, market_data, state):
         """
         Analyze arbitrage opportunities and return a TradeSignal
@@ -701,6 +702,6 @@ class ArbitrageStrategy:
             metadata={
                 "strategy": "arbitrage",
                 "expected_profit": opportunity.expected_profit,
-                "raw_opportunity": opportunity
-            }
+                "raw_opportunity": opportunity,
+            },
         )

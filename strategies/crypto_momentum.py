@@ -251,7 +251,9 @@ class CryptoMomentumStrategy:
             )
         position = self.active_positions[symbol]
         entry_price = position.get("entry_price") or 0.5
-        quantity = (position.get("position_size", 0) / entry_price) if entry_price > 0 else 0
+        quantity = (
+            (position.get("position_size", 0) / entry_price) if entry_price > 0 else 0
+        )
         return TradeSignal(
             symbol=symbol,
             side="sell",

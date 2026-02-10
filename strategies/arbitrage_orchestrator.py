@@ -68,10 +68,10 @@ class ArbitrageOrchestrator:
         """
         # DEPRECATED: execution moved to ExecutionEngine.
         # Enter position using strategy (legacy path; prefer ExecutionEngine.execute_trade(signal)).
-        position = self.strategy.enter_position(opportunity, trade_size)
+        signal = self.strategy.enter_position(opportunity, trade_size)
 
-        # Calculate profit from position
-        profit = position.get("expected_profit", 0.0)
+        # Calculate profit from opportunity (since signal no longer contains profit)
+        profit = opportunity.calculate_profit_for_amount(trade_size)
 
         # Record execution with tracker
         execution_result = {
