@@ -8,7 +8,7 @@ Provides load, save, apply, and reset functionality.
 import yaml
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 import shutil
 
