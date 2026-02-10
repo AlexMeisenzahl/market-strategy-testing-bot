@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>System &amp; Settings — Market Strategy Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#0f172a',
+                        'dark-card': '#1e293b',
+                        'dark-border': '#334155',
+                        'profit': '#10b981',
+                        'loss': '#ef4444',
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="bg-dark-bg text-gray-100 min-h-screen">
+    <nav class="bg-dark-card border-b border-dark-border px-4 py-3">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-cog text-blue-400"></i>
+                System &amp; Settings
+            </h1>
+            <a href="/" class="text-blue-400 hover:text-blue-300 text-sm">
+                <i class="fas fa-arrow-left mr-1"></i> Dashboard
+            </a>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <!-- Restart notice (global) -->
+        <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg px-4 py-3 text-sm text-amber-200">
+            <i class="fas fa-info-circle mr-2"></i>
+            <strong>Restart required:</strong> Changes to trading mode or config take effect after you restart the engine (e.g. <code class="bg-black/30 px-1 rounded">python run_bot.py</code>). This dashboard does not start or stop the process.
+        </div>
+
+        <!-- 1. Trading Mode -->
+        <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+                <i class="fas fa-exchange-alt text-blue-400"></i>
+                Trading mode
+            </h2>
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-gray-400">Paper trading is default. Live trading uses real money and requires explicit confirmation.</p>
+                <div class="flex flex-wrap items-center gap-4">
+                    <span class="text-gray-400">Current mode:</span>
+                    <span id="trading-mode-badge" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-700 text-gray-300">—</span>
+                </div>
+                <div id="trading-mode-live-warning" class="hidden bg-red-900/20 border border-red-800 rounded-lg p-4 text-sm text-red-200">
+                    Live trading is enabled. Real money may be at risk. Switch to Paper to disable.
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button" id="btn-set-paper" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm font-medium">
+                        Set to Paper
+                    </button>
+                    <button type="button" id="btn-set-live" class="px-4 py-2 rounded-lg bg-red-900/50 hover:bg-red-800/50 text-red-200 text-sm font-medium border border-red-700">
+                        Set to Live (requires confirmation)
+                    </button>
+                </div>
+                <!-- Live confirmation (hidden until user clicks Set to Live) -->
+                <div id="live-confirm-box" class="hidden border border-amber-700 rounded-lg p-4 bg-amber-900/20 space-y-3">
+                    <p class="text-sm text-amber-200">To enable live trading, type <strong>LIVE</strong> below and confirm. This will write to <code class="bg-black/30 px-1 rounded">config.yaml</code>. Restart the engine for the change to take effect.</p>
+                    <input type="text" id="live-confirm-input" placeholder="Type LIVE" class="w-full max-w-xs bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm" autocomplete="off">
+                    <div class="flex gap-2">
+                        <button type="button" id="btn-confirm-live" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm font-medium">Confirm enable Live</button>
+                        <button type="button" id="btn-cancel-live" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. API Keys & Integrations (canonical: SecureConfigManager) -->
+        <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+                <i class="fas fa-key text-yellow-500"></i>
+                API keys &amp; integrations
+            </h2>
+            <div class="p-6">
+                <p class="text-sm text-gray-400 mb-4">Credentials are stored encrypted (SecureConfigManager). Values are masked in the UI. Leave a field blank to keep the existing value.</p>
+                <div id="integrations-list" class="space-y-4">
+                    <div class="text-gray-500 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading…</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Strategy defaults (scaffolding) -->
+        <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+                <i class="fas fa-chess text-purple-400"></i>
+                Strategy defaults
+            </h2>
+            <div class="p-6 text-sm text-gray-400">
+                <p>Enable/disable strategies and set parameters in <code class="bg-dark-bg px-1 rounded">config.yaml</code> under <code class="bg-dark-bg px-1 rounded">strategies</code>. The engine reads config at startup.</p>
+                <p class="mt-2">No in-dashboard editor for strategy config yet. Use Settings or edit the file directly.</p>
+            </div>
+        </section>
+
+        <!-- 4. Execution settings (scaffolding) -->
+        <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+                <i class="fas fa-play-circle text-green-500"></i>
+                Execution settings
+            </h2>
+            <div class="p-6 text-sm text-gray-400">
+                <p>Data refresh and execution frequency are controlled by the engine and config. This dashboard does not start, stop, or restart the process.</p>
+            </div>
+        </section>
+
+        <!-- 5. System updates -->
+        <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+                <i class="fas fa-download text-blue-400"></i>
+                System updates
+            </h2>
+            <div class="p-6 space-y-3">
+                <p class="text-sm text-gray-400">Current version: <span id="current-version" class="text-white font-mono">—</span></p>
+                <button type="button" id="btn-check-updates" class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm">Check for updates</button>
+                <div id="update-result" class="text-sm hidden"></div>
+                <p class="text-xs text-gray-500">Restart required after an update. Update runs in background; see logs for progress.</p>
+            </div>
+        </section>
+
+        <!-- 6. Advanced (collapsed) -->
+        <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+            <button type="button" id="advanced-toggle" class="w-full px-6 py-4 text-left flex justify-between items-center font-semibold text-gray-400 hover:text-gray-300">
+                <span><i class="fas fa-tools mr-2"></i>Advanced / developer</span>
+                <i class="fas fa-chevron-down" id="advanced-chevron"></i>
+            </button>
+            <div id="advanced-content" class="hidden border-t border-dark-border px-6 py-4">
+                <p class="text-sm text-amber-200/90"><i class="fas fa-exclamation-triangle mr-2"></i>Dangerous: editing raw config or credentials can break the bot. Use with care.</p>
+                <p class="text-sm text-gray-500 mt-2">No process start/stop/restart from this UI. Engine is started via terminal.</p>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="fixed bottom-4 right-4 max-w-sm rounded-lg shadow-lg p-4 hidden z-50 bg-dark-card border border-dark-border"></div>
+
+    <script>
+        const API = window.location.origin;
+
+        function showToast(msg, type) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = 'fixed bottom-4 right-4 max-w-sm rounded-lg shadow-lg p-4 z-50 bg-dark-card border ' +
+                (type === 'error' ? 'border-red-800 text-red-200' : type === 'success' ? 'border-green-800 text-green-200' : 'border-dark-border');
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 4000);
+        }
+
+        // ----- Trading mode -----
+        async function loadTradingMode() {
+            try {
+                const r = await fetch(API + '/api/settings/trading-mode');
+                const d = await r.json();
+                const badge = document.getElementById('trading-mode-badge');
+                const warn = document.getElementById('trading-mode-live-warning');
+                if (d.mode === 'paper') {
+                    badge.textContent = 'Paper';
+                    badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-900/50 text-green-300';
+                    warn.classList.add('hidden');
+                } else {
+                    badge.textContent = 'Live';
+                    badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-red-900/50 text-red-300';
+                    warn.classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('trading-mode-badge').textContent = 'Error';
+                showToast('Could not load trading mode', 'error');
+            }
+        }
+
+        async function setMode(mode) {
+            try {
+                const body = { mode };
+                if (mode === 'live') body.confirm_phrase = document.getElementById('live-confirm-input').value.trim().toUpperCase();
+                const r = await fetch(API + '/api/settings/set-trading-mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const d = await r.json();
+                if (d.success) {
+                    showToast(d.message || 'Mode updated. Restart the engine for the change to take effect.', 'success');
+                    document.getElementById('live-confirm-box').classList.add('hidden');
+                    document.getElementById('live-confirm-input').value = '';
+                    loadTradingMode();
+                } else {
+                    showToast(d.error || 'Failed to set mode', 'error');
+                }
+            } catch (e) {
+                showToast('Request failed', 'error');
+            }
+        }
+
+        document.getElementById('btn-set-paper').addEventListener('click', () => setMode('paper'));
+        document.getElementById('btn-set-live').addEventListener('click', () => {
+            document.getElementById('live-confirm-box').classList.remove('hidden');
+        });
+        document.getElementById('btn-cancel-live').addEventListener('click', () => {
+            document.getElementById('live-confirm-box').classList.add('hidden');
+            document.getElementById('live-confirm-input').value = '';
+        });
+        document.getElementById('btn-confirm-live').addEventListener('click', () => {
+            if (document.getElementById('live-confirm-input').value.trim().toUpperCase() !== 'LIVE') {
+                showToast('Type LIVE to confirm', 'error');
+                return;
+            }
+            setMode('live');
+        });
+
+        // ----- Integrations (canonical: SecureConfigManager) -----
+        async function loadIntegrations() {
+            const list = document.getElementById('integrations-list');
+            try {
+                const r = await fetch(API + '/api/settings/integrations');
+                const d = await r.json();
+                if (!d.success || !d.integrations) {
+                    list.innerHTML = '<p class="text-gray-500 text-sm">Could not load integrations.</p>';
+                    return;
+                }
+                const fieldMeta = {
+                    polymarket: [
+                        { key: 'endpoint', label: 'Endpoint', type: 'text', placeholder: 'https://clob.polymarket.com' },
+                        { key: 'api_key', label: 'API Key (optional)', type: 'password', placeholder: 'Leave blank to keep existing' }
+                    ],
+                    crypto: [
+                        { key: 'provider', label: 'Provider', type: 'text', placeholder: 'coingecko' },
+                        { key: 'endpoint', label: 'Endpoint', type: 'text', placeholder: 'https://api.coingecko.com/api/v3' },
+                        { key: 'api_key', label: 'API Key (optional)', type: 'password', placeholder: 'Leave blank to keep existing' }
+                    ],
+                    telegram: [
+                        { key: 'bot_token', label: 'Bot token', type: 'password', placeholder: 'Leave blank to keep existing' },
+                        { key: 'chat_id', label: 'Chat ID', type: 'text', placeholder: 'Leave blank to keep existing' }
+                    ],
+                    email: [
+                        { key: 'smtp_server', label: 'SMTP server', type: 'text', placeholder: 'smtp.gmail.com' },
+                        { key: 'smtp_port', label: 'SMTP port', type: 'text', placeholder: '587' },
+                        { key: 'username', label: 'Username', type: 'text', placeholder: '' },
+                        { key: 'password', label: 'Password', type: 'password', placeholder: 'Leave blank to keep existing' }
+                    ]
+                };
+                list.innerHTML = d.integrations.map(svc => {
+                    const usedBy = (svc.used_by && svc.used_by.length) ? svc.used_by.join(', ') : '—';
+                    const fields = svc.masked && typeof svc.masked === 'object' ? Object.entries(svc.masked).map(([k, v]) => `${k}: ${v || '(not set)'}`).join(', ') : '(not configured)';
+                    const fieldsForm = (fieldMeta[svc.id] || []).map(f => `
+                        <label class="block text-xs text-gray-400 mt-2">${escapeHtml(f.label)}</label>
+                        <input type="${f.type}" class="integration-field w-full mt-1 bg-dark-bg border border-dark-border rounded px-3 py-1.5 text-sm" data-service="${escapeHtml(svc.id)}" data-key="${escapeHtml(f.key)}" placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="off">
+                    `).join('');
+                    return `
+                        <div class="border border-dark-border rounded-lg p-4 integration-card" data-service="${escapeHtml(svc.id)}">
+                            <div class="flex justify-between items-start gap-2">
+                                <div>
+                                    <h3 class="font-medium">${escapeHtml(svc.label)}</h3>
+                                    <p class="text-xs text-gray-500 mt-1">${escapeHtml(svc.description)}</p>
+                                    <p class="text-xs text-gray-400 mt-1">Used by: ${escapeHtml(usedBy)}</p>
+                                    <p class="text-xs text-gray-500 mt-1 font-mono">${escapeHtml(fields)}</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button type="button" class="integration-test px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-xs" data-service="${escapeHtml(svc.id)}">Test</button>
+                                    <button type="button" class="integration-toggle-update px-3 py-1.5 rounded bg-blue-900/50 hover:bg-blue-800/50 text-xs" data-service="${escapeHtml(svc.id)}">Update</button>
+                                </div>
+                            </div>
+                            <div class="integration-update-form hidden mt-4 pt-4 border-t border-dark-border">
+                                ${fieldsForm}
+                                <button type="button" class="integration-save mt-3 px-3 py-1.5 rounded bg-green-900/50 hover:bg-green-800/50 text-xs" data-service="${escapeHtml(svc.id)}">Save (encrypted)</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                list.querySelectorAll('.integration-test').forEach(btn => {
+                    btn.addEventListener('click', () => testIntegration(btn.dataset.service));
+                });
+                list.querySelectorAll('.integration-toggle-update').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const card = btn.closest('.integration-card');
+                        const form = card.querySelector('.integration-update-form');
+                        form.classList.toggle('hidden');
+                    });
+                });
+                list.querySelectorAll('.integration-save').forEach(btn => {
+                    btn.addEventListener('click', () => saveIntegration(btn.dataset.service, btn.closest('.integration-card')));
+                });
+            } catch (e) {
+                list.innerHTML = '<p class="text-gray-500 text-sm">Error loading integrations.</p>';
+            }
+        }
+
+        function escapeHtml(t) {
+            if (t == null) return '';
+            const s = String(t);
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        async function testIntegration(service) {
+            try {
+                const r = await fetch(API + '/api/settings/test-connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ service })
+                });
+                const d = await r.json();
+                if (d.success !== false && !d.error) {
+                    showToast(service + ': ' + (d.message || 'OK'), 'success');
+                } else {
+                    showToast(service + ': ' + (d.error || 'Failed'), 'error');
+                }
+            } catch (e) {
+                showToast(service + ': request failed', 'error');
+            }
+        }
+
+        async function saveIntegration(service, card) {
+            const inputs = card.querySelectorAll('.integration-field');
+            const credentials = {};
+            inputs.forEach(inp => {
+                const v = inp.value.trim();
+                if (v) credentials[inp.dataset.key] = v;
+            });
+            if (Object.keys(credentials).length === 0) {
+                showToast('Enter at least one value to save', 'error');
+                return;
+            }
+            try {
+                const r = await fetch(API + '/api/settings/data-sources', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ service, credentials })
+                });
+                const d = await r.json();
+                if (d.success) {
+                    showToast(d.message || 'Saved. Credentials stored encrypted.', 'success');
+                    card.querySelector('.integration-update-form').classList.add('hidden');
+                    inputs.forEach(i => { i.value = ''; });
+                    loadIntegrations();
+                } else {
+                    showToast(d.error || 'Save failed', 'error');
+                }
+            } catch (e) {
+                showToast('Save request failed', 'error');
+            }
+        }
+
+        // ----- Updates -----
+        async function loadVersion() {
+            try {
+                const r = await fetch(API + '/api/update/check');
+                const d = await r.json();
+                document.getElementById('current-version').textContent = d.current || d.current_version || d.version || '—';
+            } catch (_) {
+                document.getElementById('current-version').textContent = '—';
+            }
+        }
+
+        document.getElementById('btn-check-updates').addEventListener('click', async () => {
+            const result = document.getElementById('update-result');
+            result.classList.remove('hidden');
+            result.className = 'text-sm ';
+            result.textContent = 'Checking…';
+            try {
+                const r = await fetch(API + '/api/update/check');
+                const d = await r.json();
+                if (d.available || d.update_available) {
+                    result.classList.add('text-amber-200');
+                    result.innerHTML = 'Update available: ' + escapeHtml(d.latest || d.latest_version || '') + '. Use Update flow (or CLI) to apply. Restart required after update.';
+                } else {
+                    result.classList.add('text-gray-400');
+                    result.textContent = d.error ? ('Check failed: ' + d.error) : 'No update available.';
+                }
+                loadVersion();
+            } catch (e) {
+                result.classList.add('text-red-400');
+                result.textContent = 'Could not check for updates.';
+            }
+        });
+
+        // ----- Advanced collapse -----
+        document.getElementById('advanced-toggle').addEventListener('click', () => {
+            const content = document.getElementById('advanced-content');
+            const chevron = document.getElementById('advanced-chevron');
+            content.classList.toggle('hidden');
+            chevron.classList.toggle('fa-chevron-down', content.classList.contains('hidden'));
+            chevron.classList.toggle('fa-chevron-up', !content.classList.contains('hidden'));
+        });
+
+        // Init
+        loadTradingMode();
+        loadIntegrations();
+        loadVersion();
+    </script>
+</body>
+</html>
