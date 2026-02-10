@@ -601,12 +601,13 @@ class BotRunner:
             prices_dict: Dictionary of prices by market_id
         """
         try:
-            # Prepare market data for alert checking
+            # TODO: Get actual portfolio values from portfolio tracker instead of hardcoded placeholders
+            # These hardcoded values will cause alerts to trigger incorrectly
             market_data = {
                 "prices": prices_dict,
                 "portfolio": {
-                    "total_pnl": 0.0,  # Would get from portfolio tracker
-                    "total_value": 10000,  # Would get from portfolio tracker
+                    "total_pnl": 0.0,  # Placeholder - should get from portfolio tracker
+                    "total_value": 10000,  # Placeholder - should get from portfolio tracker
                 },
                 "strategies": {},  # Would get from strategy manager
             }

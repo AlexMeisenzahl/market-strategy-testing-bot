@@ -444,7 +444,8 @@ class PerformanceCalculator:
         
         for trade in trades:
             pnl = self._get_trade_pnl(trade)
-            # Assume $10000 capital for now (should use actual capital)
+            # TODO: Get actual capital from portfolio tracker instead of hardcoded value
+            # This hardcoded value may lead to inaccurate return calculations
             capital = 10000
             returns.append(pnl / capital)
         

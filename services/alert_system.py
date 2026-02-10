@@ -7,6 +7,7 @@ Provides alert configuration storage, trigger logic, and checking.
 
 import json
 import logging
+import uuid
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
@@ -324,7 +325,6 @@ class AlertSystem:
         Returns:
             Alert ID string
         """
-        import uuid
         return str(uuid.uuid4())[:8]
 
     def test_alert(self, alert: Dict[str, Any]) -> Dict[str, Any]:

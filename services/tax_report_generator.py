@@ -132,7 +132,8 @@ class TaxReportGenerator:
         # Write trades
         for trade in trades:
             security_name = self._get_trade_description(trade)
-            symbol = trade.get("market_id", "UNKNOWN")[:10]  # Limit to 10 chars
+            # TurboTax CSV format requires symbol to be max 10 characters
+            symbol = trade.get("market_id", "UNKNOWN")[:10]
             quantity = trade.get("size", 0)
             date_acquired = self._get_trade_date(trade.get("entry_time", trade.get("timestamp")))
             date_sold = self._get_trade_date(trade.get("exit_time", trade.get("closed_at")))

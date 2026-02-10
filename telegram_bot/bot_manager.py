@@ -11,7 +11,7 @@ Manages the telegram bot lifecycle, including:
 import os
 import asyncio
 from typing import Optional, Dict, Any
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from telegram import Bot
 from telegram.ext import (
     Application,
@@ -312,7 +312,7 @@ Date: {datetime.now().strftime('%Y-%m-%d')}"""
                     
                     if now >= target_time:
                         # If past target time today, schedule for tomorrow
-                        target_time = target_time.replace(day=target_time.day + 1)
+                        target_time = target_time + timedelta(days=1)
                     
                     sleep_seconds = (target_time - now).total_seconds()
                     

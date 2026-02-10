@@ -140,9 +140,7 @@ Last Updated: {stats['last_updated']}"""
             )
 
     async def cmd_bot_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command - start the bot"""
-        # Note: This conflicts with the greeting /start command
-        # In practice, we'd use a different command like /resume or /run
+        """Handle /resume command - resume the bot"""
         try:
             if self.bot_controller and hasattr(self.bot_controller, "start"):
                 self.bot_controller.start()
