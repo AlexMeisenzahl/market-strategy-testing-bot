@@ -220,19 +220,31 @@ class ChartDataService:
         if not trades:
             return {"labels": [], "values": []}
         
+        # Filter trades that have valid timestamp and pnl
+        valid_trades = []
+        for trade in trades:
+            # Get timestamp from various possible keys
+            timestamp_val = trade.get("timestamp") or trade.get("entry_time") or trade.get("date")
+            if timestamp_val:
+                trade["_sort_timestamp"] = timestamp_val
+                valid_trades.append(trade)
+        
+        if not valid_trades:
+            return {"labels": [], "values": []}
+        
         # Sort by timestamp
-        trades.sort(key=lambda x: x["timestamp"])
+        valid_trades.sort(key=lambda x: x["_sort_timestamp"])
         
         # Calculate cumulative P&L
         cumulative_pnl = Decimal(0)
         labels = []
         values = []
         
-        for trade in trades:
+        for trade in valid_trades:
             cumulative_pnl += Decimal(str(trade.get("pnl_usd", 0)))
             
             # Parse timestamp safely - handle both string and datetime objects
-            timestamp_val = trade["timestamp"]
+            timestamp_val = trade["_sort_timestamp"]
             if isinstance(timestamp_val, str):
                 try:
                     timestamp = datetime.fromisoformat(timestamp_val.replace("Z", "+00:00"))
