@@ -68,6 +68,7 @@ CORS(app)  # Enable CORS for API access
 
 # Initialize WebSocket server
 from dashboard.websocket_server import init_socketio
+
 socketio = init_socketio(app)
 
 # Initialize logger first for error handling
@@ -3298,244 +3299,270 @@ def toggle_trading_mode():
 # NEW API ENDPOINTS FOR PR #50: Strategy Execution Engine
 # ============================================================================
 
-@app.route('/api/chart/allocation')
+
+@app.route("/api/chart/allocation")
 def get_allocation_chart():
     """Portfolio allocation pie chart"""
     try:
         data_flow = DataFlowManager()
         positions = data_flow.portfolio_tracker.get_positions()
-        
-        return jsonify({
-            "labels": [p['symbol'] for p in positions],
-            "data": [p['value'] for p in positions]
-        })
+
+        return jsonify(
+            {
+                "labels": [p["symbol"] for p in positions],
+                "data": [p["value"] for p in positions],
+            }
+        )
     except Exception as e:
         logger.error(f"Error getting allocation chart: {e}")
         return jsonify({"labels": [], "data": []}), 200
 
 
-@app.route('/api/chart/distribution')
+@app.route("/api/chart/distribution")
 def get_distribution_chart():
     """Trade win/loss distribution"""
     try:
         data_flow = DataFlowManager()
         trades = data_flow.trade_logger.get_recent_trades(1000)
-        wins = len([t for t in trades if t.get('pnl', 0) > 0])
+        wins = len([t for t in trades if t.get("pnl", 0) > 0])
         losses = len(trades) - wins
-        
-        return jsonify({
-            "labels": ["Wins", "Losses"],
-            "data": [wins, losses]
-        })
+
+        return jsonify({"labels": ["Wins", "Losses"], "data": [wins, losses]})
     except Exception as e:
         logger.error(f"Error getting distribution chart: {e}")
         return jsonify({"labels": ["Wins", "Losses"], "data": [0, 0]}), 200
 
 
-@app.route('/api/chart/cumulative')
+@app.route("/api/chart/cumulative")
 def get_cumulative_chart():
     """Cumulative returns over time"""
     try:
         data_flow = DataFlowManager()
         trades = data_flow.trade_logger.get_all_trades()
-        
+
         cumulative = []
         total = 0
         for trade in trades:
-            total += trade.get('pnl', 0)
-            cumulative.append({
-                "date": trade.get('timestamp', datetime.now(timezone.utc).isoformat()),
-                "value": total
-            })
-        
+            total += trade.get("pnl", 0)
+            cumulative.append(
+                {
+                    "date": trade.get(
+                        "timestamp", datetime.now(timezone.utc).isoformat()
+                    ),
+                    "value": total,
+                }
+            )
+
         return jsonify(cumulative)
     except Exception as e:
         logger.error(f"Error getting cumulative chart: {e}")
         return jsonify([]), 200
 
 
-@app.route('/api/journal/entry', methods=['POST'])
+@app.route("/api/journal/entry", methods=["POST"])
 def save_journal_entry():
     """Save trade journal entry"""
     try:
         data = request.json
-        
+
         # Save to journal file
         journal_file = Path("data/trade_journal.json")
         journal_file.parent.mkdir(exist_ok=True)
-        
+
         # Load existing entries
         entries = []
         if journal_file.exists():
-            with open(journal_file, 'r') as f:
+            with open(journal_file, "r") as f:
                 try:
                     entries = json.load(f)
                 except json.JSONDecodeError:
                     entries = []
-        
+
         # Add timestamp
-        data['timestamp'] = datetime.now(timezone.utc).isoformat()
+        data["timestamp"] = datetime.now(timezone.utc).isoformat()
         entries.append(data)
-        
+
         # Save
-        with open(journal_file, 'w') as f:
+        with open(journal_file, "w") as f:
             json.dump(entries, f, indent=2)
-        
+
         return jsonify({"success": True})
     except Exception as e:
         logger.error(f"Error saving journal entry: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/journal/entries')
+@app.route("/api/journal/entries")
 def get_journal_entries():
     """Get all journal entries"""
     try:
         journal_file = Path("data/trade_journal.json")
-        
+
         if journal_file.exists():
-            with open(journal_file, 'r') as f:
+            with open(journal_file, "r") as f:
                 try:
                     entries = json.load(f)
                     return jsonify(entries)
                 except json.JSONDecodeError:
                     return jsonify([])
-        
+
         return jsonify([])
     except Exception as e:
         logger.error(f"Error getting journal entries: {e}")
         return jsonify([]), 200
 
 
-@app.route('/api/export/trades')
+@app.route("/api/export/trades")
 def export_trades_csv():
     """Export trades to CSV"""
     try:
         data_flow = DataFlowManager()
         csv_data = data_flow.trade_logger.export_to_csv()
-        
+
         return Response(
             csv_data,
-            mimetype='text/csv',
-            headers={'Content-Disposition': 'attachment;filename=trades.csv'}
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment;filename=trades.csv"},
         )
     except Exception as e:
         logger.error(f"Error exporting trades: {e}")
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/export/portfolio')
+@app.route("/api/export/portfolio")
 def export_portfolio_csv():
     """Export portfolio to CSV"""
     try:
         data_flow = DataFlowManager()
         positions = data_flow.portfolio_tracker.get_positions()
-        
+
         # Create CSV
         si = io.StringIO()
-        writer = csv.DictWriter(si, fieldnames=['symbol', 'quantity', 'avg_price', 'current_price', 'value', 'pnl', 'pnl_pct'])
+        writer = csv.DictWriter(
+            si,
+            fieldnames=[
+                "symbol",
+                "quantity",
+                "avg_price",
+                "current_price",
+                "value",
+                "pnl",
+                "pnl_pct",
+            ],
+        )
         writer.writeheader()
         writer.writerows(positions)
-        
+
         return Response(
             si.getvalue(),
-            mimetype='text/csv',
-            headers={'Content-Disposition': 'attachment;filename=portfolio.csv'}
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment;filename=portfolio.csv"},
         )
     except Exception as e:
         logger.error(f"Error exporting portfolio: {e}")
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/notifications/send', methods=['POST'])
+@app.route("/api/notifications/send", methods=["POST"])
 def send_notification():
     """Send notification (email/telegram)"""
     try:
         data = request.json
-        message = data.get('message', '')
-        notification_type = data.get('type', 'info')
-        
+        message = data.get("message", "")
+        notification_type = data.get("type", "info")
+
         # Use existing notification service
         notification_service.send_alert(
-            title=data.get('title', 'Bot Notification'),
+            title=data.get("title", "Bot Notification"),
             message=message,
-            priority=notification_type
+            priority=notification_type,
         )
-        
+
         return jsonify({"success": True})
     except Exception as e:
         logger.error(f"Error sending notification: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/market/live')
+@app.route("/api/market/live")
 def get_live_market_data():
     """Live market data stream"""
     try:
         # Get market data from clients
         from clients import get_market_client
-        
+
         try:
             client = get_market_client()
             markets = client.get_markets(limit=20)
-            
-            return jsonify({
-                "markets": markets,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "source": "live" if hasattr(client, 'api_key') else "mock"
-            })
+
+            return jsonify(
+                {
+                    "markets": markets,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "source": "live" if hasattr(client, "api_key") else "mock",
+                }
+            )
         except Exception as e:
             logger.error(f"Error fetching market data: {e}")
-            return jsonify({
-                "markets": [],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "source": "mock",
-                "error": str(e)
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "markets": [],
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "source": "mock",
+                        "error": str(e),
+                    }
+                ),
+                200,
+            )
     except Exception as e:
         logger.error(f"Error in live market data endpoint: {e}")
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/portfolio')
+@app.route("/api/portfolio")
 def get_portfolio_api():
     """Get current portfolio summary"""
     try:
         data_flow = DataFlowManager()
         summary = data_flow.get_portfolio_summary()
         positions = data_flow.portfolio_tracker.get_positions()
-        
-        return jsonify({
-            "summary": summary,
-            "positions": positions,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
+
+        return jsonify(
+            {
+                "summary": summary,
+                "positions": positions,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
     except Exception as e:
         logger.error(f"Error getting portfolio: {e}")
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/strategies/performance')
+@app.route("/api/strategies/performance")
 def get_strategies_performance():
     """Get performance data for all strategies"""
     try:
         data_flow = DataFlowManager()
-        
+
         # Get unique strategies from trades
         all_trades = data_flow.trade_logger.get_all_trades()
-        strategy_names = set(t.get('strategy', 'unknown') for t in all_trades)
-        
+        strategy_names = set(t.get("strategy", "unknown") for t in all_trades)
+
         strategies = []
         for name in strategy_names:
             stats = data_flow.get_strategy_stats(name)
-            strategies.append({
-                'name': name,
-                'total_trades': stats.get('total_trades', 0),
-                'total_pnl': stats.get('total_pnl', 0),
-                'win_rate': stats.get('win_rate', 0),
-                'avg_pnl': stats.get('avg_pnl', 0)
-            })
-        
+            strategies.append(
+                {
+                    "name": name,
+                    "total_trades": stats.get("total_trades", 0),
+                    "total_pnl": stats.get("total_pnl", 0),
+                    "win_rate": stats.get("win_rate", 0),
+                    "avg_pnl": stats.get("avg_pnl", 0),
+                }
+            )
+
         return jsonify({"strategies": strategies})
     except Exception as e:
         logger.error(f"Error getting strategy performance: {e}")
@@ -3549,10 +3576,10 @@ def get_strategies_performance():
 if __name__ == "__main__":
     # Initialize database
     init_db()
-    
+
     # Run with SocketIO
     port = int(os.environ.get("DASHBOARD_PORT", 5001))
     debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
-    
+
     logger.info(f"Starting dashboard on port {port}")
-    socketio.run(app, debug=debug, host='0.0.0.0', port=port)
+    socketio.run(app, debug=debug, host="0.0.0.0", port=port)

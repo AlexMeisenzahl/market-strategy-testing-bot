@@ -25,18 +25,17 @@ print(f"   ✅ Initial balance: ${tracker.initial_balance:,.2f}")
 print(f"   ✅ Current cash: ${tracker.cash:,.2f}")
 
 # Simulate a trade
-trade = {
-    'symbol': 'BTC-USD',
-    'side': 'BUY',
-    'quantity': 0.1,
-    'price': 50000
-}
+trade = {"symbol": "BTC-USD", "side": "BUY", "quantity": 0.1, "price": 50000}
 tracker.update(trade)
-print(f"   ✅ Trade executed: {trade['side']} {trade['quantity']} {trade['symbol']} @ ${trade['price']:,.2f}")
+print(
+    f"   ✅ Trade executed: {trade['side']} {trade['quantity']} {trade['symbol']} @ ${trade['price']:,.2f}"
+)
 
 summary = tracker.get_summary()
 print(f"   ✅ Portfolio value: ${summary['total_value']:,.2f}")
-print(f"   ✅ Total return: ${summary['total_return']:,.2f} ({summary['total_return_pct']:.2f}%)")
+print(
+    f"   ✅ Total return: ${summary['total_return']:,.2f} ({summary['total_return_pct']:.2f}%)"
+)
 print()
 
 # Test 2: Trade Logger
@@ -44,7 +43,7 @@ print("2. Testing Trade Logger...")
 from services.trade_logger import TradeLogger
 
 logger = TradeLogger()
-logger.log({**trade, 'pnl': 125.50, 'strategy': 'momentum'})
+logger.log({**trade, "pnl": 125.50, "strategy": "momentum"})
 print(f"   ✅ Trade logged")
 
 stats = logger.get_trade_stats()
@@ -57,19 +56,21 @@ print()
 print("3. Testing Data Flow Manager...")
 from services.data_flow_manager import DataFlowManager
 
-dfm = DataFlowManager({'initial_capital': 10000})
+dfm = DataFlowManager({"initial_capital": 10000})
 print(f"   ✅ DataFlowManager initialized")
 
 signal = {
-    'action': 'BUY',
-    'symbol': 'ETH-USD',
-    'price': 3000,
-    'quantity': 1,
-    'confidence': 85
+    "action": "BUY",
+    "symbol": "ETH-USD",
+    "price": 3000,
+    "quantity": 1,
+    "confidence": 85,
 }
-result = dfm.process_signal('test_strategy', signal)
+result = dfm.process_signal("test_strategy", signal)
 if result:
-    print(f"   ✅ Signal processed: {result['side']} {result['quantity']} {result['symbol']}")
+    print(
+        f"   ✅ Signal processed: {result['side']} {result['quantity']} {result['symbol']}"
+    )
 else:
     print(f"   ✅ Signal validated")
 
@@ -81,9 +82,9 @@ print()
 print("4. Testing WebSocket Server...")
 try:
     from dashboard.websocket_server import live_data, update_live_data
-    
+
     # Update live data
-    update_live_data('portfolio', {'total_value': 10500, 'total_return': 500})
+    update_live_data("portfolio", {"total_value": 10500, "total_return": 500})
     print(f"   ✅ WebSocket server module loaded")
     print(f"   ✅ Live data cache initialized")
     print(f"   ✅ Data types: {list(live_data.keys())}")
@@ -95,15 +96,21 @@ print()
 print("5. Testing API Endpoint Availability...")
 try:
     from dashboard.app import app
-    
+
     # Get all routes
     routes = [rule.rule for rule in app.url_map.iter_rules()]
-    new_routes = [r for r in routes if any(x in r for x in ['chart', 'journal', 'export', 'portfolio'])]
-    
+    new_routes = [
+        r
+        for r in routes
+        if any(x in r for x in ["chart", "journal", "export", "portfolio"])
+    ]
+
     print(f"   ✅ Dashboard app loaded")
     print(f"   ✅ New API endpoints: {len(new_routes)}")
-    print(f"   ✅ WebSocket integrated: {hasattr(app, 'socketio') or 'socketio' in dir()}")
-    
+    print(
+        f"   ✅ WebSocket integrated: {hasattr(app, 'socketio') or 'socketio' in dir()}"
+    )
+
     for route in new_routes[:5]:
         print(f"      - {route}")
     if len(new_routes) > 5:
