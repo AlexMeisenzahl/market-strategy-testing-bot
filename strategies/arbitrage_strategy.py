@@ -8,6 +8,7 @@ a risk-free profit opportunity. This is the original strategy used by the bot.
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from logger import get_logger
+from strategies.base_strategy import TradeSignal
 
 
 class ArbitrageOpportunity:
@@ -744,3 +745,22 @@ class ArbitrageStrategy:
             if self.logger:
                 self.logger.log_error(f"Error detecting reality arbitrage: {str(e)}")
             return []
+    def evaluate(self, market_data, state):
+        """
+        Analyze arbitrage opportunities and return a TradeSignal
+        instead of executing the trade directly.
+        """
+        opportunity = self.find_best_opportunity(market_data)
+        if not opportunity:
+            return None
+
+        return TradeSignal(
+            market=opportunity.market,
+            side=opportunity.side,
+            size=opportunity.trade_size,
+            metadata={
+                "strategy": "arbitrage",
+                "expected_profit": opportunity.expected_profit,
+                "raw_opportunity": opportunity
+            }
+        )

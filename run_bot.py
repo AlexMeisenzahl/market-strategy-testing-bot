@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from logger import get_logger
 from strategy_manager import StrategyManager
-from services.paper_trading_engine import PaperTradingEngine
+from engine import ExecutionEngine
 from polymarket_api import PolymarketAPI
 from services.secure_config_manager import SecureConfigManager
 from config.config_loader import get_config
@@ -123,9 +123,9 @@ class BotRunner:
             self.config = self._load_config(config_path)
             self.config_loader = None
 
-        # Initialize core components
-        self.strategy_manager = StrategyManager(self.config)
-        self.paper_trader = PaperTradingEngine(self.config)
+        # Initialize core components (single execution engine; StrategyManager routes to it)
+        self.execution_engine = ExecutionEngine(self.config)
+        self.strategy_manager = StrategyManager(self.config, self.execution_engine)
         self.polymarket_api = PolymarketAPI(
             timeout=self.config.get("api_timeout_seconds", 10),
             retry_attempts=self.config.get("api_retry_attempts", 3),
