@@ -96,6 +96,16 @@ class BotRunner:
         # Initialize data clients (market and crypto data)
         self.market_client, self.crypto_client = self._initialize_data_clients()
 
+        # Initialize risk manager for position sizing and limits
+        from services.risk_manager import get_risk_manager
+
+        self.risk_manager = get_risk_manager(self.config)
+
+        # Initialize alert system for custom alerts
+        from services.alert_system import get_alert_system
+
+        self.alert_system = get_alert_system(self.config)
+
         # Setup directories
         self.logs_dir = Path("logs")
         self.logs_dir.mkdir(exist_ok=True)
@@ -584,6 +594,142 @@ class BotRunner:
                     # Process signal through data flow manager
                     self.data_flow_manager.process_signal(strategy_name, signal)
 
+    def _check_alerts(
+        self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
+    ) -> None:
+        """
+        Check all configured alerts against current market data
+
+        Args:
+            markets: List of market data
+            prices_dict: Dictionary of prices by market_id
+        """
+        try:
+            # TODO: Get actual portfolio values from portfolio tracker instead of hardcoded placeholders
+            # These hardcoded values will cause alerts to trigger incorrectly
+            market_data = {
+                "prices": prices_dict,
+                "portfolio": {
+                    "total_pnl": 0.0,  # Placeholder - should get from portfolio tracker
+                    "total_value": 10000,  # Placeholder - should get from portfolio tracker
+                },
+                "strategies": {},  # Would get from strategy manager
+            }
+
+            # Check alerts
+            triggered_alerts = self.alert_system.check_alerts(market_data)
+
+            # Log triggered alerts
+            for alert in triggered_alerts:
+                self.logger.log_warning(f"🚨 Alert triggered: {alert['name']}")
+
+                # Log to activity
+                self._log_activity(
+                    {
+                        "type": "alert_triggered",
+                        "alert_name": alert["name"],
+                        "alert_type": alert["type"],
+                        "value": alert.get("value"),
+                    }
+                )
+
+        except Exception as e:
+            self.logger.log_error(f"Error checking alerts: {e}")
+
+    def _check_risk_positions(self, prices_dict: Dict[str, Dict[str, float]]) -> None:
+        """
+        Check risk limits and update open positions
+
+        Args:
+            prices_dict: Dictionary of prices by market_id
+        """
+        try:
+            # Extract current prices for position updates
+            current_prices = {
+                market_id: price_data.get("yes", 0.5)
+                for market_id, price_data in prices_dict.items()
+            }
+
+            # Check all positions for stop-loss/take-profit triggers
+            actions = self.risk_manager.check_all_positions(current_prices)
+
+            # Log triggered actions
+            for market_id, action in actions:
+                self.logger.log_warning(f"⚠️ Risk trigger for {market_id}: {action}")
+
+                # Log to activity
+                self._log_activity(
+                    {
+                        "type": "risk_trigger",
+                        "market_id": market_id,
+                        "action": action,
+                    }
+                )
+
+            # Get risk summary
+            risk_summary = self.risk_manager.get_risk_summary()
+
+            # Log if close to daily loss limit
+            if risk_summary["daily_loss"] > risk_summary["daily_loss_limit"] * 0.8:
+                self.logger.log_warning(
+                    f"⚠️ Daily loss at {risk_summary['daily_loss']:.2f} "
+                    f"(limit: {risk_summary['daily_loss_limit']:.2f})"
+                )
+
+        except Exception as e:
+            self.logger.log_error(f"Error checking risk positions: {e}")
+
+    def _check_exit_conditions(self, prices_dict: Dict[str, Dict[str, float]]) -> None:
+        """
+        Check if any open positions should be exited
+
+        Args:
+            prices_dict: Dictionary of prices by market_id
+        """
+        try:
+            # Extract current prices
+            current_prices = {
+                market_id: price_data.get("yes", 0.5)
+                for market_id, price_data in prices_dict.items()
+            }
+
+            # Check for exit conditions (stop-loss/take-profit)
+            for position in self.risk_manager.get_all_positions():
+                market_id = position["market_id"]
+
+                if market_id in current_prices:
+                    current_price = current_prices[market_id]
+
+                    # Check if position should be closed
+                    action = self.risk_manager.check_stop_loss_take_profit(
+                        market_id, current_price
+                    )
+
+                    if action:
+                        # Close position
+                        closed_position = self.risk_manager.close_position(
+                            market_id, current_price
+                        )
+
+                        if closed_position:
+                            self.logger.log_warning(
+                                f"💰 Position closed ({action}): {market_id} "
+                                f"P&L: ${closed_position['realized_pnl']:.2f}"
+                            )
+
+                            # Log to activity
+                            self._log_activity(
+                                {
+                                    "type": "position_closed",
+                                    "market_id": market_id,
+                                    "action": action,
+                                    "pnl": closed_position["realized_pnl"],
+                                }
+                            )
+
+        except Exception as e:
+            self.logger.log_error(f"Error checking exit conditions: {e}")
+
     def run_cycle(self) -> None:
         """Run a single bot cycle"""
         try:
@@ -598,21 +744,27 @@ class BotRunner:
             markets = self._fetch_markets()
             prices_dict = self._convert_markets_to_prices_dict(markets)
 
-            # 2. Run all strategies to find opportunities
+            # 2. Check alerts with current market data
+            self._check_alerts(markets, prices_dict)
+
+            # 3. Check risk limits and open positions
+            self._check_risk_positions(prices_dict)
+
+            # 4. Run all strategies to find opportunities
             all_opportunities = self.strategy_manager.run_all_strategies(
                 markets, prices_dict
             )
 
-            # 3. Process and log all opportunities (even if not traded)
+            # 5. Process and log all opportunities (even if not traded)
             self._process_opportunities(all_opportunities)
 
-            # 4. Execute best opportunities (paper trades)
+            # 6. Execute best opportunities (paper trades) with risk checks
             self._execute_trades(all_opportunities)
 
-            # 5. Check open positions for exits
-            # TODO: Implement position management
+            # 7. Check open positions for exits (stop-loss/take-profit)
+            self._check_exit_conditions(prices_dict)
 
-            # 6. Log cycle summary
+            # 8. Log cycle summary
             total_opps_this_cycle = sum(
                 len(opps) for opps in all_opportunities.values()
             )
