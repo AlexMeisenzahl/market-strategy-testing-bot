@@ -16,6 +16,7 @@ from collections import deque, defaultdict
 import statistics
 
 from logger import get_logger
+from engine import TradeSignal
 
 
 class CryptoMomentumStrategy:
@@ -182,76 +183,20 @@ class CryptoMomentumStrategy:
 
         return signal
 
-    def execute_trade(self, signal: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute momentum trade (paper trading)
-
-        Args:
-            signal: Signal dictionary from analyze_momentum
-
-        Returns:
-            Execution result
-        """
-        symbol = signal["symbol"]
-
-        # Check if we can open new position
-        if len(self.active_positions) >= self.max_positions:
-            return {
-                "success": False,
-                "reason": "max_positions_reached",
-                "symbol": symbol,
-            }
-
-        # Check if already have position in this symbol
-        if symbol in self.active_positions:
-            return {
-                "success": False,
-                "reason": "position_already_exists",
-                "symbol": symbol,
-            }
-
-        # Simulate execution
-        execution_result = self._simulate_execution(signal)
-
-        if not execution_result["success"]:
-            return execution_result
-
-        # Record position
-        position = {
-            "symbol": symbol,
-            "direction": signal["direction"],
-            "entry_time": datetime.now(),
-            "entry_price": execution_result["filled_price"],
-            "position_size": signal["position_size"],
-            "stop_loss": signal["stop_loss"],
-            "take_profit": signal["take_profit"],
-            "highest_price": execution_result["filled_price"],  # For trailing stop
-            "lowest_price": execution_result["filled_price"],
-            "status": "open",
-        }
-
-        self.active_positions[symbol] = position
-        self.trades_executed += 1
-        self.total_volume += signal["position_size"]
-
-        # Log trade
-        if self.logger:
-            self.logger.log_trade(
-                market=f"{symbol}/USD",
-                yes_price=execution_result["filled_price"],
-                no_price=0,
-                profit_usd=0,  # Not yet realized
-                status="executed",
-                strategy=self.strategy_name,
-                arbitrage_type=signal["direction"],
-            )
-
-        return {
-            "success": True,
-            "symbol": symbol,
-            "position": position,
-            "execution": execution_result,
-        }
+    def execute_trade(self, signal: Dict[str, Any]) -> TradeSignal:
+        """Return a trade signal (signal-only; no execution or state mutation)."""
+        symbol = signal.get("symbol", "")
+        entry_price = signal.get("entry_price", 0.5)
+        position_size = signal.get("position_size", 0)
+        quantity = position_size / entry_price if entry_price > 0 else 0
+        return TradeSignal(
+            symbol=symbol,
+            side="buy",
+            quantity=quantity,
+            order_type="market",
+            price=entry_price,
+            strategy_name=self.strategy_name,
+        )
 
     def check_positions(self, current_prices: Dict[str, float]) -> List[Dict[str, Any]]:
         """
@@ -291,79 +236,28 @@ class CryptoMomentumStrategy:
 
     def close_position(
         self, symbol: str, current_price: float, reason: str
-    ) -> Dict[str, Any]:
-        """
-        Close a position
-
-        Args:
-            symbol: Symbol to close
-            current_price: Current price
-            reason: Reason for closing (stop_loss, take_profit, trailing_stop, manual)
-
-        Returns:
-            Close result with P&L
-        """
+    ) -> TradeSignal:
+        """Return a sell signal (signal-only; no execution or state mutation)."""
         if symbol not in self.active_positions:
-            return {
-                "success": False,
-                "reason": "position_not_found",
-                "symbol": symbol,
-            }
-
-        position = self.active_positions[symbol]
-
-        # Calculate P&L
-        entry_price = position["entry_price"]
-        position_size = position["position_size"]
-        direction = position["direction"]
-
-        if direction == "bullish":
-            profit_pct = ((current_price - entry_price) / entry_price) * 100
-        else:  # bearish
-            profit_pct = ((entry_price - current_price) / entry_price) * 100
-
-        profit_usd = position_size * (profit_pct / 100)
-
-        # Update metrics
-        self.total_profit += profit_usd
-        if profit_usd > 0:
-            self.win_count += 1
-        else:
-            self.loss_count += 1
-
-        # Create close result
-        hold_time = (datetime.now() - position["entry_time"]).total_seconds()
-
-        close_result = {
-            "success": True,
-            "symbol": symbol,
-            "direction": direction,
-            "entry_price": entry_price,
-            "exit_price": current_price,
-            "position_size": position_size,
-            "profit_usd": profit_usd,
-            "profit_pct": profit_pct,
-            "hold_time_seconds": hold_time,
-            "reason": reason,
-            "closed_at": datetime.now(),
-        }
-
-        # Log close
-        if self.logger:
-            self.logger.log_trade(
-                market=f"{symbol}/USD",
-                yes_price=current_price,
-                no_price=0,
-                profit_usd=profit_usd,
-                status=f"closed_{reason}",
-                strategy=self.strategy_name,
-                arbitrage_type=direction,
+            return TradeSignal(
+                symbol=symbol,
+                side="sell",
+                quantity=0,
+                order_type="market",
+                price=current_price,
+                strategy_name=self.strategy_name,
             )
-
-        # Remove from active positions
-        del self.active_positions[symbol]
-
-        return close_result
+        position = self.active_positions[symbol]
+        entry_price = position.get("entry_price") or 0.5
+        quantity = (position.get("position_size", 0) / entry_price) if entry_price > 0 else 0
+        return TradeSignal(
+            symbol=symbol,
+            side="sell",
+            quantity=quantity,
+            order_type="market",
+            price=current_price,
+            strategy_name=self.strategy_name,
+        )
 
     def get_performance_metrics(self) -> Dict[str, Any]:
         """Get strategy performance metrics"""

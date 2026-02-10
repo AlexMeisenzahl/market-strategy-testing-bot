@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from collections import deque
 from logger import get_logger
+from engine import TradeSignal
 
 
 class PriceHistory:
@@ -464,104 +465,43 @@ class MomentumStrategy:
 
     def enter_position(
         self, opportunity: MomentumOpportunity, trade_size: float
-    ) -> Dict[str, Any]:
-        """
-        Enter a position on a momentum opportunity
-
-        Args:
-            opportunity: MomentumOpportunity to trade
-            trade_size: Amount to invest in USD
-
-        Returns:
-            Position information dictionary
-        """
-        # Record position
-        position = {
-            "market_id": opportunity.market_id,
-            "market_name": opportunity.market_name,
-            "entry_time": datetime.now(),
-            "entry_price": opportunity.current_price,
-            "direction": opportunity.direction,
-            "momentum_score": opportunity.momentum_score,
-            "trade_size": trade_size,
-            "status": "active",
-        }
-
-        self.active_positions[opportunity.market_id] = position
-        self.opportunities_taken += 1
-
-        # Log the trade
-        self.logger.log_trade(
-            market=opportunity.market_name,
-            yes_price=opportunity.current_price,
-            no_price=1.0 - opportunity.current_price,
-            profit_usd=0.0,  # Profit TBD on exit
-            status=f"{self.strategy_name}_{opportunity.direction}_entered",
+    ) -> TradeSignal:
+        """Return a trade signal (signal-only; no execution or state mutation)."""
+        price = opportunity.current_price or 0.5
+        quantity = trade_size / price if price > 0 else 0
+        return TradeSignal(
+            symbol=opportunity.market_id,
+            side="buy",
+            quantity=quantity,
+            order_type="market",
+            price=price,
+            strategy_name=self.strategy_name,
         )
-
-        return position
 
     def exit_position(
         self, market_id: str, exit_price: float, reason: str = "manual"
-    ) -> Dict[str, Any]:
-        """
-        Exit a position
-
-        Args:
-            market_id: Market identifier
-            exit_price: Exit price
-            reason: Reason for exit
-
-        Returns:
-            Exit information dictionary
-        """
+    ) -> TradeSignal:
+        """Return a sell signal (signal-only; no execution or state mutation)."""
         if market_id not in self.active_positions:
-            return {"error": "No active position found"}
-
+            return TradeSignal(
+                symbol=market_id,
+                side="sell",
+                quantity=0,
+                order_type="market",
+                price=exit_price,
+                strategy_name=self.strategy_name,
+            )
         position = self.active_positions[market_id]
-
-        # Calculate profit/loss
-        entry_price = position["entry_price"]
-        direction = position["direction"]
-        trade_size = position["trade_size"]
-
-        if direction == "bullish":
-            pnl = trade_size * ((exit_price - entry_price) / entry_price)
-        else:  # bearish
-            pnl = trade_size * ((entry_price - exit_price) / entry_price)
-
-        # Update statistics
-        if pnl > 0:
-            self.total_profit += pnl
-        else:
-            self.total_loss += abs(pnl)
-
-        # Log the exit
-        self.logger.log_trade(
-            market=position["market_name"],
-            yes_price=exit_price,
-            no_price=1.0 - exit_price,
-            profit_usd=pnl,
-            status=f"{self.strategy_name}_exited_{reason}",
+        entry_price = position.get("entry_price") or 0.5
+        quantity = (position["trade_size"] / entry_price) if entry_price > 0 else 0
+        return TradeSignal(
+            symbol=market_id,
+            side="sell",
+            quantity=quantity,
+            order_type="market",
+            price=exit_price,
+            strategy_name=self.strategy_name,
         )
-
-        # Create exit record
-        exit_info = {
-            "market_id": market_id,
-            "market_name": position["market_name"],
-            "exit_time": datetime.now(),
-            "exit_price": exit_price,
-            "entry_price": entry_price,
-            "pnl": pnl,
-            "pnl_pct": (pnl / trade_size) * 100,
-            "reason": reason,
-            "direction": direction,
-        }
-
-        # Remove from active positions
-        del self.active_positions[market_id]
-
-        return exit_info
 
     def _meets_entry_criteria(
         self, metrics: Dict[str, float], momentum_score: float

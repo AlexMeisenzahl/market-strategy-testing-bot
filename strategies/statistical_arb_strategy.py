@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from collections import deque
 import math
 from logger import get_logger
+from engine import TradeSignal
 
 
 class CorrelationTracker:
@@ -523,124 +524,43 @@ class StatisticalArbStrategy:
 
     def enter_position(
         self, opportunity: StatisticalArbOpportunity, trade_size: float
-    ) -> Dict[str, Any]:
-        """
-        Enter a position on a statistical arbitrage opportunity
-
-        Args:
-            opportunity: StatisticalArbOpportunity to trade
-            trade_size: Amount to invest in USD (per leg)
-
-        Returns:
-            Position information dictionary
-        """
+    ) -> TradeSignal:
+        """Return a trade signal (signal-only; no execution or state mutation)."""
         pair_id = opportunity.get_pair_id()
-
-        # Record position
-        position = {
-            "pair_id": pair_id,
-            "market_id_1": opportunity.market_id_1,
-            "market_name_1": opportunity.market_name_1,
-            "market_id_2": opportunity.market_id_2,
-            "market_name_2": opportunity.market_name_2,
-            "entry_time": datetime.now(),
-            "entry_price_1": opportunity.price_1,
-            "entry_price_2": opportunity.price_2,
-            "entry_spread": opportunity.price_1 - opportunity.price_2,
-            "direction": opportunity.direction,
-            "correlation": opportunity.correlation,
-            "entry_z_score": opportunity.z_score,
-            "trade_size": trade_size,
-            "status": "active",
-        }
-
-        self.active_positions[pair_id] = position
-        self.opportunities_taken += 1
-
-        # Log the trade
-        self.logger.log_trade(
-            market=f"{opportunity.market_name_1} vs {opportunity.market_name_2}",
-            yes_price=opportunity.price_1,
-            no_price=opportunity.price_2,
-            profit_usd=0.0,  # Profit TBD on exit
-            status=f"{self.strategy_name}_{opportunity.direction}_entered",
+        price = opportunity.price_1 or 0.5
+        quantity = trade_size / price if price > 0 else 0
+        return TradeSignal(
+            symbol=pair_id,
+            side="buy",
+            quantity=quantity,
+            order_type="market",
+            price=price,
+            strategy_name=self.strategy_name,
         )
 
-        return position
-
-    def exit_position(self, pair_id: str, reason: str = "manual") -> Dict[str, Any]:
-        """
-        Exit a position
-
-        Args:
-            pair_id: Pair identifier
-            reason: Reason for exit
-
-        Returns:
-            Exit information dictionary
-        """
+    def exit_position(self, pair_id: str, reason: str = "manual") -> TradeSignal:
+        """Return a sell signal (signal-only; no execution or state mutation)."""
         if pair_id not in self.active_positions:
-            return {"error": "No active position found"}
-
+            return TradeSignal(
+                symbol=pair_id,
+                side="sell",
+                quantity=0,
+                order_type="market",
+                price=0.5,
+                strategy_name=self.strategy_name,
+            )
         position = self.active_positions[pair_id]
-
-        # Get current prices
-        current_price_1 = self.current_prices.get(position["market_id_1"], 0)
-        current_price_2 = self.current_prices.get(position["market_id_2"], 0)
-
-        # Calculate profit/loss
-        entry_spread = position["entry_spread"]
-        current_spread = current_price_1 - current_price_2
-        direction = position["direction"]
-        trade_size = position["trade_size"]
-
-        if direction == "market1_high":
-            spread_change = entry_spread - current_spread
-        else:
-            spread_change = current_spread - entry_spread
-
-        # Profit is proportional to spread change
-        if abs(entry_spread) == 0:
-            pnl = 0.0
-        else:
-            pnl = trade_size * (spread_change / abs(entry_spread))
-
-        # Update statistics
-        if pnl > 0:
-            self.total_profit += pnl
-        else:
-            self.total_loss += abs(pnl)
-
-        # Log the exit
-        self.logger.log_trade(
-            market=f"{position['market_name_1']} vs {position['market_name_2']}",
-            yes_price=current_price_1,
-            no_price=current_price_2,
-            profit_usd=pnl,
-            status=f"{self.strategy_name}_exited_{reason}",
+        entry_price_1 = position.get("entry_price_1") or 0.5
+        quantity = (position["trade_size"] / entry_price_1) if entry_price_1 > 0 else 0
+        price = self.current_prices.get(position["market_id_1"], 0.5)
+        return TradeSignal(
+            symbol=pair_id,
+            side="sell",
+            quantity=quantity,
+            order_type="market",
+            price=price,
+            strategy_name=self.strategy_name,
         )
-
-        # Create exit record
-        exit_info = {
-            "pair_id": pair_id,
-            "market_name_1": position["market_name_1"],
-            "market_name_2": position["market_name_2"],
-            "exit_time": datetime.now(),
-            "exit_price_1": current_price_1,
-            "exit_price_2": current_price_2,
-            "exit_spread": current_spread,
-            "entry_spread": entry_spread,
-            "spread_change": spread_change,
-            "pnl": pnl,
-            "pnl_pct": (pnl / trade_size) * 100,
-            "reason": reason,
-            "direction": direction,
-        }
-
-        # Remove from active positions
-        del self.active_positions[pair_id]
-
-        return exit_info
 
     def _get_pair_id(self, market_id_1: str, market_id_2: str) -> str:
         """Get unique identifier for a pair (order-independent)"""
