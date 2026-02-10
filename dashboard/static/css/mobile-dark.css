@@ -1,0 +1,93 @@
+/**
+ * Mobile Dark Mode Fixes
+ * 
+ * Ensures dark mode applies correctly on mobile devices
+ */
+
+/* Fix mobile dark mode background */
+@media (max-width: 768px) {
+    html.dark,
+    body.dark {
+        background-color: #0f172a !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .dark .card,
+    .dark .bg-white {
+        background-color: #1e293b !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .dark input,
+    .dark select,
+    .dark textarea {
+        background-color: #1e293b !important;
+        border-color: #334155 !important;
+        color: #e2e8f0 !important;
+    }
+    
+    .dark input::placeholder,
+    .dark textarea::placeholder {
+        color: #64748b !important;
+    }
+    
+    .dark button {
+        background-color: #334155 !important;
+        color: #e2e8f0 !important;
+        border-color: #475569 !important;
+    }
+    
+    .dark button:hover {
+        background-color: #475569 !important;
+    }
+    
+    .dark .border {
+        border-color: #334155 !important;
+    }
+    
+    .dark .text-gray-500 {
+        color: #94a3b8 !important;
+    }
+    
+    .dark .text-gray-600 {
+        color: #cbd5e1 !important;
+    }
+    
+    .dark .text-gray-700 {
+        color: #e2e8f0 !important;
+    }
+    
+    /* Fix table backgrounds in dark mode */
+    .dark table {
+        background-color: #1e293b !important;
+    }
+    
+    .dark thead {
+        background-color: #0f172a !important;
+    }
+    
+    .dark tbody tr {
+        border-bottom-color: #334155 !important;
+    }
+    
+    .dark tbody tr:hover {
+        background-color: #334155 !important;
+    }
+}
+
+/* Ensure dark mode applies immediately */
+.dark {
+    color-scheme: dark;
+}
+
+/* Fix flash of unstyled content in dark mode */
+html.dark {
+    background-color: #0f172a;
+}
+
+/* Mobile viewport meta theme color */
+@media (prefers-color-scheme: dark) {
+    html {
+        background-color: #0f172a;
+    }
+}

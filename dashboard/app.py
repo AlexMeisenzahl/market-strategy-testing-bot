@@ -3035,3 +3035,243 @@ def unlock_update_system():
     except Exception as e:
         logger.error(f"Error unlocking update: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ===== Integration & Connectivity Routes =====
+# Added as part of PR to connect frontend/backend components
+
+
+@app.route("/api/chart/pnl")
+def get_pnl_chart_data():
+    """Return P&L data formatted for Chart.js"""
+    try:
+        pnl_data = chart_data.get_pnl_over_time()
+        return jsonify(pnl_data)
+    except Exception as e:
+        logger.error(f"Error getting P&L chart data: {e}")
+        return jsonify({"labels": [], "values": [], "error": str(e)}), 500
+
+
+@app.route("/api/keys", methods=["POST"])
+def save_api_key():
+    """Save API key securely"""
+    try:
+        from services.secure_config_manager import SecureConfigManager
+
+        config = SecureConfigManager()
+        data = request.json
+        provider = data.get("provider")
+        key = data.get("key")
+
+        if not provider or not key:
+            return jsonify({"success": False, "error": "Provider and key required"}), 400
+
+        config.set_api_key(provider, key)
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error saving API key: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/keys/test", methods=["POST"])
+def test_api_key():
+    """Test API key connection"""
+    try:
+        data = request.json
+        provider = data.get("provider", "").lower()
+        key = data.get("key")
+
+        if not provider or not key:
+            return (
+                jsonify({"connected": False, "message": "Provider and key required"}),
+                400,
+            )
+
+        # Test connection based on provider
+        if provider == "polymarket":
+            from clients import PolymarketClient
+
+            client = PolymarketClient(api_key=key)
+            result = client.test_connection()
+            return jsonify(
+                {"connected": result.get("success", False), "message": result.get("message", "Test failed")}
+            )
+        elif provider in ["coingecko", "crypto"]:
+            from clients import CoinGeckoClient
+
+            client = CoinGeckoClient(api_key=key)
+            result = client.test_connection()
+            return jsonify(
+                {"connected": result.get("success", False), "message": result.get("message", "Test failed")}
+            )
+        else:
+            return jsonify(
+                {"connected": True, "message": f"Provider {provider} configured (no test available)"}
+            )
+    except Exception as e:
+        logger.error(f"Error testing API key: {e}")
+        return jsonify({"connected": False, "message": str(e)}), 500
+
+
+@app.route("/api/keys", methods=["GET"])
+def get_api_keys():
+    """Get list of configured API keys (masked)"""
+    try:
+        from services.secure_config_manager import SecureConfigManager
+
+        config = SecureConfigManager()
+        keys = config.list_keys()
+        return jsonify(keys)
+    except Exception as e:
+        logger.error(f"Error getting API keys: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/leaderboard")
+def get_leaderboard_data():
+    """Get strategy comparison data"""
+    try:
+        from services.strategy_competition import StrategyCompetition
+
+        monitor = StrategyCompetition()
+        leaderboard = monitor.get_leaderboard()
+        return jsonify(leaderboard)
+    except Exception as e:
+        logger.error(f"Error getting leaderboard data: {e}")
+        # Return empty leaderboard on error
+        return jsonify({"strategies": [], "error": str(e)}), 500
+
+
+@app.route("/api/trades/<trade_id>")
+def get_trade_details(trade_id):
+    """Get detailed trade information"""
+    try:
+        trade = data_parser.get_trade_by_id(trade_id)
+        if trade:
+            return jsonify(trade)
+        else:
+            return jsonify({"error": "Trade not found"}), 404
+    except Exception as e:
+        logger.error(f"Error getting trade details: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/reports/tax")
+def download_tax_report():
+    """Generate and download tax report CSV"""
+    try:
+        from services.tax_reporter import TaxReporter
+
+        generator = TaxReporter()
+        report_data = generator.generate_report()
+
+        # Create CSV
+        si = io.StringIO()
+        writer = csv.writer(si)
+        writer.writerow(["Date", "Type", "Amount", "Symbol", "Realized P&L"])
+
+        for trade in report_data:
+            writer.writerow(
+                [
+                    trade.get("date", ""),
+                    trade.get("type", ""),
+                    trade.get("amount", ""),
+                    trade.get("symbol", ""),
+                    trade.get("realized_pnl", ""),
+                ]
+            )
+
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = "attachment; filename=tax_report.csv"
+        output.headers["Content-type"] = "text/csv"
+        return output
+    except Exception as e:
+        logger.error(f"Error generating tax report: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/dashboard/refresh")
+def refresh_dashboard_data():
+    """Get latest dashboard data for auto-refresh"""
+    try:
+        # Get summary data
+        summary = analytics.get_overview_stats()
+
+        # Get recent trades
+        trades_response = data_parser.get_trades(page=1, per_page=10)
+        recent_trades = (
+            trades_response.get("trades", [])
+            if isinstance(trades_response, dict)
+            else []
+        )
+
+        # Get P&L chart data
+        pnl_chart = chart_data.get_pnl_over_time()
+
+        return jsonify(
+            {
+                "summary": summary,
+                "recent_trades": recent_trades,
+                "pnl_chart": pnl_chart,
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error refreshing dashboard data: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/metrics/realized-gains")
+def get_realized_gains():
+    """Calculate actual realized gains"""
+    try:
+        trades_response = data_parser.get_trades(page=1, per_page=10000)
+        trade_list = (
+            trades_response.get("trades", [])
+            if isinstance(trades_response, dict)
+            else []
+        )
+
+        realized_gains = sum(
+            [
+                trade.get("profit", 0)
+                for trade in trade_list
+                if trade.get("status") == "closed" and trade.get("profit") is not None
+            ]
+        )
+
+        closed_count = len([t for t in trade_list if t.get("status") == "closed"])
+
+        return jsonify({"realized_gains": realized_gains, "trade_count": closed_count})
+    except Exception as e:
+        logger.error(f"Error calculating realized gains: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings/toggle-mode", methods=["POST"])
+def toggle_trading_mode():
+    """Toggle between paper and live trading mode"""
+    try:
+        config_file = Path("config.yaml")
+
+        # Load current config
+        if config_file.exists():
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f) or {}
+        else:
+            config = {}
+
+        # Toggle mode
+        current_mode = config.get("paper_trading", True)
+        new_mode = not current_mode
+        config["paper_trading"] = new_mode
+
+        # Save config
+        with open(config_file, "w") as f:
+            yaml.dump(config, f, default_flow_style=False)
+
+        mode_name = "paper" if new_mode else "live"
+        return jsonify({"success": True, "mode": mode_name})
+    except Exception as e:
+        logger.error(f"Error toggling trading mode: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
