@@ -425,6 +425,22 @@ class DataParser:
         """Get all opportunities without filtering"""
         return self._get_opportunities_with_cache()
 
+    def get_trade_by_id(self, trade_id: str) -> Dict[str, Any]:
+        """
+        Get a specific trade by ID
+        
+        Args:
+            trade_id: Trade ID to find
+            
+        Returns:
+            Trade dictionary or None if not found
+        """
+        trades = self.get_all_trades()
+        for trade in trades:
+            if str(trade.get("id")) == str(trade_id):
+                return trade
+        return None
+
     # ======================================================================
     # CALCULATION FUNCTIONS WITH DECIMAL PRECISION
     # ======================================================================

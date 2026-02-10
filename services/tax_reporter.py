@@ -362,6 +362,45 @@ class TaxReporter:
             "long_term_count": len(long_term),
         }
 
+    def generate_report(self, year: int = None) -> List[Dict[str, Any]]:
+        """
+        Generate tax report data for download
+        
+        Args:
+            year: Tax year (defaults to current year)
+            
+        Returns:
+            List of trade dictionaries formatted for CSV export
+        """
+        if year is None:
+            year = datetime.now().year
+            
+        # Get trades from data files
+        from dashboard.services.data_parser import DataParser
+        from pathlib import Path
+        
+        parser = DataParser(logs_dir=Path("data"))
+        trades = parser.get_all_trades()
+        
+        # Filter by year
+        year_trades = self._filter_trades_by_year(trades, year)
+        
+        # Calculate gains/losses
+        transactions = self._calculate_gains_losses(year_trades, "FIFO")
+        
+        # Format for CSV
+        report_data = []
+        for txn in transactions:
+            report_data.append({
+                "date": txn.get("sale_date", ""),
+                "type": "SALE",
+                "amount": txn.get("amount", 0),
+                "symbol": txn.get("asset", ""),
+                "realized_pnl": round(txn.get("gain_loss", 0), 2)
+            })
+        
+        return report_data
+
 
 # Example usage
 if __name__ == "__main__":

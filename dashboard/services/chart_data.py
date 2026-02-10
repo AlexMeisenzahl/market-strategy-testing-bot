@@ -207,3 +207,38 @@ class ChartDataService:
             ],
             "total": total,
         }
+
+    def get_pnl_over_time(self) -> Dict[str, Any]:
+        """
+        Get P&L over time formatted for Chart.js
+        
+        Returns:
+            Dictionary with labels and values for chart
+        """
+        trades = self.data_parser.get_all_trades()
+        
+        if not trades:
+            return {"labels": [], "values": []}
+        
+        # Sort by timestamp
+        trades.sort(key=lambda x: x["timestamp"])
+        
+        # Calculate cumulative P&L
+        cumulative_pnl = Decimal(0)
+        labels = []
+        values = []
+        
+        for trade in trades:
+            cumulative_pnl += Decimal(str(trade.get("pnl_usd", 0)))
+            
+            # Format timestamp as date
+            timestamp = datetime.fromisoformat(trade["timestamp"])
+            date_label = timestamp.strftime("%Y-%m-%d")
+            
+            labels.append(date_label)
+            values.append(float(cumulative_pnl))
+        
+        return {
+            "labels": labels,
+            "values": values
+        }
