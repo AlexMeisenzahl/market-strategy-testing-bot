@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from logger import get_logger
+from engine import TradeSignal
 import time
 
 
@@ -62,6 +63,8 @@ class BTCArbitrageStrategy:
         # Trading fee estimate (Polymarket charges ~2% on profits)
         self.trading_fee_rate = 0.02
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # Track active positions
         self.active_positions: Dict[str, Dict] = {}
 
@@ -377,48 +380,19 @@ class BTCArbitrageStrategy:
 
         return min(confidence, 0.95)  # Cap at 95%
 
-    def execute_arbitrage(self, opportunity: ArbitrageOpportunity) -> bool:
-        """
-        Execute arbitrage trade (buy both UP and DOWN)
-
-        Args:
-            opportunity: Arbitrage opportunity to execute
-
-        Returns:
-            True if successful, False otherwise
-        """
-        self.logger.log_info(
-            f"Executing BTC arbitrage: {opportunity.up_market_name} + {opportunity.down_market_name}"
+    def execute_arbitrage(self, opportunity: ArbitrageOpportunity) -> TradeSignal:
+        """Return a trade signal (signal-only; no execution or state mutation)."""
+        position_id = f"{opportunity.up_market_id}_{opportunity.down_market_id}"
+        price = opportunity.up_price or 0.5
+        quantity = (1.0 / price) if price > 0 else 0
+        return TradeSignal(
+            symbol=position_id,
+            side="buy",
+            quantity=quantity,
+            order_type="market",
+            price=price,
+            strategy_name="btc_arbitrage",
         )
-
-        try:
-            # In paper trading mode, we just log the trade
-            # In live mode, this would execute actual trades
-
-            # Record position
-            position_id = f"{opportunity.up_market_id}_{opportunity.down_market_id}"
-
-            self.active_positions[position_id] = {
-                "opportunity": opportunity,
-                "entry_time": datetime.now(),
-                "status": "active",
-                "up_filled": True,  # Simulated
-                "down_filled": True,  # Simulated
-            }
-
-            self.logger.log_info(
-                f"Arbitrage executed successfully. Net profit: ${opportunity.net_profit:.2f}"
-            )
-
-            return True
-
-        except Exception as e:
-            self.logger.log_error(f"Failed to execute arbitrage: {e}")
-
-            # Rollback logic would go here in live mode
-            # If only one side filled, immediately close it
-
-            return False
 
     def monitor_expiry(self, position: Dict) -> None:
         """
@@ -445,27 +419,8 @@ class BTCArbitrageStrategy:
             )
 
     def _settle_position(self, position: Dict) -> None:
-        """
-        Settle an expired position
-
-        Args:
-            position: Position data
-        """
-        opportunity = position.get("opportunity")
-        position_id = f"{opportunity.up_market_id}_{opportunity.down_market_id}"
-
-        # One of UP or DOWN will be YES, the other NO
-        # Since we bought both, we're guaranteed to profit
-
-        self.logger.log_info(
-            f"Position settled: {opportunity.up_market_name}. "
-            f"Realized profit: ${opportunity.net_profit:.2f}"
-        )
-
-        # Mark as settled
-        if position_id in self.active_positions:
-            self.active_positions[position_id]["status"] = "settled"
-            self.active_positions[position_id]["settlement_time"] = datetime.now()
+        """No-op: signal-only; no state mutation."""
+        pass
 
     def get_active_positions(self) -> List[Dict]:
         """
@@ -481,26 +436,8 @@ class BTCArbitrageStrategy:
         ]
 
     def cleanup_old_positions(self, max_age_hours: int = 24) -> None:
-        """
-        Remove old settled positions from tracking
-
-        Args:
-            max_age_hours: Maximum age in hours to keep positions
-        """
-        cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
-
-        positions_to_remove = []
-        for position_id, position in self.active_positions.items():
-            if position.get("status") == "settled":
-                settlement_time = position.get("settlement_time")
-                if settlement_time and settlement_time < cutoff_time:
-                    positions_to_remove.append(position_id)
-
-        for position_id in positions_to_remove:
-            del self.active_positions[position_id]
-
-        if positions_to_remove:
-            self.logger.log_info(f"Cleaned up {len(positions_to_remove)} old positions")
+        """No-op: signal-only; no state mutation."""
+        pass
 
     def get_name(self) -> str:
         """Get strategy name"""

@@ -429,7 +429,8 @@ class ArbitrageBot:
                                             trader_stats["trades_executed"]
                                         )
 
-                                    # Track in position tracker
+                                    # DEPRECATED: duplicate state. ExecutionEngine is source of truth.
+                                    # Track in position tracker (legacy fallback for dashboard/reporting).
                                     position_tracker.open_position(
                                         market_id=opp["market_id"],
                                         market_name=opp["market_name"],

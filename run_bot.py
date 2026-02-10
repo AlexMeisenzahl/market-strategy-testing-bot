@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from logger import get_logger
 from strategy_manager import StrategyManager
-from services.paper_trading_engine import PaperTradingEngine
+from engine import ExecutionEngine
 from polymarket_api import PolymarketAPI
 from services.secure_config_manager import SecureConfigManager
 from config.config_loader import get_config
@@ -42,6 +42,8 @@ from clients import (
 )
 import os
 import requests
+
+print(">>> run_bot.py STARTED <<<", flush=True)
 
 # Import all available strategies
 from strategies.mean_reversion_strategy import MeanReversionStrategy
@@ -107,7 +109,7 @@ class BotRunner:
         self.logger = get_logger()
         self.running = False
 
-        # Load configuration using ConfigLoader (ENV > YAML > DEFAULT)
+        # Load configuration using ConfigLoader (ENV > YAML > DEFAULT); never crash on missing config
         try:
             config_loader = get_config(config_path=config_path)
             self.config_loader = config_loader
@@ -118,21 +120,21 @@ class BotRunner:
             env_name = config_loader.get("trading_bot_env", "development")
             self.logger.log_warning(f"Configuration loaded: ENVIRONMENT={env_name}")
         except Exception as e:
-            self.logger.log_error(f"Failed to load config via ConfigLoader: {e}")
-            # Fallback to old method
+            self.logger.log_warning(f"ConfigLoader failed ({e}); using YAML/defaults only.")
             self.config = self._load_config(config_path)
             self.config_loader = None
 
-        # Initialize core components
-        self.strategy_manager = StrategyManager(self.config)
-        self.paper_trader = PaperTradingEngine(self.config)
+        # Initialize core components (single execution engine; StrategyManager routes to it)
+        self.execution_engine = ExecutionEngine(self.config)
+        self.strategy_manager = StrategyManager(self.config, self.execution_engine)
         self.polymarket_api = PolymarketAPI(
             timeout=self.config.get("api_timeout_seconds", 10),
             retry_attempts=self.config.get("api_retry_attempts", 3),
         )
 
-        # Initialize data flow manager for dashboard updates
+        # Initialize data flow manager (read-only consumer; reads from engine when set)
         self.data_flow_manager = DataFlowManager(self.config)
+        self.data_flow_manager.set_execution_engine(self.execution_engine)
 
         # Initialize data clients (market and crypto data)
         self.market_client, self.crypto_client = self._initialize_data_clients()
@@ -246,19 +248,45 @@ class BotRunner:
 
         return config
 
+    def _get_default_config(self) -> Dict[str, Any]:
+        """Return minimal default config when no config file is present."""
+        return {
+            "mode": "paper",
+            "paper_trading": True,
+            "initial_capital": 10000,
+            "min_profit_margin": 0.02,
+            "loop_interval_seconds": 30,
+            "enable_dashboard": False,
+            "enable_telegram": False,
+            "api_timeout_seconds": 10,
+            "api_retry_attempts": 3,
+            "strategies": {
+                "enabled": ["arbitrage", "momentum", "news", "statistical_arb"],
+            },
+            "logging": {"level": "INFO"},
+        }
+
     def _load_config(self, config_path: str) -> Dict[str, Any]:
-        """Load configuration from YAML file"""
+        """Load configuration from YAML file. On missing file, log warning and return defaults."""
         config_file = Path(config_path)
 
-        # If config.yaml doesn't exist, try config.example.yaml
         if not config_file.exists():
             config_file = Path("config.example.yaml")
-            if not config_file.exists():
-                self.logger.log_error("No configuration file found!")
-                raise FileNotFoundError("No config.yaml or config.example.yaml found")
+        if not config_file.exists():
+            self.logger.log_warning(
+                "No configuration file found (config.yaml or config.example.yaml); using defaults."
+            )
+            return self._get_default_config()
 
-        with open(config_file, "r") as f:
-            config = yaml.safe_load(f)
+        try:
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            self.logger.log_warning(f"Error reading config file: {e}; using defaults.")
+            return self._get_default_config()
+
+        if not config:
+            return self._get_default_config()
 
         # Set default strategies if not configured
         if "strategies" not in config:
@@ -666,35 +694,8 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
                     }
                 )
 
-        # Process signals through data flow manager for dashboard updates
-        for strategy_name, opportunities in all_opportunities.items():
-            for opp in opportunities:
-                # Convert opportunity to signal format
-                opp_dict = opp.to_dict() if hasattr(opp, "to_dict") else {}
-
-                # Only process opportunities that meet threshold
-                profit_margin = (
-                    opp.profit_margin if hasattr(opp, "profit_margin") else 0
-                )
-                min_margin = self.config.get("min_profit_margin", 0.02) * 100
-
-                if profit_margin >= min_margin:
-                    signal = {
-                        "action": opp_dict.get(
-                            "action", "BUY"
-                        ),  # Get action from opportunity, default to BUY
-                        "symbol": opp_dict.get(
-                            "market_id", opp_dict.get("market_name", "")
-                        ),
-                        "market_id": opp_dict.get("market_id", ""),
-                        "price": opp_dict.get("yes_price", 0.5),
-                        "quantity": 1,  # Default quantity
-                        "confidence": profit_margin,
-                        "strategy": strategy_name,
-                    }
-
-                    # Process signal through data flow manager
-                    self.data_flow_manager.process_signal(strategy_name, signal)
+        # Execution is done only via strategy_manager -> execution_engine above.
+        # Dashboard/state updates can consume from execution_engine (read-only).
 
     def _check_alerts(
         self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
@@ -707,17 +708,27 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
             prices_dict: Dictionary of prices by market_id
         """
         try:
-            # Prepare alert data with prices and portfolio metrics
-            portfolio_value = (
-                self.paper_trader.get_total_value()
-                if hasattr(self.paper_trader, "get_total_value")
-                else 10000
-            )
+            # Prepare alert data with prices and portfolio metrics from execution engine
+            current_prices = {
+                market_id: price_data.get("yes", 0.5)
+                for market_id, price_data in prices_dict.items()
+            }
+            positions = self.execution_engine.get_positions(current_prices)
+            position_value = sum(p.get("current_value", 0) for p in positions)
+            portfolio_value = self.execution_engine.get_balance() + position_value
+            if portfolio_value <= 0:
+                portfolio_value = self.execution_engine.trading_engine.initial_balance
 
-            # Calculate daily P&L percentage from paper trader if available
-            daily_pnl_percent = 0.0
-            if hasattr(self.paper_trader, "get_daily_pnl_percent"):
-                daily_pnl_percent = self.paper_trader.get_daily_pnl_percent()
+            # Daily P&L % from engine trade history (today's realized PnL)
+            today_prefix = datetime.now(timezone.utc).date().isoformat()
+            daily_pnl = sum(
+                t.get("realized_pnl", 0)
+                for t in self.execution_engine.get_trade_history()
+                if (t.get("timestamp") or "").startswith(today_prefix)
+            )
+            daily_pnl_percent = (
+                (daily_pnl / portfolio_value * 100) if portfolio_value else 0.0
+            )
 
             alert_data = {
                 "portfolio_value": portfolio_value,
@@ -924,6 +935,9 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         self.logger.log_warning("🔄 Scanning markets every 60 seconds...")
         self.logger.log_warning("Press CTRL+C to stop\n")
 
+        print(">>> Bot main loop starting <<<", flush=True)
+        self.logger.log_warning(">>> Bot main loop starting <<<")
+
         # Log startup activity
         self._log_activity(
             {
@@ -937,6 +951,7 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         # Main loop
         while self.running:
             try:
+                self.logger.log_warning("Bot heartbeat – cycle started")
                 # Run one cycle
                 self.run_cycle()
 
@@ -996,9 +1011,34 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         self.logger.log_warning("👋 Bot stopped. Goodbye!")
 
 
+def _ensure_minimal_config(config_path: str = "config.yaml") -> None:
+    """Create minimal config.yaml in project root if it does not exist."""
+    p = Path(config_path)
+    if p.exists():
+        return
+    minimal = """---
+mode: paper
+initial_capital: 10000
+min_profit_margin: 0.02
+loop_interval_seconds: 30
+
+enable_dashboard: false
+enable_telegram: false
+
+logging:
+  level: INFO
+---
+"""
+    try:
+        p.write_text(minimal, encoding="utf-8")
+    except Exception:
+        pass  # best-effort; bot will use in-memory defaults
+
+
 def main():
     """Main entry point"""
     logger = None
+    _ensure_minimal_config()
     try:
         # Initialize logger first to ensure we can log errors
         logger = get_logger()

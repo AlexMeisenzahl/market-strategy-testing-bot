@@ -8,6 +8,7 @@ a risk-free profit opportunity. This is the original strategy used by the bot.
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from logger import get_logger
+from engine import TradeSignal
 
 
 class ArbitrageOpportunity:
@@ -110,6 +111,8 @@ class ArbitrageStrategy:
         # Arbitrage types configuration
         self.arbitrage_types_config = config.get("arbitrage_types", {})
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # Statistics tracking
         self.opportunities_found = 0
         self.opportunities_taken = 0
@@ -293,110 +296,48 @@ class ArbitrageStrategy:
 
     def enter_position(
         self, opportunity: ArbitrageOpportunity, trade_size: float
-    ) -> Dict[str, Any]:
+    ) -> TradeSignal:
         """
-        Enter a position on an arbitrage opportunity
-
-        Args:
-            opportunity: ArbitrageOpportunity to trade
-            trade_size: Amount to invest in USD
-
-        Returns:
-            Position information dictionary
+        Return a trade signal for this opportunity (signal-only; no execution or state mutation).
         """
-        # Calculate expected profit
-        expected_profit = opportunity.calculate_profit_for_amount(trade_size)
-
-        # Record position
-        position = {
-            "market_id": opportunity.market_id,
-            "market_name": opportunity.market_name,
-            "entry_time": datetime.now(),
-            "entry_price_sum": opportunity.price_sum,
-            "yes_price": opportunity.yes_price,
-            "no_price": opportunity.no_price,
-            "trade_size": trade_size,
-            "expected_profit": expected_profit,
-            "status": "active",
-        }
-
-        self.active_positions[opportunity.market_id] = position
-        self.opportunities_taken += 1
-        self.total_expected_profit += expected_profit
-
-        # Log the trade
-        self.logger.log_trade(
-            market=opportunity.market_name,
-            yes_price=opportunity.yes_price,
-            no_price=opportunity.no_price,
-            profit_usd=expected_profit,
-            status=f"{self.strategy_name}_entered",
-            strategy=self.strategy_name,
-            arbitrage_type=getattr(opportunity, "arbitrage_type", "Simple"),
+        price = opportunity.yes_price or 0.5
+        quantity = trade_size / price if price > 0 else 0
+        return TradeSignal(
+            symbol=opportunity.market_id,
+            side="buy",
+            quantity=quantity,
+            order_type="market",
+            price=price,
+            strategy_name=self.strategy_name,
         )
-
-        return position
 
     def exit_position(
         self, market_id: str, exit_prices: Dict[str, float], reason: str = "manual"
-    ) -> Dict[str, Any]:
+    ) -> TradeSignal:
         """
-        Exit a position
-
-        Args:
-            market_id: Market identifier
-            exit_prices: Exit prices {'yes': float, 'no': float}
-            reason: Reason for exit (profit_target, stop_loss, manual, etc.)
-
-        Returns:
-            Exit information dictionary
+        Return a sell signal for this position (signal-only; no execution or state mutation).
         """
         if market_id not in self.active_positions:
-            return {"error": "No active position found"}
-
+            return TradeSignal(
+                symbol=market_id,
+                side="sell",
+                quantity=0,
+                order_type="market",
+                price=exit_prices.get("yes", 0.5),
+                strategy_name=self.strategy_name,
+            )
         position = self.active_positions[market_id]
-
-        # Calculate actual profit based on exit prices
-        entry_sum = position["entry_price_sum"]
-        exit_sum = exit_prices["yes"] + exit_prices["no"]
-        trade_size = position["trade_size"]
-
-        # Profit improvement from entry to exit
-        actual_profit = (
-            trade_size * (exit_sum - entry_sum) + position["expected_profit"]
+        yes_price = position.get("yes_price") or 0.5
+        quantity = (position["trade_size"] / yes_price) if yes_price > 0 else 0
+        price = exit_prices.get("yes", 0.5)
+        return TradeSignal(
+            symbol=market_id,
+            side="sell",
+            quantity=quantity,
+            order_type="market",
+            price=price,
+            strategy_name=self.strategy_name,
         )
-
-        # Update statistics
-        self.total_actual_profit += actual_profit
-
-        # Log the exit
-        self.logger.log_trade(
-            market=position["market_name"],
-            yes_price=exit_prices["yes"],
-            no_price=exit_prices["no"],
-            profit_usd=actual_profit,
-            status=f"{self.strategy_name}_exited_{reason}",
-            strategy=self.strategy_name,
-            arbitrage_type="Simple",  # Default for now
-        )
-
-        # Create exit record
-        exit_info = {
-            "market_id": market_id,
-            "market_name": position["market_name"],
-            "exit_time": datetime.now(),
-            "exit_prices": exit_prices,
-            "entry_sum": entry_sum,
-            "exit_sum": exit_sum,
-            "expected_profit": position["expected_profit"],
-            "actual_profit": actual_profit,
-            "reason": reason,
-        }
-
-        # Remove from active positions
-        del self.active_positions[market_id]
-
-        return exit_info
 
     def _validate_prices(self, yes_price: float, no_price: float) -> bool:
         """
@@ -744,3 +685,22 @@ class ArbitrageStrategy:
             if self.logger:
                 self.logger.log_error(f"Error detecting reality arbitrage: {str(e)}")
             return []
+    def evaluate(self, market_data, state):
+        """
+        Analyze arbitrage opportunities and return a TradeSignal
+        instead of executing the trade directly.
+        """
+        opportunity = self.find_best_opportunity(market_data)
+        if not opportunity:
+            return None
+
+        return TradeSignal(
+            market=opportunity.market,
+            side=opportunity.side,
+            size=opportunity.trade_size,
+            metadata={
+                "strategy": "arbitrage",
+                "expected_profit": opportunity.expected_profit,
+                "raw_opportunity": opportunity
+            }
+        )

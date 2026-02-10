@@ -15,6 +15,7 @@ from decimal import Decimal
 import math
 
 from logger import get_logger
+from engine import TradeSignal
 
 
 class PolymarketArbitrageStrategy:
@@ -68,6 +69,8 @@ class PolymarketArbitrageStrategy:
         self.max_slippage = 0.01  # 1% maximum slippage tolerance
         self.execution_delay = 0.5  # Estimated execution delay in seconds
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # State tracking
         self.active_positions: Dict[str, Dict[str, Any]] = {}
         self.historical_opportunities: List[Dict[str, Any]] = []
@@ -196,145 +199,43 @@ class PolymarketArbitrageStrategy:
 
         return opportunity
 
-    def execute_arbitrage(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute arbitrage trade (paper trading simulation)
+    def execute_arbitrage(self, opportunity: Dict[str, Any]) -> TradeSignal:
+        """Return a trade signal (signal-only; no execution or state mutation)."""
+        market_id = opportunity.get("market_id", "")
+        yes_price = opportunity.get("yes_price", 0.5)
+        position_size = opportunity.get("position_size", 0)
+        quantity = position_size / yes_price if yes_price > 0 else 0
+        return TradeSignal(
+            symbol=market_id,
+            side="buy",
+            quantity=quantity,
+            order_type="market",
+            price=yes_price,
+            strategy_name=self.strategy_name,
+        )
 
-        Simulates REAL execution with:
-        - Order placement simulation
-        - Slippage calculation
-        - Position tracking
-        - P&L calculation
-
-        Args:
-            opportunity: Opportunity dictionary from analyze_market
-
-        Returns:
-            Execution result with trade details
-        """
-        market_id = opportunity["market_id"]
-
-        # Check if we can open new position
-        if not self._can_open_position():
-            return {
-                "success": False,
-                "reason": "max_positions_reached",
-                "market_id": market_id,
-            }
-
-        # Simulate order execution
-        execution_result = self._simulate_execution(opportunity)
-
-        if not execution_result["success"]:
-            return execution_result
-
-        # Record position
-        position = {
-            "market_id": market_id,
-            "market_name": opportunity["market_name"],
-            "arbitrage_type": opportunity["arbitrage_type"],
-            "entry_time": datetime.now(),
-            "yes_price": execution_result["filled_yes_price"],
-            "no_price": execution_result["filled_no_price"],
-            "position_size": opportunity["position_size"],
-            "expected_profit": opportunity["adjusted_profit"],
-            "entry_cost": execution_result["total_cost"],
-            "status": "open",
-        }
-
-        self.active_positions[market_id] = position
-        self.opportunities_executed += 1
-        self.total_volume += opportunity["position_size"]
-
-        # Log trade
-        if self.logger:
-            self.logger.log_trade(
-                market=opportunity["market_name"],
-                yes_price=execution_result["filled_yes_price"],
-                no_price=execution_result["filled_no_price"],
-                profit_usd=opportunity["adjusted_profit"],
-                status="executed",
-                strategy=self.strategy_name,
-                arbitrage_type=opportunity["arbitrage_type"],
-            )
-
-        return {
-            "success": True,
-            "market_id": market_id,
-            "position": position,
-            "execution": execution_result,
-        }
-
-    def close_position(self, market_id: str, outcome: str = "yes") -> Dict[str, Any]:
-        """
-        Close an arbitrage position (simulate expiry/resolution)
-
-        Args:
-            market_id: Market identifier
-            outcome: Market outcome ('yes' or 'no')
-
-        Returns:
-            Close result with P&L
-        """
+    def close_position(self, market_id: str, outcome: str = "yes") -> TradeSignal:
+        """Return a sell signal (signal-only; no execution or state mutation)."""
         if market_id not in self.active_positions:
-            return {
-                "success": False,
-                "reason": "position_not_found",
-                "market_id": market_id,
-            }
-
+            return TradeSignal(
+                symbol=market_id,
+                side="sell",
+                quantity=0,
+                order_type="market",
+                price=0.5,
+                strategy_name=self.strategy_name,
+            )
         position = self.active_positions[market_id]
-
-        # Calculate payout
-        # In arbitrage, we own both YES and NO, so we always get $1 per contract
-        payout = position["position_size"]  # Always get back full amount
-        entry_cost = position["entry_cost"]
-        realized_profit = payout - entry_cost
-
-        # Update metrics
-        self.total_profit += realized_profit
-
-        # Calculate win rate
-        if self.opportunities_executed > 0:
-            wins = sum(
-                1 for p in self.historical_opportunities if p.get("profit", 0) > 0
-            )
-            self.win_rate = (wins / self.opportunities_executed) * 100
-
-        # Create close record
-        close_result = {
-            "success": True,
-            "market_id": market_id,
-            "market_name": position["market_name"],
-            "outcome": outcome,
-            "entry_cost": entry_cost,
-            "payout": payout,
-            "realized_profit": realized_profit,
-            "hold_time": (datetime.now() - position["entry_time"]).total_seconds(),
-            "closed_at": datetime.now(),
-        }
-
-        # Archive position
-        position["close_result"] = close_result
-        position["status"] = "closed"
-        self.historical_opportunities.append(position)
-
-        # Remove from active
-        del self.active_positions[market_id]
-
-        # Log close
-        if self.logger:
-            self.logger.log_trade(
-                market=position["market_name"],
-                yes_price=0,  # Not relevant for close
-                no_price=0,
-                profit_usd=realized_profit,
-                status="closed",
-                strategy=self.strategy_name,
-                arbitrage_type=position["arbitrage_type"],
-            )
-
-        return close_result
+        yes_price = position.get("yes_price") or 0.5
+        quantity = (position.get("position_size", 0) / yes_price) if yes_price > 0 else 0
+        return TradeSignal(
+            symbol=market_id,
+            side="sell",
+            quantity=quantity,
+            order_type="market",
+            price=yes_price,
+            strategy_name=self.strategy_name,
+        )
 
     def get_performance_metrics(self) -> Dict[str, Any]:
         """

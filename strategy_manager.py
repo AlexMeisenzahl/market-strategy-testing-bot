@@ -15,6 +15,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 import time
 from logger import get_logger
+from engine import ExecutionEngine, TradeSignal
 
 # Import all available strategies
 from strategies.arbitrage_strategy import ArbitrageStrategy
@@ -31,14 +32,20 @@ class StrategyManager:
     Each strategy operates independently with its own allocated capital.
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        execution_engine: Optional[ExecutionEngine] = None,
+    ):
         """
         Initialize strategy manager
 
         Args:
             config: Configuration dictionary from config.yaml
+            execution_engine: Single execution engine; all trades route through it.
         """
         self.config = config
+        self.execution_engine = execution_engine
         self.logger = get_logger()
 
         # Total capital allocation
@@ -191,6 +198,9 @@ class StrategyManager:
 
         return all_opportunities
 
+    # NOTE:
+    # This method routes TradeSignals to the ExecutionEngine.
+    # Strategies do NOT execute trades and do NOT mutate state.
     def execute_best_opportunities(
         self, all_opportunities: Dict[str, List[Any]]
     ) -> Dict[str, int]:
@@ -223,25 +233,67 @@ class StrategyManager:
                 reverse=True,
             )
 
-            # Try to execute top opportunities
+            # Try to execute top opportunities via the single execution engine
             for opp in sorted_opps[:3]:  # Limit to top 3 per cycle
-                # Check if strategy wants to enter this position
-                if hasattr(strategy, "should_enter") and strategy.should_enter(opp):
-                    # Determine trade size
-                    trade_size = min(
-                        self.config.get("max_trade_size", 10),
-                        self.capital_allocation[strategy_name] * 0.1,
-                    )
-
-                    # Enter position (paper trade)
-                    if hasattr(strategy, "enter_position"):
-                        strategy.enter_position(opp, trade_size)
-                        executed += 1
-                        self.total_trades += 1
+                if not self.execution_engine:
+                    break
+                if hasattr(strategy, "should_enter") and not strategy.should_enter(opp):
+                    continue
+                trade_size = min(
+                    self.config.get("max_trade_size", 10),
+                    self.capital_allocation[strategy_name] * 0.1,
+                )
+                # Build signal from opportunity; engine executes (no strategy execution)
+                signal = self._opportunity_to_signal(opp, trade_size, strategy_name)
+                if not signal:
+                    continue
+                result = self.execution_engine.execute_trade(signal)
+                if result.get("success"):
+                    executed += 1
+                    self.total_trades += 1
 
             trades_executed[strategy_name] = executed
 
         return trades_executed
+
+    def _opportunity_to_signal(
+        self,
+        opp: Any,
+        trade_size: float,
+        strategy_name: str,
+    ) -> Optional[TradeSignal]:
+        """Build a TradeSignal from an opportunity; used for execution-engine routing."""
+        if hasattr(opp, "market_id"):
+            symbol = opp.market_id
+        elif hasattr(opp, "to_dict"):
+            d = opp.to_dict()
+            symbol = d.get("market_id") or d.get("market_name", "")
+        elif isinstance(opp, dict):
+            symbol = opp.get("market_id") or opp.get("market_name", "")
+        else:
+            return None
+        if not symbol:
+            return None
+        price = 0.5
+        if hasattr(opp, "yes_price") and opp.yes_price:
+            price = float(opp.yes_price)
+        elif isinstance(opp, dict):
+            price = float(opp.get("yes_price", 0.5) or 0.5)
+        elif hasattr(opp, "to_dict"):
+            price = float(opp.to_dict().get("yes_price", 0.5) or 0.5)
+        if price <= 0:
+            price = 0.5
+        quantity = trade_size / price
+        if quantity <= 0:
+            return None
+        return TradeSignal(
+            symbol=str(symbol),
+            side="buy",
+            quantity=quantity,
+            order_type="market",
+            price=price,
+            strategy_name=strategy_name,
+        )
 
     def compare_strategies(self) -> Dict[str, Any]:
         """

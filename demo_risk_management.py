@@ -97,6 +97,7 @@ class EnhancedTradingBot:
 
         return sizing["position_size"]
 
+    # Standalone demo; not part of live execution spine. Live execution uses ExecutionEngine.
     def execute_trade(
         self, opportunity: ArbitrageOpportunity, position_size: float, strategy: str
     ) -> Dict[str, Any]:
