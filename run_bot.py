@@ -43,6 +43,8 @@ from clients import (
 import os
 import requests
 
+print(">>> run_bot.py STARTED <<<", flush=True)
+
 # Import all available strategies
 from strategies.mean_reversion_strategy import MeanReversionStrategy
 from strategies.momentum_strategy import MomentumStrategy
@@ -107,7 +109,7 @@ class BotRunner:
         self.logger = get_logger()
         self.running = False
 
-        # Load configuration using ConfigLoader (ENV > YAML > DEFAULT)
+        # Load configuration using ConfigLoader (ENV > YAML > DEFAULT); never crash on missing config
         try:
             config_loader = get_config(config_path=config_path)
             self.config_loader = config_loader
@@ -118,8 +120,7 @@ class BotRunner:
             env_name = config_loader.get("trading_bot_env", "development")
             self.logger.log_warning(f"Configuration loaded: ENVIRONMENT={env_name}")
         except Exception as e:
-            self.logger.log_error(f"Failed to load config via ConfigLoader: {e}")
-            # Fallback to old method
+            self.logger.log_warning(f"ConfigLoader failed ({e}); using YAML/defaults only.")
             self.config = self._load_config(config_path)
             self.config_loader = None
 
@@ -247,19 +248,45 @@ class BotRunner:
 
         return config
 
+    def _get_default_config(self) -> Dict[str, Any]:
+        """Return minimal default config when no config file is present."""
+        return {
+            "mode": "paper",
+            "paper_trading": True,
+            "initial_capital": 10000,
+            "min_profit_margin": 0.02,
+            "loop_interval_seconds": 30,
+            "enable_dashboard": False,
+            "enable_telegram": False,
+            "api_timeout_seconds": 10,
+            "api_retry_attempts": 3,
+            "strategies": {
+                "enabled": ["arbitrage", "momentum", "news", "statistical_arb"],
+            },
+            "logging": {"level": "INFO"},
+        }
+
     def _load_config(self, config_path: str) -> Dict[str, Any]:
-        """Load configuration from YAML file"""
+        """Load configuration from YAML file. On missing file, log warning and return defaults."""
         config_file = Path(config_path)
 
-        # If config.yaml doesn't exist, try config.example.yaml
         if not config_file.exists():
             config_file = Path("config.example.yaml")
-            if not config_file.exists():
-                self.logger.log_error("No configuration file found!")
-                raise FileNotFoundError("No config.yaml or config.example.yaml found")
+        if not config_file.exists():
+            self.logger.log_warning(
+                "No configuration file found (config.yaml or config.example.yaml); using defaults."
+            )
+            return self._get_default_config()
 
-        with open(config_file, "r") as f:
-            config = yaml.safe_load(f)
+        try:
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            self.logger.log_warning(f"Error reading config file: {e}; using defaults.")
+            return self._get_default_config()
+
+        if not config:
+            return self._get_default_config()
 
         # Set default strategies if not configured
         if "strategies" not in config:
@@ -908,6 +935,9 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         self.logger.log_warning("🔄 Scanning markets every 60 seconds...")
         self.logger.log_warning("Press CTRL+C to stop\n")
 
+        print(">>> Bot main loop starting <<<", flush=True)
+        self.logger.log_warning(">>> Bot main loop starting <<<")
+
         # Log startup activity
         self._log_activity(
             {
@@ -921,6 +951,7 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         # Main loop
         while self.running:
             try:
+                self.logger.log_warning("Bot heartbeat – cycle started")
                 # Run one cycle
                 self.run_cycle()
 
@@ -980,9 +1011,34 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         self.logger.log_warning("👋 Bot stopped. Goodbye!")
 
 
+def _ensure_minimal_config(config_path: str = "config.yaml") -> None:
+    """Create minimal config.yaml in project root if it does not exist."""
+    p = Path(config_path)
+    if p.exists():
+        return
+    minimal = """---
+mode: paper
+initial_capital: 10000
+min_profit_margin: 0.02
+loop_interval_seconds: 30
+
+enable_dashboard: false
+enable_telegram: false
+
+logging:
+  level: INFO
+---
+"""
+    try:
+        p.write_text(minimal, encoding="utf-8")
+    except Exception:
+        pass  # best-effort; bot will use in-memory defaults
+
+
 def main():
     """Main entry point"""
     logger = None
+    _ensure_minimal_config()
     try:
         # Initialize logger first to ensure we can log errors
         logger = get_logger()
