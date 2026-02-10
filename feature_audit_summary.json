@@ -1,6 +1,6 @@
 {
-  "audit_date": "2026-02-10T00:43:27.398074",
-  "live_tests_enabled": true,
+  "audit_date": "2026-02-10T00:44:57.676663",
+  "live_tests_enabled": false,
   "summary": {
     "fully_implemented": 11,
     "needs_api_keys": 4,
@@ -288,108 +288,5 @@
       "Telegram notifications"
     ],
     "status": "\u2705"
-  },
-  "live_tests": {
-    "dashboard_startup": {
-      "can_import": true,
-      "syntax_valid": true,
-      "error": null
-    },
-    "run_bot_syntax": {
-      "syntax_valid": true,
-      "error": null
-    },
-    "strategy_imports": [
-      {
-        "file": "btc_arbitrage.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "mean_reversion_strategy.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "arbitrage_types.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "arbitrage_executor.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "momentum_strategy.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "arbitrage_orchestrator.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "news_strategy.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "arbitrage_strategy.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "kalshi_priority.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "rollback_handler.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "arbitrage_tracker.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "polymarket_arbitrage.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "strategy_manager.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "crypto_momentum.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "volatility_breakout_strategy.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "pairs_trading_strategy.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "statistical_arb_strategy.py",
-        "can_import": true,
-        "error": null
-      },
-      {
-        "file": "weather_trading.py",
-        "can_import": true,
-        "error": null
-      }
-    ]
   }
 }
