@@ -3570,6 +3570,421 @@ def get_strategies_performance():
 
 
 # ============================================================================
+# ALERT SYSTEM API ENDPOINTS
+# ============================================================================
+
+@app.route("/api/alerts/config", methods=["GET"])
+def get_alerts():
+    """Get all configured alerts"""
+    try:
+        from services.alert_system import get_alert_system
+        alert_system = get_alert_system(config_loader._config if config_loader else {})
+        alerts = alert_system.get_all_alerts()
+        return jsonify({"alerts": alerts})
+    except Exception as e:
+        logger.error(f"Error getting alerts: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/alerts/config", methods=["POST"])
+def create_alert():
+    """Create a new alert"""
+    try:
+        from services.alert_system import get_alert_system
+        alert_system = get_alert_system(config_loader._config if config_loader else {})
+        
+        data = request.get_json()
+        alert = alert_system.create_alert(
+            alert_type=data.get("type"),
+            name=data.get("name"),
+            condition=data.get("condition"),
+            value=float(data.get("value", 0)),
+            enabled=data.get("enabled", True),
+            notification_channels=data.get("notification_channels"),
+            metadata=data.get("metadata", {}),
+        )
+        
+        return jsonify({"success": True, "alert": alert})
+    except Exception as e:
+        logger.error(f"Error creating alert: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/alerts/config/<alert_id>", methods=["PUT"])
+def update_alert(alert_id):
+    """Update an alert"""
+    try:
+        from services.alert_system import get_alert_system
+        alert_system = get_alert_system(config_loader._config if config_loader else {})
+        
+        data = request.get_json()
+        alert = alert_system.update_alert(alert_id, data)
+        
+        if alert:
+            return jsonify({"success": True, "alert": alert})
+        else:
+            return jsonify({"error": "Alert not found"}), 404
+    except Exception as e:
+        logger.error(f"Error updating alert: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/alerts/config/<alert_id>", methods=["DELETE"])
+def delete_alert(alert_id):
+    """Delete an alert"""
+    try:
+        from services.alert_system import get_alert_system
+        alert_system = get_alert_system(config_loader._config if config_loader else {})
+        
+        success = alert_system.delete_alert(alert_id)
+        
+        if success:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Alert not found"}), 404
+    except Exception as e:
+        logger.error(f"Error deleting alert: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/alerts/test", methods=["POST"])
+def test_alert():
+    """Test an alert configuration"""
+    try:
+        from services.alert_system import get_alert_system
+        alert_system = get_alert_system(config_loader._config if config_loader else {})
+        
+        data = request.get_json()
+        result = alert_system.test_alert(data)
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error testing alert: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================================
+# SETTINGS MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@app.route("/api/settings/config", methods=["GET"])
+def get_config_settings():
+    """Get current configuration settings"""
+    try:
+        from services.settings_manager import get_settings_manager
+        settings_mgr = get_settings_manager()
+        settings = settings_mgr.load_settings()
+        return jsonify({"settings": settings})
+    except Exception as e:
+        logger.error(f"Error getting settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings/config", methods=["POST"])
+def update_config_settings():
+    """Update configuration settings"""
+    try:
+        from services.settings_manager import get_settings_manager
+        settings_mgr = get_settings_manager()
+        
+        data = request.get_json()
+        success = settings_mgr.update_settings(data)
+        
+        if success:
+            return jsonify({"success": True, "message": "Settings updated successfully"})
+        else:
+            return jsonify({"error": "Failed to update settings"}), 500
+    except Exception as e:
+        logger.error(f"Error updating settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings/reset", methods=["POST"])
+def reset_settings():
+    """Reset settings to defaults"""
+    try:
+        from services.settings_manager import get_settings_manager
+        settings_mgr = get_settings_manager()
+        
+        success = settings_mgr.reset_to_defaults()
+        
+        if success:
+            return jsonify({"success": True, "message": "Settings reset to defaults"})
+        else:
+            return jsonify({"error": "Failed to reset settings"}), 500
+    except Exception as e:
+        logger.error(f"Error resetting settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings/export", methods=["POST"])
+def export_settings():
+    """Export settings to file"""
+    try:
+        from services.settings_manager import get_settings_manager
+        settings_mgr = get_settings_manager()
+        
+        export_path = settings_mgr.export_settings()
+        
+        if export_path:
+            return jsonify({"success": True, "path": export_path})
+        else:
+            return jsonify({"error": "Failed to export settings"}), 500
+    except Exception as e:
+        logger.error(f"Error exporting settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings/import", methods=["POST"])
+def import_settings():
+    """Import settings from file"""
+    try:
+        from services.settings_manager import get_settings_manager
+        settings_mgr = get_settings_manager()
+        
+        data = request.get_json()
+        import_path = data.get("path")
+        
+        if not import_path:
+            return jsonify({"error": "Import path required"}), 400
+        
+        success = settings_mgr.import_settings(import_path)
+        
+        if success:
+            return jsonify({"success": True, "message": "Settings imported successfully"})
+        else:
+            return jsonify({"error": "Failed to import settings"}), 500
+    except Exception as e:
+        logger.error(f"Error importing settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
+# STRATEGY CONTROL API ENDPOINTS
+# ============================================================================
+
+@app.route("/api/strategies/<strategy_name>/start", methods=["POST"])
+def start_strategy(strategy_name):
+    """Start a specific strategy"""
+    try:
+        # TODO: Implement strategy start/stop control in strategy_manager
+        return jsonify({
+            "success": True,
+            "message": f"Strategy {strategy_name} started",
+            "note": "Strategy control not yet fully implemented"
+        })
+    except Exception as e:
+        logger.error(f"Error starting strategy: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/strategies/<strategy_name>/stop", methods=["POST"])
+def stop_strategy(strategy_name):
+    """Stop a specific strategy"""
+    try:
+        # TODO: Implement strategy start/stop control in strategy_manager
+        return jsonify({
+            "success": True,
+            "message": f"Strategy {strategy_name} stopped",
+            "note": "Strategy control not yet fully implemented"
+        })
+    except Exception as e:
+        logger.error(f"Error stopping strategy: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/strategies/<strategy_name>/config", methods=["POST"])
+def configure_strategy(strategy_name):
+    """Configure strategy parameters"""
+    try:
+        data = request.get_json()
+        # TODO: Implement strategy configuration in strategy_manager
+        return jsonify({
+            "success": True,
+            "message": f"Strategy {strategy_name} configured",
+            "config": data,
+            "note": "Strategy configuration not yet fully implemented"
+        })
+    except Exception as e:
+        logger.error(f"Error configuring strategy: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
+# API KEY TESTING ENDPOINTS
+# ============================================================================
+
+@app.route("/api/keys/test", methods=["POST"])
+def test_api_keys():
+    """Test API key connections"""
+    try:
+        data = request.get_json()
+        service = data.get("service")  # polymarket, telegram, coingecko
+        credentials = data.get("credentials", {})
+        
+        results = {}
+        
+        if service == "telegram":
+            try:
+                from telegram import Bot
+                bot = Bot(token=credentials.get("bot_token"))
+                bot_info = bot.get_me()
+                results["telegram"] = {
+                    "success": True,
+                    "message": f"Connected to bot: @{bot_info.username}",
+                    "bot_name": bot_info.first_name,
+                }
+            except Exception as e:
+                results["telegram"] = {
+                    "success": False,
+                    "error": str(e),
+                }
+        
+        elif service == "polymarket":
+            try:
+                from clients import PolymarketClient
+                client = PolymarketClient(
+                    endpoint=credentials.get("endpoint", "https://clob.polymarket.com"),
+                    api_key=credentials.get("api_key"),
+                )
+                result = client.test_connection()
+                results["polymarket"] = result
+            except Exception as e:
+                results["polymarket"] = {
+                    "success": False,
+                    "error": str(e),
+                }
+        
+        elif service == "coingecko":
+            try:
+                from clients import CoinGeckoClient
+                client = CoinGeckoClient(
+                    endpoint=credentials.get("endpoint", "https://api.coingecko.com/api/v3"),
+                    api_key=credentials.get("api_key"),
+                )
+                result = client.test_connection()
+                results["coingecko"] = result
+            except Exception as e:
+                results["coingecko"] = {
+                    "success": False,
+                    "error": str(e),
+                }
+        
+        else:
+            return jsonify({"error": "Unknown service"}), 400
+        
+        return jsonify(results)
+    except Exception as e:
+        logger.error(f"Error testing API keys: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
+# PERFORMANCE METRICS API ENDPOINTS
+# ============================================================================
+
+@app.route("/api/analytics/performance", methods=["GET"])
+def get_performance_metrics():
+    """Get calculated performance metrics"""
+    try:
+        from services.performance_calculator import get_performance_calculator
+        
+        # Get trades from data flow manager
+        data_flow = DataFlowManager()
+        trades = data_flow.trade_logger.get_all_trades()
+        
+        # Calculate metrics
+        calculator = get_performance_calculator()
+        metrics = calculator.calculate_all_metrics(trades)
+        
+        return jsonify({"metrics": metrics})
+    except Exception as e:
+        logger.error(f"Error calculating performance metrics: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
+# TAX REPORT API ENDPOINTS
+# ============================================================================
+
+@app.route("/api/tax-report/irs-8949", methods=["GET"])
+def get_irs_8949_report():
+    """Generate IRS Form 8949 CSV report"""
+    try:
+        from services.tax_report_generator import get_tax_report_generator
+        
+        # Get closed trades
+        data_flow = DataFlowManager()
+        trades = data_flow.trade_logger.get_all_trades()
+        
+        # Filter for closed trades only
+        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at")]
+        
+        # Generate report
+        generator = get_tax_report_generator()
+        csv_data = generator.generate_irs_8949_csv(closed_trades)
+        
+        # Create response
+        response = Response(csv_data, mimetype="text/csv")
+        response.headers["Content-Disposition"] = f"attachment; filename=irs_8949_{datetime.now().year}.csv"
+        
+        return response
+    except Exception as e:
+        logger.error(f"Error generating IRS 8949 report: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tax-report/turbotax", methods=["GET"])
+def get_turbotax_report():
+    """Generate TurboTax import CSV report"""
+    try:
+        from services.tax_report_generator import get_tax_report_generator
+        
+        # Get closed trades
+        data_flow = DataFlowManager()
+        trades = data_flow.trade_logger.get_all_trades()
+        
+        # Filter for closed trades only
+        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at")]
+        
+        # Generate report
+        generator = get_tax_report_generator()
+        csv_data = generator.generate_turbotax_csv(closed_trades)
+        
+        # Create response
+        response = Response(csv_data, mimetype="text/csv")
+        response.headers["Content-Disposition"] = f"attachment; filename=turbotax_{datetime.now().year}.csv"
+        
+        return response
+    except Exception as e:
+        logger.error(f"Error generating TurboTax report: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/tax-report/summary", methods=["GET"])
+def get_tax_summary():
+    """Get tax summary with short/long-term gains"""
+    try:
+        from services.tax_report_generator import get_tax_report_generator
+        
+        # Get closed trades
+        data_flow = DataFlowManager()
+        trades = data_flow.trade_logger.get_all_trades()
+        
+        # Filter for closed trades only
+        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at")]
+        
+        # Generate summary
+        generator = get_tax_report_generator()
+        summary = generator.generate_tax_summary(closed_trades)
+        
+        return jsonify(summary)
+    except Exception as e:
+        logger.error(f"Error generating tax summary: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
 # RUN APPLICATION
 # ============================================================================
 
