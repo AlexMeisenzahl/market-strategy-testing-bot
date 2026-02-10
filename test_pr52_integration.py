@@ -40,7 +40,8 @@ def test_telegram_integration_in_run_bot():
     
     assert 'self.telegram_bot = SimpleTelegramBot' in content, "Telegram bot not initialized"
     assert 'telegram_bot.send_message' in content, "Telegram send_message not called"
-    assert "os.getenv('TELEGRAM_BOT_TOKEN'" in content, "Environment variable not checked"
+    # Check for environment variable with either single or double quotes (black may change them)
+    assert ('os.getenv("TELEGRAM_BOT_TOKEN"' in content or "os.getenv('TELEGRAM_BOT_TOKEN'" in content), "Environment variable not checked"
     
     print("✅ Telegram bot properly integrated")
 
