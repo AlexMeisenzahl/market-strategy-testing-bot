@@ -153,6 +153,15 @@ class BotRunner:
         self.cycle_interval = self.settings_manager.get_setting(
             "bot.cycle_interval", 60
         )
+        # Scan interval override: env SCAN_INTERVAL_SECONDS or config scan_interval_seconds, else 60
+        _scan = os.getenv("SCAN_INTERVAL_SECONDS")
+        self.scan_interval_seconds = (
+            int(_scan) if _scan and str(_scan).strip() else None
+        )
+        if self.scan_interval_seconds is None:
+            self.scan_interval_seconds = self.config.get(
+                "scan_interval_seconds"
+            ) or self.cycle_interval or 60
 
         # Initialize alert system for custom alerts
         from services.alert_system import get_alert_system
@@ -193,9 +202,19 @@ class BotRunner:
         self.logs_dir.mkdir(exist_ok=True)
         self.activity_log_path = self.logs_dir / "activity.json"
 
+        self.state_dir = Path("state")
+        self.state_dir.mkdir(exist_ok=True)
+        self.state_path = self.state_dir / "bot_state.json"
+        self._last_prices_dict = {}
+
         # Statistics
         self.start_time = datetime.now(timezone.utc)
         self.cycles_completed = 0
+        # max_cycles: env MAX_CYCLES or config max_cycles, default None = unlimited
+        _mc = os.getenv("MAX_CYCLES")
+        self.max_cycles = (
+            int(_mc) if _mc and str(_mc).strip() else self.config.get("max_cycles")
+        )
         self.total_opportunities_found = 0
         self.total_trades_executed = 0
         self.total_opportunities_skipped = 0
@@ -391,6 +410,52 @@ class BotRunner:
             "\n🛑 Shutdown signal received. Stopping bot gracefully..."
         )
         self.running = False
+
+    def _write_bot_state(self) -> None:
+        """
+        Write state/bot_state.json with canonical schema.
+        Atomic write (temp + rename). Non-blocking: swallows errors to avoid
+        crashing the engine. Called each cycle for observability.
+        """
+        try:
+            # Build state per agreed schema
+            pe = self.execution_engine.trading_engine
+            metrics = pe.get_performance_metrics(self._last_prices_dict)
+            positions = self.execution_engine.get_positions(self._last_prices_dict)
+
+            now = datetime.now(timezone.utc)
+            runtime_seconds = int((now - self.start_time).total_seconds())
+
+            state = {
+                "connection": {
+                    "healthy": True,
+                    "response_time_ms": 0,
+                },
+                "rate_limit": {
+                    "usage_pct": 0.0,
+                    "remaining": 0,
+                    "reset_seconds": 0,
+                },
+                "trading": {
+                    "opportunities_found": self.total_opportunities_found,
+                    "trades_executed": self.total_trades_executed,
+                    "paper_profit": float(metrics.get("total_return", 0.0)),
+                },
+                "positions": positions,
+                "balance": float(self.execution_engine.get_balance()),
+                "last_update": now.isoformat(),
+                "status": "running" if self.running else "stopped",
+                "runtime_seconds": runtime_seconds,
+            }
+
+            payload = json.dumps(state, indent=2)
+            # Atomic write: write to temp, then rename
+            tmp_path = self.state_path.with_suffix(".tmp")
+            tmp_path.write_text(payload, encoding="utf-8")
+            tmp_path.replace(self.state_path)
+        except Exception:
+            # Non-blocking: do not crash engine on state write failure
+            pass
 
     def _log_activity(self, activity: Dict[str, Any]) -> None:
         """
@@ -872,6 +937,7 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
             # 1. Fetch markets
             markets = self._fetch_markets()
             prices_dict = self._convert_markets_to_prices_dict(markets)
+            self._last_prices_dict = prices_dict
 
             # 2. Check alerts with current market data
             self._check_alerts(markets, prices_dict)
@@ -903,6 +969,7 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
             )
 
         except Exception as e:
+            self._last_prices_dict = {}
             self.logger.log_error(f"❌ Error in bot cycle: {str(e)}")
             self.logger.log_error(traceback.format_exc())
 
@@ -948,19 +1015,41 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
             }
         )
 
+        # Initial state snapshot (engine started)
+        self._write_bot_state()
+
         # Main loop
+        loop_cycles = 0
         while self.running:
             try:
                 self.logger.log_warning("Bot heartbeat – cycle started")
+                print("❤️ Bot heartbeat – cycle started", flush=True)
+                opp_before = self.total_opportunities_found
+                trades_before = self.total_trades_executed
                 # Run one cycle
                 self.run_cycle()
+                opp_this_cycle = self.total_opportunities_found - opp_before
+                trades_this_cycle = self.total_trades_executed - trades_before
+                cash = self.execution_engine.get_balance()
+                self.logger.log_warning(
+                    f"Cycle summary: cycle={self.cycles_completed} "
+                    f"opportunities_found={opp_this_cycle} "
+                    f"trades_this_cycle={trades_this_cycle} "
+                    f"total_trades={self.total_trades_executed} "
+                    f"cash_balance={cash:.2f}"
+                )
+                self._write_bot_state()
+                loop_cycles += 1
+                if self.max_cycles is not None and loop_cycles >= self.max_cycles:
+                    self.logger.log_warning("Max cycles reached, shutting down")
+                    break
 
                 # Wait before next cycle (use configured interval)
                 if self.running:  # Check again in case we were stopped during cycle
                     self.logger.log_warning(
-                        f"\n⏳ Waiting {self.cycle_interval} seconds until next scan...\n"
+                        f"\n⏳ Waiting {self.scan_interval_seconds} seconds until next scan...\n"
                     )
-                    time.sleep(self.cycle_interval)
+                    time.sleep(self.scan_interval_seconds)
 
             except KeyboardInterrupt:
                 self.logger.log_warning("\n🛑 Keyboard interrupt received")
@@ -968,6 +1057,7 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
             except Exception as e:
                 self.logger.log_error(f"❌ Unexpected error in main loop: {str(e)}")
                 self.logger.log_error(traceback.format_exc())
+                self._write_bot_state()
 
                 # Wait before retrying to avoid rapid error loops
                 if self.running:
@@ -978,6 +1068,8 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
 
     def shutdown(self) -> None:
         """Gracefully shutdown the bot"""
+        self.running = False
+        self._write_bot_state()
         self.logger.log_warning("\n" + "=" * 60)
         self.logger.log_warning("🛑 Bot Shutdown Summary")
         self.logger.log_warning("=" * 60)
