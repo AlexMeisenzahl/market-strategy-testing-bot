@@ -6,10 +6,15 @@ Provides Telegram notification functionality for the trading bot.
 
 from .bot import TelegramNotifier, create_telegram_bot
 from .notifications import TelegramNotifications, create_notifications_service
+from .commands import TelegramCommands
+from .bot_manager import TelegramBotManager, create_bot_manager
 
 __all__ = [
     "TelegramNotifier",
     "create_telegram_bot",
     "TelegramNotifications",
     "create_notifications_service",
+    "TelegramCommands",
+    "TelegramBotManager",
+    "create_bot_manager",
 ]
