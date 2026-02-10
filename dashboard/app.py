@@ -4138,9 +4138,13 @@ def reset_settings_api():
 def start_strategy(name):
     """Start a strategy"""
     try:
-        # This would need access to the running bot's strategy manager
-        # For now, return success (would need IPC mechanism to actually control bot)
-        return jsonify({'success': True, 'message': f'Strategy {name} started'})
+        # Strategy control requires IPC mechanism to communicate with running bot
+        # Return appropriate status indicating feature is not yet implemented
+        return jsonify({
+            'success': False, 
+            'error': 'Strategy control requires bot IPC - not yet implemented',
+            'message': 'This feature requires inter-process communication with the running bot'
+        }), 501
     except Exception as e:
         logger.error(f"Error starting strategy: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -4150,9 +4154,13 @@ def start_strategy(name):
 def stop_strategy(name):
     """Stop a strategy"""
     try:
-        # This would need access to the running bot's strategy manager
-        # For now, return success (would need IPC mechanism to actually control bot)
-        return jsonify({'success': True, 'message': f'Strategy {name} stopped'})
+        # Strategy control requires IPC mechanism to communicate with running bot
+        # Return appropriate status indicating feature is not yet implemented
+        return jsonify({
+            'success': False, 
+            'error': 'Strategy control requires bot IPC - not yet implemented',
+            'message': 'This feature requires inter-process communication with the running bot'
+        }), 501
     except Exception as e:
         logger.error(f"Error stopping strategy: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -4182,8 +4190,15 @@ def test_api_key():
             return jsonify({'success': True, 'message': f"Connected to @{bot_name}"})
         
         elif service == 'coingecko':
-            # Test CoinGecko API
-            return jsonify({'success': True, 'message': 'CoinGecko API accessible'})
+            # Test CoinGecko API by making a simple request
+            import requests
+            try:
+                # Try to get ping endpoint (doesn't require API key)
+                response = requests.get('https://api.coingecko.com/api/v3/ping', timeout=10)
+                response.raise_for_status()
+                return jsonify({'success': True, 'message': 'CoinGecko API is accessible'})
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'CoinGecko API test failed: {str(e)}'})
         
         else:
             return jsonify({'success': False, 'error': f'Unknown service: {service}'})

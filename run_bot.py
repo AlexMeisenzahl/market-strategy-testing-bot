@@ -161,7 +161,7 @@ class BotRunner:
                 # Test connection
                 test_result = self.telegram_bot.test_connection()
                 if test_result['success']:
-                    self.logger.log_warning(f"✅ Telegram bot initialized: @{test_result.get('bot_name', 'Unknown')}")
+                    self.logger.log_info(f"✅ Telegram bot initialized: @{test_result.get('bot_name', 'Unknown')}")
                 else:
                     self.logger.log_warning(f"⚠️ Telegram bot failed: {test_result.get('error', 'Unknown error')}")
                     self.telegram_bot = None
@@ -689,9 +689,16 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         """
         try:
             # Prepare alert data with prices and portfolio metrics
+            portfolio_value = self.paper_trader.get_total_value() if hasattr(self.paper_trader, 'get_total_value') else 10000
+            
+            # Calculate daily P&L percentage from paper trader if available
+            daily_pnl_percent = 0.0
+            if hasattr(self.paper_trader, 'get_daily_pnl_percent'):
+                daily_pnl_percent = self.paper_trader.get_daily_pnl_percent()
+            
             alert_data = {
-                'portfolio_value': self.paper_trader.get_total_value() if hasattr(self.paper_trader, 'get_total_value') else 10000,
-                'daily_pnl_percent': 0.0,  # TODO: Calculate from portfolio tracker
+                'portfolio_value': portfolio_value,
+                'daily_pnl_percent': daily_pnl_percent,
                 'prices': {market_id: price_data.get('yes', 0.5) for market_id, price_data in prices_dict.items()},
                 'trade_executed': False
             }
