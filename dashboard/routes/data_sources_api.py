@@ -118,8 +118,13 @@ def save_data_sources():
                 400,
             )
 
-        # Save credentials (will be encrypted)
-        config_manager.save_api_credentials(service, credentials)
+        # Phase 6B: merge with existing so partial updates (e.g. only api_key) do not wipe other fields
+        existing = config_manager.get_api_credentials(service) or {}
+        merged = {**existing}
+        for k, v in credentials.items():
+            if v is not None and str(v).strip():
+                merged[k] = v.strip() if isinstance(v, str) else v
+        config_manager.save_api_credentials(service, merged)
 
         # Get new data mode after saving
         data_mode = config_manager.get_data_mode()
@@ -224,6 +229,45 @@ def test_connection():
             )
 
         return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# Phase 6B: Canonical list of integrations (SecureConfigManager only). Used by System & Settings UI.
+INTEGRATION_SERVICES = [
+    {"id": "polymarket", "label": "Polymarket", "description": "Prediction market data", "fields": ["endpoint", "api_key"]},
+    {"id": "crypto", "label": "Crypto (CoinGecko)", "description": "Crypto prices", "fields": ["provider", "endpoint", "api_key"]},
+    {"id": "telegram", "label": "Telegram", "description": "Notifications", "fields": ["bot_token", "chat_id"]},
+    {"id": "email", "label": "Email (SMTP)", "description": "Email alerts", "fields": ["smtp_server", "smtp_port", "username", "password"]},
+]
+INTEGRATION_DEPENDENCIES = {
+    "polymarket": ["Polymarket arbitrage", "Market data"],
+    "crypto": ["Crypto momentum", "Price data", "Data sources"],
+    "telegram": ["Notifications"],
+    "email": ["Notifications"],
+}
+
+
+@data_sources_api.route("/integrations", methods=["GET"])
+def get_integrations():
+    """
+    List all integrations with masked credentials only. Canonical source: SecureConfigManager.
+    Used by System & Settings UI. Never returns raw secrets.
+    """
+    try:
+        out = []
+        for svc in INTEGRATION_SERVICES:
+            sid = svc["id"]
+            masked = config_manager.get_masked_credentials(sid) or {}
+            out.append({
+                "id": sid,
+                "label": svc["label"],
+                "description": svc["description"],
+                "configured": bool(config_manager.get_api_credentials(sid)),
+                "masked": masked,
+                "used_by": INTEGRATION_DEPENDENCIES.get(sid, []),
+            })
+        return jsonify({"success": True, "integrations": out})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

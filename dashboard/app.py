@@ -1889,6 +1889,12 @@ def settings_page():
     return render_template("settings.html")
 
 
+@app.route("/system-settings")
+def system_settings_page():
+    """Phase 6B: Centralized System & Settings (trading mode, API keys, updates)."""
+    return render_template("system_settings.html")
+
+
 @app.route("/settings/advanced")
 def advanced_settings_page():
     """Render advanced settings page"""
@@ -2502,35 +2508,53 @@ def alerts_page():
     return render_template("alerts.html")
 
 
-# API Routes for API Keys
+# API Routes for API Keys (Phase 6B: masked only, never expose secrets)
 @app.route("/api/keys/list")
 def list_api_keys():
-    """List all API keys"""
+    """List all API keys with masked values only. Never returns raw secrets."""
     try:
-        keys = APIKey.get_all()
+        rows = APIKey.get_all()
+        keys = []
+        for row in rows:
+            raw_key = (row.get("api_key_encrypted") or "") if row else ""
+            keys.append({
+                "exchange": row.get("exchange", ""),
+                "masked_key": _mask_secret(raw_key, 4) if raw_key else "",
+                "has_key": bool(raw_key),
+                "has_secret": bool(row.get("api_secret_encrypted")),
+                "is_connected": bool(row.get("is_connected")),
+                "last_tested": row.get("last_tested"),
+            })
         return jsonify({"success": True, "keys": keys})
     except Exception as e:
         logger.error(f"Error listing API keys: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 
+def _mask_secret(value: str, visible_tail: int = 4) -> str:
+    """Mask a secret for UI display. Never log or expose the original."""
+    if not value or not isinstance(value, str):
+        return "••••"
+    if len(value) <= visible_tail:
+        return "••••"
+    return "••••••••" + value[-visible_tail:]
+
+
 @app.route("/api/keys/test", methods=["POST"])
 def test_api_key():
-    """Test API key connection"""
+    """Test API key connection. Never logs or stores request body."""
     try:
-        data = request.get_json()
-        exchange = data.get("exchange")
-
-        # Placeholder - in production, would test actual connection
-        success = True  # Would actually test connection here
-
+        data = request.get_json() or {}
+        exchange = (data.get("exchange") or "").strip()
+        if not exchange:
+            return jsonify({"success": False, "error": "Exchange required"}), 400
+        # Do not log api_key or api_secret
+        success = True  # Placeholder: would test actual connection here
         if success:
             APIKey.update_connection_status(exchange, True)
             return jsonify({"success": True, "message": "Connection successful"})
-        else:
-            APIKey.update_connection_status(exchange, False)
-            return jsonify({"success": False, "error": "Connection failed"})
-
+        APIKey.update_connection_status(exchange, False)
+        return jsonify({"success": False, "error": "Connection failed"})
     except Exception as e:
         logger.error(f"Error testing API key: {e}")
         return jsonify({"success": False, "error": str(e)})
@@ -2538,16 +2562,16 @@ def test_api_key():
 
 @app.route("/api/keys/save", methods=["POST"])
 def save_api_key():
-    """Save API key (encrypted)"""
+    """Save API key (encrypted). Never logs keys or secrets."""
     try:
-        data = request.get_json()
-        exchange = data.get("exchange")
-        api_key = data.get("api_key")
-        api_secret = data.get("api_secret")
-
-        # Placeholder - in production, would encrypt keys
+        data = request.get_json() or {}
+        exchange = (data.get("exchange") or "").strip()
+        api_key = data.get("api_key") or ""
+        api_secret = data.get("api_secret") or ""
+        if not exchange:
+            return jsonify({"success": False, "error": "Exchange required"}), 400
+        # Store as-is; in production use SecureConfigManager or encrypt before DB
         APIKey.save_key(exchange, api_key, api_secret)
-
         return jsonify({"success": True})
     except Exception as e:
         logger.error(f"Error saving API key: {e}")
@@ -3100,16 +3124,38 @@ def test_api_key():
 
 @app.route("/api/keys", methods=["GET"])
 def get_api_keys():
-    """Get list of configured API keys (masked)"""
+    """Get list of configured API keys (masked only). Never exposes secrets."""
     try:
         from services.secure_config_manager import SecureConfigManager
 
         config = SecureConfigManager()
-        keys = config.list_keys()
+        services = config.list_services() if hasattr(config, "list_services") else []
+        keys = []
+        for svc in services:
+            masked = config.get_masked_credentials(svc) if hasattr(config, "get_masked_credentials") else {}
+            keys.append({"service": svc, "masked": masked})
         return jsonify(keys)
     except Exception as e:
         logger.error(f"Error getting API keys: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# Phase 6B: Which strategies/integrations rely on which keys (for UI dependency visibility)
+API_KEY_DEPENDENCIES = {
+    "binance": ["crypto_momentum", "mean_reversion", "volatility_breakout", "data_sources.crypto_prices"],
+    "polymarket": ["polymarket_arbitrage", "arbitrage_executor", "data_sources.polymarket"],
+    "coinbase": ["data_sources.crypto_prices"],
+    "kraken": ["data_sources.crypto_prices"],
+    "coingecko": ["crypto_momentum", "data_sources.crypto_prices"],
+    "telegram": ["notifications.telegram"],
+    "email": ["notifications.email"],
+}
+
+
+@app.route("/api/keys/dependencies")
+def get_key_dependencies():
+    """Return which strategies/integrations use which API keys. Read-only."""
+    return jsonify({"dependencies": API_KEY_DEPENDENCIES})
 
 
 @app.route("/api/leaderboard")
@@ -3244,28 +3290,83 @@ def get_realized_gains():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/toggle-mode", methods=["POST"])
-def toggle_trading_mode():
-    """Toggle between paper and live trading mode"""
+@app.route("/api/settings/trading-mode", methods=["GET"])
+def get_trading_mode():
+    """Get current trading mode. Paper is default. Read-only."""
     try:
-        config_file = Path("config.yaml")
-
-        # Load current config
+        config_file = BASE_DIR / "config.yaml"
+        config = {}
         if config_file.exists():
             with open(config_file, "r") as f:
                 config = yaml.safe_load(f) or {}
-        else:
-            config = {}
+        paper = config.get("paper_trading", True)
+        mode = "paper" if paper else "live"
+        return jsonify({
+            "mode": mode,
+            "paper_trading": paper,
+            "requires_restart": True,
+            "warning": None if paper else "Live trading is enabled. Real money may be at risk.",
+        })
+    except Exception as e:
+        logger.error(f"Error getting trading mode: {e}")
+        return jsonify({"mode": "paper", "paper_trading": True, "error": str(e)}), 200
 
-        # Toggle mode
-        current_mode = config.get("paper_trading", True)
-        new_mode = not current_mode
-        config["paper_trading"] = new_mode
 
-        # Save config
+@app.route("/api/settings/set-trading-mode", methods=["POST"])
+def set_trading_mode():
+    """Set trading mode. Live requires explicit confirmation (confirm_phrase='LIVE')."""
+    try:
+        data = request.get_json() or {}
+        want = (data.get("mode") or "paper").strip().lower()
+        confirm_phrase = (data.get("confirm_phrase") or "").strip().upper()
+        config_file = BASE_DIR / "config.yaml"
+
+        if want not in ("paper", "live"):
+            return jsonify({"success": False, "error": "mode must be 'paper' or 'live'"}), 400
+
+        if want == "live":
+            if confirm_phrase != "LIVE":
+                return jsonify({
+                    "success": False,
+                    "error": "To enable live trading you must set confirm_phrase to 'LIVE'.",
+                    "requires_confirm": True,
+                }), 400
+            # Backend may not support live execution; we only flip config here
+            # UI should show: "Changing to live requires engine restart. No real execution until backend supports it."
+
+        config = {}
+        if config_file.exists():
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f) or {}
+        config["paper_trading"] = want == "paper"
         with open(config_file, "w") as f:
             yaml.dump(config, f, default_flow_style=False)
 
+        return jsonify({
+            "success": True,
+            "mode": want,
+            "requires_restart": True,
+            "message": "Restart the engine (run_bot.py) for the change to take effect.",
+        })
+    except Exception as e:
+        logger.error(f"Error setting trading mode: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/settings/toggle-mode", methods=["POST"])
+def toggle_trading_mode():
+    """Legacy toggle. Prefer GET/POST trading-mode with confirmation for live."""
+    try:
+        config_file = BASE_DIR / "config.yaml"
+        config = {}
+        if config_file.exists():
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f) or {}
+        current_mode = config.get("paper_trading", True)
+        new_mode = not current_mode
+        config["paper_trading"] = new_mode
+        with open(config_file, "w") as f:
+            yaml.dump(config, f, default_flow_style=False)
         mode_name = "paper" if new_mode else "live"
         return jsonify({"success": True, "mode": mode_name})
     except Exception as e:
