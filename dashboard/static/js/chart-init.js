@@ -48,14 +48,14 @@ function initPnLChart() {
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                label: (context) => `$${context.parsed.y.toLocaleString()}`
+                                label: (context) => `$${context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             }
                         }
                     },
                     scales: {
                         y: {
                             ticks: {
-                                callback: (value) => `$${value.toLocaleString()}`
+                                callback: (value) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             }
                         }
                     }

@@ -231,8 +231,21 @@ class ChartDataService:
         for trade in trades:
             cumulative_pnl += Decimal(str(trade.get("pnl_usd", 0)))
             
+            # Parse timestamp safely - handle both string and datetime objects
+            timestamp_val = trade["timestamp"]
+            if isinstance(timestamp_val, str):
+                try:
+                    timestamp = datetime.fromisoformat(timestamp_val.replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    # Skip trades with invalid timestamps
+                    continue
+            elif isinstance(timestamp_val, datetime):
+                timestamp = timestamp_val
+            else:
+                # Skip trades with unexpected timestamp formats
+                continue
+            
             # Format timestamp as date
-            timestamp = datetime.fromisoformat(trade["timestamp"])
             date_label = timestamp.strftime("%Y-%m-%d")
             
             labels.append(date_label)
