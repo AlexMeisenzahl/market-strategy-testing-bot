@@ -335,6 +335,44 @@
                 banner.classList.add('hidden');
             }, 5000);
         }
+        
+        async function testKey(service) {
+            try {
+                const keyInput = document.getElementById(service + '_key');
+                const key = keyInput ? keyInput.value : '';
+                
+                if (!key) {
+                    showAlert('error', 'Please enter an API key first');
+                    return;
+                }
+                
+                const body = { service, key };
+                
+                // Add chat_id for telegram
+                if (service === 'telegram') {
+                    const chatIdInput = document.getElementById('telegram_chat_id');
+                    if (chatIdInput) {
+                        body.chat_id = chatIdInput.value;
+                    }
+                }
+                
+                const response = await fetch('/api/keys/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('success', result.message || 'Connection successful!');
+                } else {
+                    showAlert('error', result.error || 'Connection failed');
+                }
+            } catch (error) {
+                showAlert('error', 'Error: ' + error.message);
+            }
+        }
     </script>
 </body>
 </html>

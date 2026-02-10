@@ -194,6 +194,20 @@
                 loadAlerts();
             }
         }
+        
+        async function testAlert() {
+            try {
+                const response = await fetch('/api/alerts/test', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Success! Test notification sent.');
+                } else {
+                    alert('Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
     </script>
     
     <!-- Socket.IO for WebSocket support -->
