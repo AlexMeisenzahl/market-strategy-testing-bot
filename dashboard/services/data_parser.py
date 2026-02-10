@@ -428,10 +428,10 @@ class DataParser:
     def get_trade_by_id(self, trade_id: str) -> Dict[str, Any]:
         """
         Get a specific trade by ID
-        
+
         Args:
             trade_id: Trade ID to find
-            
+
         Returns:
             Trade dictionary or None if not found
         """

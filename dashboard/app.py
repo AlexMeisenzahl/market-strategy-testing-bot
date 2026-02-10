@@ -3064,7 +3064,10 @@ def save_api_key():
         key = data.get("key")
 
         if not provider or not key:
-            return jsonify({"success": False, "error": "Provider and key required"}), 400
+            return (
+                jsonify({"success": False, "error": "Provider and key required"}),
+                400,
+            )
 
         config.set_api_key(provider, key)
         return jsonify({"success": True})
@@ -3094,7 +3097,10 @@ def test_api_key():
             client = PolymarketClient(api_key=key)
             result = client.test_connection()
             return jsonify(
-                {"connected": result.get("success", False), "message": result.get("message", "Test failed")}
+                {
+                    "connected": result.get("success", False),
+                    "message": result.get("message", "Test failed"),
+                }
             )
         elif provider in ["coingecko", "crypto"]:
             from clients import CoinGeckoClient
@@ -3102,11 +3108,17 @@ def test_api_key():
             client = CoinGeckoClient(api_key=key)
             result = client.test_connection()
             return jsonify(
-                {"connected": result.get("success", False), "message": result.get("message", "Test failed")}
+                {
+                    "connected": result.get("success", False),
+                    "message": result.get("message", "Test failed"),
+                }
             )
         else:
             return jsonify(
-                {"connected": True, "message": f"Provider {provider} configured (no test available)"}
+                {
+                    "connected": True,
+                    "message": f"Provider {provider} configured (no test available)",
+                }
             )
     except Exception as e:
         logger.error(f"Error testing API key: {e}")
