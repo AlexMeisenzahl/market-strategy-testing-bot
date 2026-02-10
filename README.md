@@ -630,6 +630,55 @@ arbitrage-bot/
     └── connection.log
 ```
 
+## 🔍 Feature Audit System
+
+**Verify what's actually implemented vs. documentation-only features**
+
+The Feature Audit System tests EVERY feature claimed in this README and PRs to provide an honest assessment of what works.
+
+### Run the Audit
+
+```bash
+# Quick audit (5-10 seconds)
+python feature_audit.py
+
+# Full audit with live tests (15-20 seconds)
+python feature_audit.py --live-test
+```
+
+### What It Tests
+
+- ✅ All 9 trading strategies (file existence, import capability, integration)
+- ✅ Dashboard pages and API endpoints
+- ✅ API key management system
+- ✅ Advanced features (Mobile/PWA, Telegram, Backtesting, etc.)
+- ✅ Data infrastructure (mock vs. live mode)
+- ✅ Syntax validation (with --live-test)
+
+### Output
+
+- **FEATURE_AUDIT_REPORT.md** - Detailed findings with action items
+- **feature_audit_summary.json** - Machine-readable results
+- **Console output** - Color-coded status for each feature
+
+### Status Icons
+
+- ✅ Fully Working (no API keys needed)
+- 🔑 Needs API Keys (implemented but requires configuration)
+- 🚧 Partially Implemented (some components missing)
+- 📦 Shell Only (UI exists but no backend)
+- ❌ Not Found (doesn't exist)
+
+👉 **[Full Feature Audit Documentation](FEATURE_AUDIT_USAGE.md)**
+
+**Use this to:**
+- Understand what features work out-of-the-box
+- Identify what needs API keys
+- Find features that need development
+- Track implementation progress
+
+---
+
 ## 🤝 Support
 
 If you encounter issues:

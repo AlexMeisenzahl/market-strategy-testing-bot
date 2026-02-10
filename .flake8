@@ -1,0 +1,31 @@
+[flake8]
+max-line-length = 127
+extend-ignore = E203,E501
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    .eggs,
+    *.egg-info,
+    .tox,
+    .venv,
+    venv,
+    node_modules,
+    # Exclude markdown and documentation files
+    *.md,
+    *.txt,
+    *.yml,
+    *.yaml,
+    *.json,
+    *.html,
+    *.css,
+    *.js,
+    # Exclude data and log directories
+    logs,
+    data,
+    state,
+    migrations,
+    .pytest_cache,
+    .coverage,
+    htmlcov
