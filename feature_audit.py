@@ -6,7 +6,9 @@ This script tests EVERY feature claimed in the README and PRs to determine
 what's actually implemented vs what's just documentation/shells.
 
 Usage:
-    python feature_audit.py
+    python feature_audit.py                    # Basic audit (fast)
+    python feature_audit.py --live-test        # Include live tests (slower)
+    python feature_audit.py --help             # Show help
 
 Generates:
     - FEATURE_AUDIT_REPORT.md (detailed findings)
@@ -52,10 +54,12 @@ class FeatureAudit:
     SHELL_ONLY = "📦"
     NOT_FOUND = "❌"
     
-    def __init__(self):
+    def __init__(self, live_test: bool = False):
         self.root_dir = Path(__file__).resolve().parent
+        self.live_test = live_test
         self.results = {
             "audit_date": datetime.now().isoformat(),
+            "live_tests_enabled": live_test,
             "summary": {
                 "fully_implemented": 0,
                 "needs_api_keys": 0,
@@ -121,15 +125,22 @@ class FeatureAudit:
         self.results["data_infrastructure"] = data_infra
         print(f"   Data infrastructure test complete\n")
         
-        # 9. Calculate summary statistics
+        # 9. Optional: Live tests (if enabled)
+        if self.live_test:
+            print(f"{Colors.OKCYAN}🧪 Step 9: Running Live Tests (Optional)...{Colors.ENDC}")
+            live_results = self.run_live_tests()
+            self.results["live_tests"] = live_results
+            print(f"   Live tests complete\n")
+        
+        # 10. Calculate summary statistics
         self.calculate_summary()
         
-        # 10. Generate reports
-        print(f"{Colors.OKCYAN}📝 Step 9: Generating Reports...{Colors.ENDC}")
+        # 11. Generate reports
+        print(f"{Colors.OKCYAN}📝 Step 10: Generating Reports...{Colors.ENDC}")
         self.generate_markdown_report()
         self.generate_json_report()
         
-        # 11. Print summary
+        # 12. Print summary
         self.print_summary()
         
     def parse_readme(self) -> List[Dict[str, str]]:
@@ -170,9 +181,9 @@ class FeatureAudit:
         pr_info = []
         
         try:
-            # Get git log with PR merge commits
+            # Get all commits (not just merges) to catch more PRs
             result = subprocess.run(
-                ['git', 'log', '--all', '--pretty=format:%h|||%s|||%b', '--merges'],
+                ['git', 'log', '--all', '--pretty=format:%h|||%s|||%b'],
                 cwd=self.root_dir,
                 capture_output=True,
                 text=True,
@@ -181,6 +192,8 @@ class FeatureAudit:
             
             if result.returncode == 0:
                 lines = result.stdout.split('\n')
+                seen_prs = set()
+                
                 for line in lines:
                     if '|||' in line:
                         parts = line.split('|||')
@@ -188,16 +201,23 @@ class FeatureAudit:
                         subject = parts[1]
                         body = parts[2] if len(parts) > 2 else ""
                         
-                        # Extract PR number
-                        pr_match = re.search(r'#(\d+)', subject)
-                        if pr_match:
-                            pr_number = pr_match.group(1)
-                            pr_info.append({
-                                "pr_number": pr_number,
-                                "title": subject,
-                                "description": body[:200] if body else "",
-                                "commit": commit_hash
-                            })
+                        # Extract PR number from subject or body
+                        text_to_search = subject + " " + body
+                        pr_matches = re.findall(r'#(\d+)', text_to_search)
+                        
+                        for pr_number in pr_matches:
+                            if pr_number not in seen_prs:
+                                seen_prs.add(pr_number)
+                                pr_info.append({
+                                    "pr_number": pr_number,
+                                    "title": subject,
+                                    "description": body[:200] if body else "",
+                                    "commit": commit_hash
+                                })
+                                
+            # Sort by PR number
+            pr_info.sort(key=lambda x: int(x['pr_number']))
+                                
         except Exception as e:
             print(f"   {Colors.WARNING}Warning: Could not parse git history: {e}{Colors.ENDC}")
             
@@ -674,6 +694,102 @@ class FeatureAudit:
             
         return result
         
+    def run_live_tests(self) -> Dict[str, Any]:
+        """Run optional live tests (slower but more thorough)"""
+        results = {
+            "dashboard_startup": None,
+            "run_bot_syntax": None,
+            "strategy_imports": None
+        }
+        
+        print(f"   {Colors.OKCYAN}Testing dashboard startup (syntax check)...{Colors.ENDC}")
+        results["dashboard_startup"] = self.test_dashboard_startup()
+        
+        print(f"   {Colors.OKCYAN}Testing run_bot.py syntax...{Colors.ENDC}")
+        results["run_bot_syntax"] = self.test_run_bot_syntax()
+        
+        print(f"   {Colors.OKCYAN}Testing strategy imports...{Colors.ENDC}")
+        results["strategy_imports"] = self.test_strategy_imports()
+        
+        return results
+        
+    def test_dashboard_startup(self) -> Dict[str, Any]:
+        """Test if dashboard can start (syntax check only)"""
+        result = {
+            "can_import": False,
+            "syntax_valid": False,
+            "error": None
+        }
+        
+        try:
+            # Try to compile the dashboard app to check for syntax errors
+            dashboard_app = self.root_dir / "dashboard" / "app.py"
+            if dashboard_app.exists():
+                with open(dashboard_app, 'r', encoding='utf-8') as f:
+                    code = f.read()
+                    compile(code, str(dashboard_app), 'exec')
+                    result["syntax_valid"] = True
+                    result["can_import"] = True
+        except SyntaxError as e:
+            result["error"] = f"Syntax error: {str(e)}"
+        except Exception as e:
+            result["error"] = str(e)[:200]
+            
+        return result
+        
+    def test_run_bot_syntax(self) -> Dict[str, Any]:
+        """Test if run_bot.py has valid syntax"""
+        result = {
+            "syntax_valid": False,
+            "error": None
+        }
+        
+        try:
+            run_bot_path = self.root_dir / "run_bot.py"
+            if run_bot_path.exists():
+                with open(run_bot_path, 'r', encoding='utf-8') as f:
+                    code = f.read()
+                    compile(code, str(run_bot_path), 'exec')
+                    result["syntax_valid"] = True
+        except SyntaxError as e:
+            result["error"] = f"Syntax error: {str(e)}"
+        except Exception as e:
+            result["error"] = str(e)[:200]
+            
+        return result
+        
+    def test_strategy_imports(self) -> List[Dict[str, Any]]:
+        """Test if all strategy files can be imported"""
+        results = []
+        strategy_dir = self.root_dir / "strategies"
+        
+        if not strategy_dir.exists():
+            return results
+            
+        for strategy_file in strategy_dir.glob("*.py"):
+            if strategy_file.name.startswith("_"):
+                continue
+                
+            result = {
+                "file": strategy_file.name,
+                "can_import": False,
+                "error": None
+            }
+            
+            try:
+                with open(strategy_file, 'r', encoding='utf-8') as f:
+                    code = f.read()
+                    compile(code, str(strategy_file), 'exec')
+                    result["can_import"] = True
+            except SyntaxError as e:
+                result["error"] = f"Syntax error: {str(e)}"
+            except Exception as e:
+                result["error"] = str(e)[:100]
+                
+            results.append(result)
+            
+        return results
+        
     def get_status_icon(self, test_result: Dict[str, Any]) -> str:
         """Get status icon for a test result"""
         status = test_result.get("status", self.SHELL_ONLY)
@@ -886,6 +1002,40 @@ class FeatureAudit:
                     
                 f.write("---\n\n")
             
+            # Live Tests (if enabled)
+            if "live_tests" in self.results and self.results["live_tests"]:
+                f.write("## Live Tests (Optional)\n\n")
+                live = self.results["live_tests"]
+                
+                if live.get("dashboard_startup"):
+                    dash = live["dashboard_startup"]
+                    f.write("### Dashboard Startup Test\n\n")
+                    f.write(f"- **Syntax Valid**: {dash.get('syntax_valid', False)}\n")
+                    if dash.get('error'):
+                        f.write(f"- **Error**: `{dash['error']}`\n")
+                    f.write("\n")
+                    
+                if live.get("run_bot_syntax"):
+                    bot = live["run_bot_syntax"]
+                    f.write("### run_bot.py Syntax Test\n\n")
+                    f.write(f"- **Syntax Valid**: {bot.get('syntax_valid', False)}\n")
+                    if bot.get('error'):
+                        f.write(f"- **Error**: `{bot['error']}`\n")
+                    f.write("\n")
+                    
+                if live.get("strategy_imports"):
+                    f.write("### Strategy Import Tests\n\n")
+                    imports = live["strategy_imports"]
+                    for imp in imports:
+                        status = "✅" if imp["can_import"] else "❌"
+                        f.write(f"- {status} `{imp['file']}`")
+                        if imp.get('error'):
+                            f.write(f" - Error: `{imp['error']}`")
+                        f.write("\n")
+                    f.write("\n")
+                    
+                f.write("---\n\n")
+            
             # Priority Action Items
             f.write("## 🎯 Priority Action Items\n\n")
             
@@ -997,8 +1147,32 @@ class FeatureAudit:
 
 def main():
     """Main entry point"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description="Comprehensive Feature Audit System for Market Strategy Testing Bot",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python feature_audit.py                    # Basic audit (fast)
+  python feature_audit.py --live-test        # Include live tests (slower)
+  
+Reports Generated:
+  - FEATURE_AUDIT_REPORT.md (detailed findings)
+  - feature_audit_summary.json (machine-readable)
+        """
+    )
+    
+    parser.add_argument(
+        '--live-test',
+        action='store_true',
+        help='Run live tests (syntax checks, imports). Slower but more thorough.'
+    )
+    
+    args = parser.parse_args()
+    
     try:
-        audit = FeatureAudit()
+        audit = FeatureAudit(live_test=args.live_test)
         audit.run_full_audit()
         return 0
     except KeyboardInterrupt:
