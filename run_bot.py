@@ -57,19 +57,20 @@ from strategies.contrarian_strategy import ContrarianStrategy
 
 class SimpleTelegramBot:
     """Simple synchronous telegram bot for notifications"""
+
     def __init__(self, token: str, chat_id: str):
         self.token = token
         self.chat_id = chat_id
         self.base_url = f"https://api.telegram.org/bot{token}"
-    
+
     def send_message(self, text: str) -> bool:
         """Send a message via telegram API"""
         try:
             url = f"{self.base_url}/sendMessage"
             response = requests.post(
-                url, 
-                json={'chat_id': self.chat_id, 'text': text, 'parse_mode': 'Markdown'}, 
-                timeout=10
+                url,
+                json={"chat_id": self.chat_id, "text": text, "parse_mode": "Markdown"},
+                timeout=10,
             )
             response.raise_for_status()
             return True
@@ -77,7 +78,7 @@ class SimpleTelegramBot:
             # Silently fail to avoid crashing bot - telegram is optional
             # Logging would happen at integration point if needed
             return False
-    
+
     def test_connection(self) -> Dict[str, Any]:
         """Test telegram API connection"""
         try:
@@ -85,9 +86,12 @@ class SimpleTelegramBot:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
-            return {'success': True, 'bot_name': data['result'].get('username', 'Unknown')}
+            return {
+                "success": True,
+                "bot_name": data["result"].get("username", "Unknown"),
+            }
         except Exception:
-            return {'success': False, 'error': 'Connection failed'}
+            return {"success": False, "error": "Connection failed"}
 
 
 class BotRunner:
@@ -140,11 +144,13 @@ class BotRunner:
 
         # Initialize settings manager for configuration persistence
         from services.settings_manager import get_settings_manager
-        
+
         self.settings_manager = get_settings_manager(config_path)
-        
+
         # Get cycle interval from settings (default 60 seconds)
-        self.cycle_interval = self.settings_manager.get_setting('bot.cycle_interval', 60)
+        self.cycle_interval = self.settings_manager.get_setting(
+            "bot.cycle_interval", 60
+        )
 
         # Initialize alert system for custom alerts
         from services.alert_system import get_alert_system
@@ -153,24 +159,32 @@ class BotRunner:
 
         # Initialize telegram bot for notifications (simple sync version)
         self.telegram_bot = None
-        telegram_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
-        telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID', '')
+        telegram_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
 
         if telegram_token and telegram_chat_id:
             try:
-                self.telegram_bot = SimpleTelegramBot(token=telegram_token, chat_id=telegram_chat_id)
+                self.telegram_bot = SimpleTelegramBot(
+                    token=telegram_token, chat_id=telegram_chat_id
+                )
                 # Test connection
                 test_result = self.telegram_bot.test_connection()
-                if test_result['success']:
-                    self.logger.log_info(f"✅ Telegram bot initialized: @{test_result.get('bot_name', 'Unknown')}")
+                if test_result["success"]:
+                    self.logger.log_info(
+                        f"✅ Telegram bot initialized: @{test_result.get('bot_name', 'Unknown')}"
+                    )
                 else:
-                    self.logger.log_warning(f"⚠️ Telegram bot failed: {test_result.get('error', 'Unknown error')}")
+                    self.logger.log_warning(
+                        f"⚠️ Telegram bot failed: {test_result.get('error', 'Unknown error')}"
+                    )
                     self.telegram_bot = None
             except Exception as e:
                 self.logger.log_warning(f"⚠️ Telegram bot failed: {e}")
                 self.telegram_bot = None
         else:
-            self.logger.log_warning("⚠️ Telegram not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)")
+            self.logger.log_warning(
+                "⚠️ Telegram not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)"
+            )
 
         # Setup directories
         self.logs_dir = Path("logs")
@@ -628,8 +642,10 @@ class BotRunner:
                     opps = all_opportunities.get(strategy_name, [])
                     for opp in opps[:count]:  # Send notification for executed trades
                         opp_dict = opp.to_dict() if hasattr(opp, "to_dict") else {}
-                        profit_margin = opp.profit_margin if hasattr(opp, "profit_margin") else 0
-                        
+                        profit_margin = (
+                            opp.profit_margin if hasattr(opp, "profit_margin") else 0
+                        )
+
                         message = f"""🔔 *Trade Executed*
 
 Strategy: {strategy_name}
@@ -637,7 +653,7 @@ Market: {opp_dict.get('market_name', 'Unknown')}
 Confidence: {profit_margin:.2f}%
 Action: BUY
 Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
-                        
+
                         self.telegram_bot.send_message(message)
 
                 # Log trade execution
@@ -664,7 +680,9 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
 
                 if profit_margin >= min_margin:
                     signal = {
-                        "action": opp_dict.get("action", "BUY"),  # Get action from opportunity, default to BUY
+                        "action": opp_dict.get(
+                            "action", "BUY"
+                        ),  # Get action from opportunity, default to BUY
                         "symbol": opp_dict.get(
                             "market_id", opp_dict.get("market_name", "")
                         ),
@@ -690,37 +708,45 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
         """
         try:
             # Prepare alert data with prices and portfolio metrics
-            portfolio_value = self.paper_trader.get_total_value() if hasattr(self.paper_trader, 'get_total_value') else 10000
-            
+            portfolio_value = (
+                self.paper_trader.get_total_value()
+                if hasattr(self.paper_trader, "get_total_value")
+                else 10000
+            )
+
             # Calculate daily P&L percentage from paper trader if available
             daily_pnl_percent = 0.0
-            if hasattr(self.paper_trader, 'get_daily_pnl_percent'):
+            if hasattr(self.paper_trader, "get_daily_pnl_percent"):
                 daily_pnl_percent = self.paper_trader.get_daily_pnl_percent()
-            
+
             alert_data = {
-                'portfolio_value': portfolio_value,
-                'daily_pnl_percent': daily_pnl_percent,
-                'prices': {market_id: price_data.get('yes', 0.5) for market_id, price_data in prices_dict.items()},
-                'trade_executed': False
+                "portfolio_value": portfolio_value,
+                "daily_pnl_percent": daily_pnl_percent,
+                "prices": {
+                    market_id: price_data.get("yes", 0.5)
+                    for market_id, price_data in prices_dict.items()
+                },
+                "trade_executed": False,
             }
 
             # Get custom alert manager and check alerts
             from services.alert_manager import alert_manager
+
             triggered = alert_manager.check_alerts(alert_data)
-            
+
             for alert in triggered:
-                alert_message = alert.get('message', 'Alert triggered')
+                alert_message = alert.get("message", "Alert triggered")
                 self.logger.log_warning(f"🚨 Alert: {alert_message}")
-                
+
                 # Send telegram notification if available
                 if self.telegram_bot:
                     self.telegram_bot.send_message(f"🚨 {alert_message}")
-                
+
                 # Log to activity
                 self._log_activity(
                     {
                         "type": "alert_triggered",
-                        "alert_id": alert.get('id'),
+                        "alert_id": alert.get("id"),
                         "message": alert_message,
                     }
                 )
