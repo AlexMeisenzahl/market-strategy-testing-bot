@@ -73,8 +73,9 @@ class SimpleTelegramBot:
             )
             response.raise_for_status()
             return True
-        except Exception as e:
-            # Silently fail, don't crash the bot
+        except Exception:
+            # Silently fail to avoid crashing bot - telegram is optional
+            # Logging would happen at integration point if needed
             return False
     
     def test_connection(self) -> Dict[str, Any]:
@@ -85,8 +86,8 @@ class SimpleTelegramBot:
             response.raise_for_status()
             data = response.json()
             return {'success': True, 'bot_name': data['result'].get('username', 'Unknown')}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        except Exception:
+            return {'success': False, 'error': 'Connection failed'}
 
 
 class BotRunner:
@@ -663,7 +664,7 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
 
                 if profit_margin >= min_margin:
                     signal = {
-                        "action": "BUY",  # Default action
+                        "action": opp_dict.get("action", "BUY"),  # Get action from opportunity, default to BUY
                         "symbol": opp_dict.get(
                             "market_id", opp_dict.get("market_name", "")
                         ),

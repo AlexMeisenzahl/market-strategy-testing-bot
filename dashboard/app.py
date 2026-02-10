@@ -4139,15 +4139,13 @@ def start_strategy(name):
     """Start a strategy"""
     try:
         # Strategy control requires IPC mechanism to communicate with running bot
-        # Return appropriate status indicating feature is not yet implemented
         return jsonify({
             'success': False, 
-            'error': 'Strategy control requires bot IPC - not yet implemented',
-            'message': 'This feature requires inter-process communication with the running bot'
+            'error': 'Strategy control not yet implemented - requires inter-process communication'
         }), 501
     except Exception as e:
         logger.error(f"Error starting strategy: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
 @app.route('/api/strategies/<name>/stop', methods=['POST'])
@@ -4155,15 +4153,13 @@ def stop_strategy(name):
     """Stop a strategy"""
     try:
         # Strategy control requires IPC mechanism to communicate with running bot
-        # Return appropriate status indicating feature is not yet implemented
         return jsonify({
             'success': False, 
-            'error': 'Strategy control requires bot IPC - not yet implemented',
-            'message': 'This feature requires inter-process communication with the running bot'
+            'error': 'Strategy control not yet implemented - requires inter-process communication'
         }), 501
     except Exception as e:
         logger.error(f"Error stopping strategy: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
 # ============================================================================
