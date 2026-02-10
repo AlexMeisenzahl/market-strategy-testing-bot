@@ -1,4 +1,17 @@
 """
+DEPRECATED FOR LIVE EXECUTION.
+
+This module is NOT the source of truth for live trading.
+Live execution state lives in ExecutionEngine -> PaperTradingEngine.
+
+This module may be used for:
+- legacy paths
+- reporting
+- backtests
+- dashboard fallback
+"""
+
+"""
 Portfolio Management System
 Manages overall portfolio, risk allocation, and performance tracking
 """

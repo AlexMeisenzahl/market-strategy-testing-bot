@@ -19,6 +19,8 @@ class ArbitrageTracker:
 
     def __init__(self):
         """Initialize tracker with zero metrics"""
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         self.opportunities_found: int = 0
         self.opportunities_executed: int = 0
         self.total_profit: float = 0.0

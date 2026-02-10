@@ -190,6 +190,8 @@ class NewsStrategy:
         # Price tracking for rapid movement detection
         self.recent_prices: Dict[str, deque] = {}
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # Statistics tracking
         self.opportunities_found = 0
         self.opportunities_taken = 0

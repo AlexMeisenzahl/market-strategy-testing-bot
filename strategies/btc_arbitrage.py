@@ -63,6 +63,8 @@ class BTCArbitrageStrategy:
         # Trading fee estimate (Polymarket charges ~2% on profits)
         self.trading_fee_rate = 0.02
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # Track active positions
         self.active_positions: Dict[str, Dict] = {}
 

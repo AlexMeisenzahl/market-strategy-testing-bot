@@ -57,7 +57,8 @@ class StrategyTester:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
 
-        # Initialize paper trading engine
+        # Isolated PaperTradingEngine for backtesting only. Not used for live execution.
+        # Live execution uses ExecutionEngine (engine.py).
         self.trading_engine = PaperTradingEngine(
             initial_balance=initial_capital,
             commission_rate=commission_rate,

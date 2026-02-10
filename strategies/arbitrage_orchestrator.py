@@ -66,7 +66,8 @@ class ArbitrageOrchestrator:
         Returns:
             Execution result dictionary
         """
-        # Enter position using strategy
+        # DEPRECATED: execution moved to ExecutionEngine.
+        # Enter position using strategy (legacy path; prefer ExecutionEngine.execute_trade(signal)).
         position = self.strategy.enter_position(opportunity, trade_size)
 
         # Calculate profit from position

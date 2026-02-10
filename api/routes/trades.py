@@ -1,4 +1,12 @@
 """
+WARNING:
+This endpoint does NOT execute trades.
+It is a mock / legacy endpoint.
+
+Live execution must go through ExecutionEngine.
+"""
+
+"""
 Trade Routes
 
 Handles trade execution and management.

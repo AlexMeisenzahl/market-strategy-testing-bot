@@ -227,6 +227,8 @@ class StatisticalArbStrategy:
         # Current prices cache (market_id -> price)
         self.current_prices: Dict[str, float] = {}
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # Statistics tracking
         self.opportunities_found = 0
         self.opportunities_taken = 0

@@ -2436,6 +2436,8 @@ def toggle_feature_flag(flag):
 def get_positions():
     """Get all positions"""
     try:
+        # Read-only dashboard view.
+        # ExecutionEngine is the source of truth when available.
         from services.position_tracker import position_tracker
 
         status_filter = request.args.get("status", "all")
@@ -2463,6 +2465,8 @@ def get_positions():
 def get_portfolio():
     """Get portfolio information"""
     try:
+        # Read-only dashboard view.
+        # ExecutionEngine is the source of truth when available.
         from services.portfolio_manager import portfolio_manager
 
         return jsonify(portfolio_manager.export_to_dict())
@@ -3304,6 +3308,8 @@ def toggle_trading_mode():
 def get_allocation_chart():
     """Portfolio allocation pie chart"""
     try:
+        # Read-only dashboard view.
+        # ExecutionEngine is the source of truth when available.
         data_flow = DataFlowManager()
         positions = data_flow.portfolio_tracker.get_positions()
 
@@ -3322,6 +3328,8 @@ def get_allocation_chart():
 def get_distribution_chart():
     """Trade win/loss distribution"""
     try:
+        # Read-only dashboard view.
+        # ExecutionEngine is the source of truth when available.
         data_flow = DataFlowManager()
         trades = data_flow.trade_logger.get_recent_trades(1000)
         wins = len([t for t in trades if t.get("pnl", 0) > 0])
@@ -3337,6 +3345,8 @@ def get_distribution_chart():
 def get_cumulative_chart():
     """Cumulative returns over time"""
     try:
+        # Read-only dashboard view.
+        # ExecutionEngine is the source of truth when available.
         data_flow = DataFlowManager()
         trades = data_flow.trade_logger.get_all_trades()
 
@@ -3416,6 +3426,8 @@ def get_journal_entries():
 def export_trades_csv():
     """Export trades to CSV"""
     try:
+        # Read-only dashboard view.
+        # ExecutionEngine is the source of truth when available.
         data_flow = DataFlowManager()
         csv_data = data_flow.trade_logger.export_to_csv()
 
@@ -3433,6 +3445,8 @@ def export_trades_csv():
 def export_portfolio_csv():
     """Export portfolio to CSV"""
     try:
+        # Read-only dashboard view.
+        # ExecutionEngine is the source of truth when available.
         data_flow = DataFlowManager()
         positions = data_flow.portfolio_tracker.get_positions()
 
@@ -3524,6 +3538,8 @@ def get_live_market_data():
 def get_portfolio_api():
     """Get current portfolio summary"""
     try:
+        # Read-only dashboard view.
+        # ExecutionEngine is the source of truth when available.
         data_flow = DataFlowManager()
         summary = data_flow.get_portfolio_summary()
         positions = data_flow.portfolio_tracker.get_positions()

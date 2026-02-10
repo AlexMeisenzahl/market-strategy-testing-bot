@@ -111,6 +111,8 @@ class ArbitrageStrategy:
         # Arbitrage types configuration
         self.arbitrage_types_config = config.get("arbitrage_types", {})
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # Statistics tracking
         self.opportunities_found = 0
         self.opportunities_taken = 0

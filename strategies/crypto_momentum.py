@@ -64,6 +64,8 @@ class CryptoMomentumStrategy:
         # Price history tracking (symbol -> price history)
         self.price_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # Active positions
         self.active_positions: Dict[str, Dict[str, Any]] = {}
 

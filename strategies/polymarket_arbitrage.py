@@ -69,6 +69,8 @@ class PolymarketArbitrageStrategy:
         self.max_slippage = 0.01  # 1% maximum slippage tolerance
         self.execution_delay = 0.5  # Estimated execution delay in seconds
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # State tracking
         self.active_positions: Dict[str, Dict[str, Any]] = {}
         self.historical_opportunities: List[Dict[str, Any]] = []

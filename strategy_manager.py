@@ -198,6 +198,9 @@ class StrategyManager:
 
         return all_opportunities
 
+    # NOTE:
+    # This method routes TradeSignals to the ExecutionEngine.
+    # Strategies do NOT execute trades and do NOT mutate state.
     def execute_best_opportunities(
         self, all_opportunities: Dict[str, List[Any]]
     ) -> Dict[str, int]:

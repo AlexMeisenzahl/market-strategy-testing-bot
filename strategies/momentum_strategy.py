@@ -207,6 +207,8 @@ class MomentumStrategy:
         # Price history tracking (market_id -> PriceHistory)
         self.price_history: Dict[str, PriceHistory] = {}
 
+        # DEPRECATED: strategies do not own execution state.
+        # Kept only for backward compatibility / analytics.
         # Statistics tracking
         self.opportunities_found = 0
         self.opportunities_taken = 0
