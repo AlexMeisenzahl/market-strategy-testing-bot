@@ -227,7 +227,9 @@ class PolymarketArbitrageStrategy:
             )
         position = self.active_positions[market_id]
         yes_price = position.get("yes_price") or 0.5
-        quantity = (position.get("position_size", 0) / yes_price) if yes_price > 0 else 0
+        quantity = (
+            (position.get("position_size", 0) / yes_price) if yes_price > 0 else 0
+        )
         return TradeSignal(
             symbol=market_id,
             side="sell",

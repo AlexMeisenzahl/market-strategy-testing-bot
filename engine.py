@@ -39,7 +39,9 @@ class ExecutionEngine:
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         config = config or {}
-        initial_balance = config.get("initial_capital", config.get("total_capital", 10000.0))
+        initial_balance = config.get(
+            "initial_capital", config.get("total_capital", 10000.0)
+        )
         commission_rate = config.get("commission_rate", 0.001)
         slippage_rate = config.get("slippage_rate", 0.001)
         log_dir = config.get("log_dir", "logs")
@@ -99,7 +101,9 @@ class ExecutionEngine:
             return self.trading_engine.execute_order(order_id, float(price))
         return result
 
-    def get_positions(self, current_prices: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
+    def get_positions(
+        self, current_prices: Optional[Dict[str, float]] = None
+    ) -> List[Dict[str, Any]]:
         """Read-only: current positions from the internal engine."""
         return self.trading_engine.get_all_positions(current_prices or {})
 

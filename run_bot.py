@@ -120,7 +120,9 @@ class BotRunner:
             env_name = config_loader.get("trading_bot_env", "development")
             self.logger.log_warning(f"Configuration loaded: ENVIRONMENT={env_name}")
         except Exception as e:
-            self.logger.log_warning(f"ConfigLoader failed ({e}); using YAML/defaults only.")
+            self.logger.log_warning(
+                f"ConfigLoader failed ({e}); using YAML/defaults only."
+            )
             self.config = self._load_config(config_path)
             self.config_loader = None
 
