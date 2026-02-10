@@ -10,6 +10,21 @@
    MOBILE-FIRST BASE STYLES
    ======================================== */
 
+/* CRITICAL FIX: Force dark background on mobile */
+@media (max-width: 767px) {
+    body.dark,
+    html.dark body {
+        background-color: #0f172a !important;
+        background: #0f172a !important;
+    }
+    
+    body.device-mobile,
+    html.dark body.device-mobile {
+        background-color: #0f172a !important;
+        background: #0f172a !important;
+    }
+}
+
 /* Touch-friendly targets */
 button, a, .clickable {
     min-width: 44px;

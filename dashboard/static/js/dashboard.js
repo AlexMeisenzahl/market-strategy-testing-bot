@@ -283,6 +283,9 @@ async function loadOverviewData() {
         document.getElementById('active-trades').textContent = data.active_trades;
         document.getElementById('total-trades').textContent = data.total_trades;
         
+        // Update last updated timestamp
+        updateLastUpdatedTime();
+        
         // Load charts (debounced to prevent too many updates)
         debouncedLoadCharts();
         loadRecentActivity();
@@ -290,6 +293,15 @@ async function loadOverviewData() {
     } catch (error) {
         console.error('Error loading overview data:', error);
         showToast('Error loading data', 'error');
+    }
+}
+
+// Update last updated timestamp
+function updateLastUpdatedTime() {
+    const lastUpdatedEl = document.getElementById('last-updated-text');
+    if (lastUpdatedEl) {
+        const now = new Date();
+        lastUpdatedEl.textContent = 'Updated ' + now.toLocaleTimeString();
     }
 }
 
@@ -302,12 +314,38 @@ const debouncedLoadCharts = debounce(() => {
 
 // Load Cumulative P&L Chart
 async function loadCumulativePNLChart(timeRange) {
+    const chartContainer = document.getElementById('cumulative-pnl-chart');
+    if (!chartContainer) {
+        console.warn('Chart container not found');
+        return;
+    }
+    
     try {
+        console.log('Loading cumulative P&L chart...', timeRange);
         const response = await apiClient.get('/api/charts/cumulative-pnl', { range: timeRange });
         const data = response;
         
-        const ctx = document.getElementById('cumulative-pnl-chart');
-        if (!ctx) return;
+        console.log('Chart data received:', data);
+        
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not loaded');
+            showChartError(chartContainer.parentElement, 'Chart library not loaded');
+            return;
+        }
+        
+        // Check for empty data
+        if (!data || !data.data || data.data.length === 0) {
+            console.warn('No chart data available');
+            showChartError(chartContainer.parentElement, 'No data available - run trades to see chart');
+            return;
+        }
+        
+        const ctx = chartContainer.getContext('2d');
+        if (!ctx) {
+            console.error('Cannot get 2D context from canvas');
+            return;
+        }
         
         // Properly destroy existing chart
         cumulativePNLChart = destroyChart(cumulativePNLChart);
@@ -332,16 +370,41 @@ async function loadCumulativePNLChart(timeRange) {
                 y: {
                     ticks: {
                         callback: function(value) {
-                            return '$' + value.toFixed(2);
+                            return '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
                 }
             }
         });
+        
+        console.log('Chart created successfully');
     } catch (error) {
         console.error('Error loading cumulative P&L chart:', error);
+        showChartError(chartContainer.parentElement, 'Error loading chart data');
         showToast('Error loading cumulative P&L chart', 'error');
     }
+}
+
+// Show chart error message
+function showChartError(container, message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'flex items-center justify-center h-64 text-gray-400 text-sm';
+    errorDiv.innerHTML = `<div class="text-center"><i class="fas fa-chart-line text-3xl mb-2"></i><p>${message}</p></div>`;
+    
+    // Find the canvas and hide it
+    const canvas = container.querySelector('canvas');
+    if (canvas) {
+        canvas.style.display = 'none';
+    }
+    
+    // Remove existing error message if any
+    const existingError = container.querySelector('.chart-error-message');
+    if (existingError) {
+        existingError.remove();
+    }
+    
+    errorDiv.className += ' chart-error-message';
+    container.appendChild(errorDiv);
 }
 
 // Update cumulative P&L time range
@@ -830,8 +893,22 @@ async function testTelegramNotification() {
 
 // Utility Functions
 function formatCurrency(value) {
-    const sign = value >= 0 ? '+' : '';
-    return sign + '$' + value.toFixed(2);
+    if (value === null || value === undefined || isNaN(value)) {
+        return '$0.00';
+    }
+    
+    const formatted = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(Math.abs(value));
+    
+    if (value >= 0) {
+        return '+' + formatted;
+    } else {
+        return '-' + formatted.replace('$', '$');
+    }
 }
 
 function showToast(message, type = 'info') {

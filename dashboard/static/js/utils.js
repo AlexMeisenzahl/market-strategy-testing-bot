@@ -40,14 +40,29 @@ function throttle(func, limit) {
 }
 
 /**
- * Format currency value
+ * Format currency value with thousands separators
  * @param {number} value - Value to format
  * @param {boolean} showSign - Whether to show +/- sign
- * @returns {string} Formatted currency string
+ * @returns {string} Formatted currency string (e.g., "$1,787.00" or "+$1,787.00")
  */
 function formatCurrency(value, showSign = true) {
-    const sign = showSign && value >= 0 ? '+' : '';
-    return sign + '$' + value.toFixed(2);
+    if (value === null || value === undefined || isNaN(value)) {
+        return '$0.00';
+    }
+    
+    const formatted = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(Math.abs(value));
+    
+    if (showSign && value >= 0) {
+        return '+' + formatted;
+    } else if (value < 0) {
+        return '-' + formatted.replace('$', '$');
+    }
+    return formatted;
 }
 
 /**
