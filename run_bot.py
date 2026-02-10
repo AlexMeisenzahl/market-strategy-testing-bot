@@ -43,12 +43,12 @@ from clients import (
 # Import all available strategies
 from strategies.mean_reversion_strategy import MeanReversionStrategy
 from strategies.momentum_strategy import MomentumStrategy
-from strategies.news_strategy import NewsSentimentStrategy
-from strategies.volatility_breakout_strategy import VolatilityStrategy
+from strategies.news_strategy import NewsStrategy
+from strategies.volatility_breakout_strategy import VolatilityBreakoutStrategy
 from strategies.weather_trading import WeatherTradingStrategy
 from strategies.btc_arbitrage import BTCArbitrageStrategy
-from strategies.polymarket_arbitrage import PolymarketLiveStrategy
-from strategies.statistical_arb_strategy import StatisticalArbitrageStrategy
+from strategies.polymarket_arbitrage import PolymarketArbitrageStrategy
+from strategies.statistical_arb_strategy import StatisticalArbStrategy
 from strategies.contrarian_strategy import ContrarianStrategy
 
 
