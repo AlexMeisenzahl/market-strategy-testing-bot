@@ -79,9 +79,7 @@ Last Updated: {status['last_updated']}"""
             await update.message.reply_text(message, parse_mode="Markdown")
 
         except Exception as e:
-            await update.message.reply_text(
-                f"❌ Error getting status: {str(e)}"
-            )
+            await update.message.reply_text(f"❌ Error getting status: {str(e)}")
 
     async def cmd_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command - show detailed statistics"""
@@ -113,9 +111,7 @@ Last Updated: {stats['last_updated']}"""
             await update.message.reply_text(message, parse_mode="Markdown")
 
         except Exception as e:
-            await update.message.reply_text(
-                f"❌ Error getting stats: {str(e)}"
-            )
+            await update.message.reply_text(f"❌ Error getting stats: {str(e)}")
 
     async def cmd_bot_stop(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stop command - stop the bot"""
@@ -135,9 +131,7 @@ Last Updated: {stats['last_updated']}"""
                 )
 
         except Exception as e:
-            await update.message.reply_text(
-                f"❌ Error stopping bot: {str(e)}"
-            )
+            await update.message.reply_text(f"❌ Error stopping bot: {str(e)}")
 
     async def cmd_bot_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /resume command - resume the bot"""
@@ -157,9 +151,7 @@ Last Updated: {stats['last_updated']}"""
                 )
 
         except Exception as e:
-            await update.message.reply_text(
-                f"❌ Error starting bot: {str(e)}"
-            )
+            await update.message.reply_text(f"❌ Error starting bot: {str(e)}")
 
     def _get_bot_status(self) -> Dict[str, Any]:
         """
@@ -208,10 +200,14 @@ Last Updated: {stats['last_updated']}"""
                 return {
                     "status": "🟢 Running" if started_event else "🔴 Stopped",
                     "uptime": uptime,
-                    "active_strategies": len(
-                        started_event.get("strategies", [])
-                    ) if started_event else 0,
-                    "total_capital": started_event.get("total_capital", 10000) if started_event else 10000,
+                    "active_strategies": (
+                        len(started_event.get("strategies", [])) if started_event else 0
+                    ),
+                    "total_capital": (
+                        started_event.get("total_capital", 10000)
+                        if started_event
+                        else 10000
+                    ),
                     "daily_pnl": daily_pnl,
                     "daily_pnl_pct": daily_pnl_pct,
                     "trades_today": trades_today,
