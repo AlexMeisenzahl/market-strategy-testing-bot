@@ -30,6 +30,12 @@ let lastRefreshTime = 0;
 // API Base URL
 const API_BASE = window.location.origin;
 
+function escapeHtml(text) {
+    if (text == null) return '';
+    const s = String(text);
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // Initialize API client
 const apiClient = new APIClient(API_BASE);
 
@@ -231,26 +237,41 @@ async function refreshCurrentPage() {
 
 // Page Navigation
 function showPage(pageName, event) {
+    const targetPage = document.getElementById(`page-${pageName}`);
+    if (!targetPage) {
+        console.warn('Unknown page:', pageName);
+        return;
+    }
     // Hide all pages
     document.querySelectorAll('.page-content').forEach(page => {
         page.classList.add('hidden');
     });
-    
-    // Show selected page
-    document.getElementById(`page-${pageName}`).classList.remove('hidden');
-    document.getElementById(`page-${pageName}`).classList.add('slide-in');
-    
-    // Update nav links
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('text-white', 'bg-gray-800');
+    targetPage.classList.remove('hidden');
+    targetPage.classList.add('slide-in');
+
+    // Update nav links (desktop: .nav-link with data-page)
+    document.querySelectorAll('.nav-link[data-page], .mobile-menu-overlay nav a[data-page]').forEach(link => {
+        link.classList.remove('active', 'text-white', 'bg-gray-800');
         link.classList.add('text-gray-300');
+        if (link.getAttribute('data-page') === pageName) {
+            link.classList.add('text-white', 'bg-gray-800');
+            link.classList.remove('text-gray-300');
+        }
     });
-    
-    event.target.closest('.nav-link').classList.add('text-white', 'bg-gray-800');
-    event.target.closest('.nav-link').classList.remove('text-gray-300');
-    
+    const fromNav = event && event.target && event.target.closest('.nav-link');
+    if (fromNav && !fromNav.classList.contains('text-white')) {
+        fromNav.classList.add('text-white', 'bg-gray-800');
+        fromNav.classList.remove('text-gray-300');
+    }
+
+    // Update bottom nav active state (mobile)
+    document.querySelectorAll('.bottom-nav-item').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-page') === pageName) btn.classList.add('active');
+    });
+
     currentPage = pageName;
-    
+
     // Load page-specific data
     if (pageName === 'trades') {
         loadTradesData();
@@ -262,6 +283,12 @@ function showPage(pageName, event) {
         loadTaxData();
     } else if (pageName === 'settings') {
         loadSettings();
+    } else if (pageName === 'execution') {
+        loadExecutionData();
+    } else if (pageName === 'system') {
+        loadSystemData();
+    } else if (pageName === 'markets') {
+        loadMarketsCharts();
     }
 }
 
@@ -524,6 +551,132 @@ function applyTradeFilters() {
 function exportTrades() {
     showToast('Exporting trades...', 'info');
     // TODO: Implement export
+}
+
+// Phase 6A: Load Execution page (positions + activity from engine state)
+async function loadExecutionData() {
+    const statusEl = document.getElementById('exec-status');
+    const lastUpdateEl = document.getElementById('exec-last-update');
+    const balanceEl = document.getElementById('exec-balance');
+    const countEl = document.getElementById('exec-positions-count');
+    const tbody = document.getElementById('exec-positions-body');
+    const activityList = document.getElementById('exec-activity-list');
+    if (!tbody || !activityList) return;
+
+    try {
+        const [statusRes, positionsRes, activityRes, overviewRes] = await Promise.all([
+            fetch(`${API_BASE}/api/bot/status`).then(r => r.json()).catch(() => ({})),
+            fetch(`${API_BASE}/api/positions`).then(r => r.json()).catch(() => ({ positions: [] })),
+            fetch(`${API_BASE}/api/recent_activity`).then(r => r.json()).catch(() => []),
+            fetch(`${API_BASE}/api/overview`).then(r => r.json()).catch(() => ({}))
+        ]);
+
+        if (statusEl) statusEl.textContent = statusRes.status_text || statusRes.status || '—';
+        if (lastUpdateEl) lastUpdateEl.textContent = statusRes.last_update ? new Date(statusRes.last_update).toLocaleString() : '—';
+        const balance = overviewRes.balance ?? positionsRes.balance ?? statusRes.balance;
+        if (balanceEl) balanceEl.textContent = typeof balance === 'number' ? formatCurrency(balance) : '—';
+        const positions = Array.isArray(positionsRes.positions) ? positionsRes.positions : [];
+        if (countEl) countEl.textContent = positions.length;
+
+        tbody.innerHTML = '';
+        if (positions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-gray-500 text-center">No positions</td></tr>';
+        } else {
+            positions.forEach(p => {
+                const tr = document.createElement('tr');
+                const sym = p.symbol || p.market || p.market_id || '—';
+                const qty = p.quantity != null ? p.quantity : '—';
+                const avg = p.avg_price != null ? Number(p.avg_price).toFixed(4) : '—';
+                const val = p.current_value != null ? formatCurrency(p.current_value) : '—';
+                tr.innerHTML = `<td class="px-4 py-2">${escapeHtml(sym)}</td><td class="px-4 py-2 text-right">${qty}</td><td class="px-4 py-2 text-right">${avg}</td><td class="px-4 py-2 text-right">${val}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        const activities = Array.isArray(activityRes) ? activityRes : [];
+        activityList.innerHTML = '';
+        if (activities.length === 0) {
+            activityList.innerHTML = '<div class="px-6 py-4 text-gray-500 text-center">No recent activity</div>';
+        } else {
+            activities.slice(0, 50).forEach(a => {
+                const div = document.createElement('div');
+                div.className = 'px-6 py-2 text-sm';
+                const ts = a.timestamp ? new Date(a.timestamp).toLocaleString() : '';
+                const type = a.type || 'activity';
+                const msg = type === 'opportunity_found' ? `${a.market_name || a.market_id || '—'} ${a.action || ''} ${(a.profit_margin != null) ? (a.profit_margin + '%') : ''}` : type === 'trade_executed' ? `Trade: ${a.strategy || ''} (${a.count || 0})` : type === 'alert_triggered' ? (a.message || '') : JSON.stringify(a);
+                div.textContent = `${ts} · ${type}: ${msg}`;
+                activityList.appendChild(div);
+            });
+        }
+    } catch (e) {
+        console.error('Error loading execution data:', e);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-gray-500 text-center">Error loading positions</td></tr>';
+        if (activityList) activityList.innerHTML = '<div class="px-6 py-4 text-gray-500 text-center">Error loading activity</div>';
+    }
+}
+
+// Phase 6A: Load System Status page (logs, health)
+async function loadSystemData() {
+    const logsEl = document.getElementById('system-logs');
+    const healthEl = document.getElementById('system-health-summary');
+    if (!logsEl) return;
+
+    try {
+        const [logsRes, healthRes] = await Promise.all([
+            fetch(`${API_BASE}/api/logs/recent?limit=80`).then(r => r.json()).catch(() => []),
+            fetch(`${API_BASE}/api/health`).then(r => r.json()).catch(() => ({}))
+        ]);
+        const logs = Array.isArray(logsRes) ? logsRes : (logsRes.logs || []);
+        logsEl.textContent = logs.length ? logs.map(l => typeof l === 'string' ? l : (l.message || l.text || JSON.stringify(l))).join('\n') : 'No recent logs';
+        if (healthEl) healthEl.textContent = healthRes.status === 'ok' ? 'OK' : (healthRes.status || 'Unknown');
+    } catch (e) {
+        console.error('Error loading system data:', e);
+        logsEl.textContent = 'Error loading logs';
+        if (healthEl) healthEl.textContent = 'Error';
+    }
+}
+
+// Phase 6A: Load Markets & Charts page (reuse chart data; draw on Markets canvases if present)
+async function loadMarketsCharts() {
+    const cumEl = document.getElementById('markets-cumulative-pnl');
+    const dailyEl = document.getElementById('markets-daily-pnl');
+    if (!cumEl || !dailyEl || typeof createChart !== 'function' || typeof destroyChart !== 'function') return;
+    try {
+        const [cumRes, dailyRes] = await Promise.all([
+            fetch(`${API_BASE}/api/charts/cumulative-pnl?range=1M`).then(r => r.json()),
+            fetch(`${API_BASE}/api/charts/daily-pnl`).then(r => r.json())
+        ]);
+        if (cumRes.data && cumRes.data.length) {
+            const ctx = cumEl.getContext('2d');
+            if (window.marketsCumulativeChart) { destroyChart(window.marketsCumulativeChart); window.marketsCumulativeChart = null; }
+            const labels = cumRes.data.map(d => new Date(d.timestamp).toLocaleDateString());
+            const values = cumRes.data.map(d => d.value);
+            window.marketsCumulativeChart = createChart(ctx, 'line', {
+                labels,
+                datasets: [{
+                    label: 'Cumulative P&L',
+                    data: values,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            }, { scales: { y: { ticks: { callback: v => '$' + (v && v.toFixed ? v.toFixed(2) : v) } } } });
+        }
+        if (dailyRes.data && dailyRes.data.length) {
+            const ctx = dailyEl.getContext('2d');
+            if (window.marketsDailyChart) { destroyChart(window.marketsDailyChart); window.marketsDailyChart = null; }
+            const labels = dailyRes.data.map(d => new Date(d.date).toLocaleDateString());
+            const values = dailyRes.data.map(d => d.pnl);
+            const colors = values.map(v => v >= 0 ? '#10b981' : '#ef4444');
+            window.marketsDailyChart = createChart(ctx, 'bar', {
+                labels,
+                datasets: [{ label: 'Daily P&L', data: values, backgroundColor: colors, borderRadius: 4 }]
+            });
+        }
+    } catch (e) {
+        console.error('Error loading markets charts:', e);
+    }
 }
 
 // Load Bot Status
@@ -1624,17 +1777,14 @@ function initializeMobilePageNavigation() {
                     currentPage = page;
                     
                     // Load page-specific data
-                    if (page === 'trades') {
-                        loadTradesData();
-                    } else if (page === 'opportunities') {
-                        loadOpportunitiesData();
-                    } else if (page === 'analytics') {
-                        loadAnalyticsData();
-                    } else if (page === 'tax') {
-                        loadTaxData();
-                    } else if (page === 'settings') {
-                        loadSettings();
-                    }
+                    if (page === 'trades') loadTradesData();
+                    else if (page === 'opportunities') loadOpportunitiesData();
+                    else if (page === 'analytics') loadAnalyticsData();
+                    else if (page === 'tax') loadTaxData();
+                    else if (page === 'settings') loadSettings();
+                    else if (page === 'execution') loadExecutionData();
+                    else if (page === 'system') loadSystemData();
+                    else if (page === 'markets') loadMarketsCharts();
                 } catch (error) {
                     console.error('Error in page navigation:', error);
                 }
