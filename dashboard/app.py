@@ -3776,64 +3776,6 @@ def import_settings():
 
 
 # ============================================================================
-# STRATEGY CONTROL API ENDPOINTS
-# ============================================================================
-
-
-@app.route("/api/strategies/<strategy_name>/start", methods=["POST"])
-def start_strategy(strategy_name):
-    """Start a specific strategy"""
-    try:
-        # TODO: Implement strategy start/stop control in strategy_manager
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Strategy {strategy_name} started",
-                "note": "Strategy control not yet fully implemented",
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error starting strategy: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/strategies/<strategy_name>/stop", methods=["POST"])
-def stop_strategy(strategy_name):
-    """Stop a specific strategy"""
-    try:
-        # TODO: Implement strategy start/stop control in strategy_manager
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Strategy {strategy_name} stopped",
-                "note": "Strategy control not yet fully implemented",
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error stopping strategy: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/strategies/<strategy_name>/config", methods=["POST"])
-def configure_strategy(strategy_name):
-    """Configure strategy parameters"""
-    try:
-        data = request.get_json()
-        # TODO: Implement strategy configuration in strategy_manager
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Strategy {strategy_name} configured",
-                "config": data,
-                "note": "Strategy configuration not yet fully implemented",
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error configuring strategy: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-# ============================================================================
 # API KEY TESTING ENDPOINTS
 # ============================================================================
 
@@ -4016,6 +3958,263 @@ def get_tax_summary():
         return jsonify(summary)
     except Exception as e:
         logger.error(f"Error generating tax summary: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
+# ALERT SYSTEM API ENDPOINTS
+# ============================================================================
+
+
+@app.route("/api/alerts/config", methods=["GET"])
+def get_alerts():
+    """Get all configured alerts"""
+    try:
+        from services.alert_manager import alert_manager
+
+        return jsonify(alert_manager.alerts)
+    except Exception as e:
+        logger.error(f"Error getting alerts: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/alerts/config", methods=["POST"])
+def create_alert():
+    """Create a new alert"""
+    try:
+        from services.alert_manager import alert_manager
+
+        data = request.json
+        alert = alert_manager.add_alert(data)
+        return jsonify({"success": True, "alert": alert})
+    except Exception as e:
+        logger.error(f"Error creating alert: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/alerts/config/<int:alert_id>", methods=["DELETE"])
+def delete_alert(alert_id):
+    """Delete an alert"""
+    try:
+        from services.alert_manager import alert_manager
+
+        alert_manager.alerts = [
+            a for a in alert_manager.alerts if a.get("id") != alert_id
+        ]
+        alert_manager.save_alerts()
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error deleting alert: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/alerts/test", methods=["POST"])
+def test_alert():
+    """Test telegram notification"""
+    try:
+        # Try to send a test notification via telegram
+        import os
+
+        telegram_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
+
+        if telegram_token and telegram_chat_id:
+            # Send test message
+            import requests
+
+            url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+            response = requests.post(
+                url,
+                json={
+                    "chat_id": telegram_chat_id,
+                    "text": "✅ Test alert - notifications working!",
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return jsonify({"success": True, "message": "Test notification sent!"})
+        else:
+            return jsonify({"success": False, "error": "Telegram not configured"})
+    except Exception as e:
+        logger.error(f"Error testing alert: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+# ============================================================================
+# SETTINGS API ENDPOINTS
+# ============================================================================
+
+
+@app.route("/api/settings", methods=["GET"])
+def get_settings_api():
+    """Get all settings"""
+    try:
+        from services.settings_manager import get_settings_manager
+
+        settings_mgr = get_settings_manager()
+        return jsonify(settings_mgr.settings)
+    except Exception as e:
+        logger.error(f"Error getting settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings", methods=["POST"])
+def save_settings_api():
+    """Save settings"""
+    try:
+        from services.settings_manager import get_settings_manager
+
+        settings_mgr = get_settings_manager()
+        data = request.json
+        settings_mgr.save_settings(data)
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error saving settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings/reset", methods=["POST"])
+def reset_settings_api():
+    """Reset settings to defaults"""
+    try:
+        from services.settings_manager import get_settings_manager
+
+        settings_mgr = get_settings_manager()
+        settings_mgr.reset_to_defaults()
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error resetting settings: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
+# STRATEGY CONTROL API ENDPOINTS
+# ============================================================================
+
+
+@app.route("/api/strategies/<name>/start", methods=["POST"])
+def start_strategy(name):
+    """Start a strategy"""
+    try:
+        # Strategy control requires IPC mechanism to communicate with running bot
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Strategy control not yet implemented - requires inter-process communication",
+                }
+            ),
+            501,
+        )
+    except Exception as e:
+        logger.error(f"Error starting strategy: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
+
+@app.route("/api/strategies/<name>/stop", methods=["POST"])
+def stop_strategy(name):
+    """Stop a strategy"""
+    try:
+        # Strategy control requires IPC mechanism to communicate with running bot
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Strategy control not yet implemented - requires inter-process communication",
+                }
+            ),
+            501,
+        )
+    except Exception as e:
+        logger.error(f"Error stopping strategy: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
+
+# ============================================================================
+# API KEY TESTING ENDPOINTS
+# ============================================================================
+
+
+@app.route("/api/keys/test", methods=["POST"])
+def test_api_key():
+    """Test API key connection"""
+    try:
+        data = request.json
+        service = data.get("service")
+        key = data.get("key")
+
+        if service == "telegram":
+            # Test telegram connection
+            import requests
+
+            chat_id = data.get("chat_id", "")
+            url = f"https://api.telegram.org/bot{key}/getMe"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            bot_data = response.json()
+            bot_name = bot_data["result"].get("username", "Unknown")
+            return jsonify({"success": True, "message": f"Connected to @{bot_name}"})
+
+        elif service == "coingecko":
+            # Test CoinGecko API by making a simple request
+            import requests
+
+            try:
+                # Try to get ping endpoint (doesn't require API key)
+                response = requests.get(
+                    "https://api.coingecko.com/api/v3/ping", timeout=10
+                )
+                response.raise_for_status()
+                return jsonify(
+                    {"success": True, "message": "CoinGecko API is accessible"}
+                )
+            except Exception as e:
+                return jsonify(
+                    {"success": False, "error": f"CoinGecko API test failed: {str(e)}"}
+                )
+
+        else:
+            return jsonify({"success": False, "error": f"Unknown service: {service}"})
+
+    except Exception as e:
+        logger.error(f"Error testing API key: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+# ============================================================================
+# PERFORMANCE METRICS API ENDPOINTS
+# ============================================================================
+
+
+@app.route("/api/analytics/performance")
+def get_performance_metrics():
+    """Get performance metrics (Sharpe, Drawdown, Win Rate)"""
+    try:
+        from services.performance_calculator import get_performance_calculator
+
+        # Get trades
+        trades_data = data_parser.get_trades(page=1, per_page=10000)
+        trade_list = (
+            trades_data.get("trades", []) if isinstance(trades_data, dict) else []
+        )
+
+        if not trade_list:
+            return jsonify({"sharpe_ratio": 0.0, "max_drawdown": 0.0, "win_rate": 0.0})
+
+        # Calculate metrics
+        perf_calc = get_performance_calculator()
+        metrics = perf_calc.calculate_all_metrics(trade_list)
+
+        return jsonify(
+            {
+                "sharpe_ratio": metrics.get("sharpe_ratio", 0.0),
+                "max_drawdown": metrics.get("max_drawdown_pct", 0.0),
+                "win_rate": metrics.get("win_rate", 0.0),
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting performance metrics: {e}")
         return jsonify({"error": str(e)}), 500
 
 
