@@ -3365,25 +3365,7 @@ def set_trading_mode():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/settings/toggle-mode", methods=["POST"])
-def toggle_trading_mode():
-    """Legacy toggle. Prefer GET/POST trading-mode with confirmation for live."""
-    try:
-        config_file = BASE_DIR / "config.yaml"
-        config = {}
-        if config_file.exists():
-            with open(config_file, "r") as f:
-                config = yaml.safe_load(f) or {}
-        current_mode = config.get("paper_trading", True)
-        new_mode = not current_mode
-        config["paper_trading"] = new_mode
-        with open(config_file, "w") as f:
-            yaml.dump(config, f, default_flow_style=False)
-        mode_name = "paper" if new_mode else "live"
-        return jsonify({"success": True, "mode": mode_name})
-    except Exception as e:
-        logger.error(f"Error toggling trading mode: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+# Phase 7C: Legacy toggle removed. Use GET /api/settings/trading-mode and POST /api/settings/set-trading-mode (with confirm_phrase for live) only.
 
 
 # ============================================================================
