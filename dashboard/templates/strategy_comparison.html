@@ -85,6 +85,34 @@
             </div>
         </div>
 
+        <!-- Robustness evaluation (research-only; no auto-deploy) -->
+        <div class="bg-dark-card rounded-lg p-6 border border-dark-border mb-6">
+            <h2 class="text-xl font-bold mb-4">Robustness Evaluation</h2>
+            <p class="text-gray-400 text-sm mb-4">Walk-forward, Monte Carlo, and overfitting guard. Rank by robustness score (not just Sharpe). Does not affect live execution.</p>
+            <div class="flex flex-wrap gap-4 mb-4">
+                <button onclick="runRobustnessEvaluation()" id="eval-btn" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm">
+                    <i class="fas fa-shield-alt"></i> Run robustness evaluation
+                </button>
+                <span id="eval-status" class="text-sm text-gray-400 self-center"></span>
+            </div>
+            <div id="robustness-table-container" class="hidden overflow-x-auto">
+                <table class="w-full text-sm" id="robustness-table">
+                    <thead>
+                        <tr class="border-b border-dark-border">
+                            <th class="text-left p-2">Rank</th>
+                            <th class="text-left p-2">Strategy</th>
+                            <th class="text-right p-2">Robustness</th>
+                            <th class="text-right p-2">In-sample Sharpe</th>
+                            <th class="text-right p-2">OOS Sharpe</th>
+                            <th class="text-right p-2">OOS Trades</th>
+                            <th class="text-center p-2">Unstable</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Metrics Table -->
         <div class="bg-dark-card rounded-lg p-6 border border-dark-border mb-6">
             <h2 class="text-xl font-bold mb-4">Performance Metrics</h2>
@@ -329,6 +357,71 @@
                         const isBest = bestValue !== null && value === bestValue;
                         return '<td class="text-right p-3 ' + (isBest ? 'bg-green-900/30 font-bold' : '') + '">' + (value !== undefined ? metric.format(value) : '—') + (isBest ? ' <i class="fas fa-trophy text-yellow-400 ml-1"></i>' : '') + '</td>';
                     }).join('') + '</tr>';
+            }).join('');
+        }
+
+        async function runRobustnessEvaluation() {
+            const strategies = Array.from(selectedStrategies);
+            if (strategies.length < 1) {
+                alert('Select at least one strategy');
+                return;
+            }
+            const start = document.getElementById('compare-start-date').value;
+            const end = document.getElementById('compare-end-date').value;
+            document.getElementById('eval-status').textContent = 'Running evaluation...';
+            document.getElementById('eval-btn').disabled = true;
+            try {
+                const response = await fetch('/api/evaluation/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        strategies,
+                        start_date: start || undefined,
+                        end_date: end || undefined
+                    })
+                });
+                const data = await response.json();
+                if (data.success && data.report) {
+                    const table = data.report.comparison?.comparison_table || (data.report.overfitting ? [{
+                        strategy: data.report.strategies[0],
+                        robustness_score: data.report.overfitting.robustness_score,
+                        in_sample_sharpe: data.report.metrics?.sharpe_ratio,
+                        out_of_sample_sharpe: data.report.walk_forward?.oos_aggregate?.sharpe_ratio,
+                        oos_trades: data.report.walk_forward?.oos_trades_all?.length || 0,
+                        unstable: !data.report.overfitting?.is_stable,
+                        rank: 1
+                    }] : []);
+                    renderRobustnessTable(table);
+                    document.getElementById('eval-status').textContent = 'Done. Ranked by robustness.';
+                } else {
+                    document.getElementById('eval-status').textContent = data.error || 'Evaluation failed';
+                }
+            } catch (e) {
+                document.getElementById('eval-status').textContent = 'Error: ' + e.message;
+            }
+            document.getElementById('eval-btn').disabled = false;
+        }
+
+        function renderRobustnessTable(rows) {
+            const container = document.getElementById('robustness-table-container');
+            const tbody = document.getElementById('robustness-table').querySelector('tbody');
+            if (!rows.length) {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            tbody.innerHTML = rows.map((r, i) => {
+                const rank = r.rank != null ? r.rank : (i + 1);
+                const unstable = r.unstable ? '<span class="text-red-400">Yes</span>' : '<span class="text-green-400">No</span>';
+                return '<tr class="border-b border-dark-border">' +
+                    '<td class="p-2">' + rank + '</td>' +
+                    '<td class="p-2 font-semibold">' + (r.strategy || '') + '</td>' +
+                    '<td class="text-right p-2">' + (Number(r.robustness_score).toFixed(1)) + '</td>' +
+                    '<td class="text-right p-2">' + (r.in_sample_sharpe != null ? Number(r.in_sample_sharpe).toFixed(2) : '—') + '</td>' +
+                    '<td class="text-right p-2">' + (r.out_of_sample_sharpe != null ? Number(r.out_of_sample_sharpe).toFixed(2) : '—') + '</td>' +
+                    '<td class="text-right p-2">' + (r.oos_trades != null ? r.oos_trades : '—') + '</td>' +
+                    '<td class="text-center p-2">' + unstable + '</td>' +
+                    '</tr>';
             }).join('');
         }
 

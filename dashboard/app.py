@@ -3155,6 +3155,54 @@ def get_optimizer_history():
         return jsonify({"success": False, "error": str(e)})
 
 
+# Strategy evaluation (research-only; no live execution impact)
+@core_bp.route("/api/evaluation/run", methods=["POST"], endpoint="core_evaluation_run")
+def evaluation_run():
+    """Run strategy evaluation: metrics, friction, walk-forward, Monte Carlo, overfitting guard. Uses trade data only."""
+    try:
+        data = request.get_json() or {}
+        strategies = data.get("strategies", [])
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        if not strategies:
+            return jsonify({"success": False, "error": "Provide at least one strategy name"}), 400
+        strategy_trades = {}
+        for name in strategies:
+            trades_data = data_parser.get_trades(
+                strategy=name,
+                start_date=start_date,
+                end_date=end_date,
+                per_page=10000,
+            )
+            trades = trades_data.get("trades", [])
+            strategy_trades[name] = trades
+        # Ensure project root on path (evaluation package is research-only, isolated)
+        import sys
+        from pathlib import Path
+        _root = Path(__file__).resolve().parent.parent
+        if str(_root) not in sys.path:
+            sys.path.insert(0, str(_root))
+        from evaluation.evaluator import run_evaluation
+        from evaluation.config import EvaluationConfig
+        cfg = EvaluationConfig()
+        if data.get("monte_carlo_sims"):
+            cfg.monte_carlo_simulations = min(int(data["monte_carlo_sims"]), 1000)
+        if data.get("oos_sharpe_drop_threshold") is not None:
+            cfg.oos_sharpe_drop_threshold = float(data["oos_sharpe_drop_threshold"])
+        report = run_evaluation(
+            strategy_trades,
+            config=cfg,
+            initial_capital=10000.0,
+            run_walk_forward_flag=True,
+            run_monte_carlo_flag=True,
+            run_comparison=(len(strategies) > 1),
+        )
+        return jsonify({"success": True, "report": report.to_dict()})
+    except Exception as e:
+        logger.error(f"Error running evaluation: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # Research export: CSV/JSON for analytics, comparison, sweep (Phase 7E)
 @core_bp.route("/api/research/export", endpoint="core_research_export")
 def research_export():

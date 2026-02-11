@@ -20,6 +20,7 @@ def store_backtest_run(result: Dict[str, Any]) -> str:
     """
     Store a backtest result and return a run_id.
     Called after each /api/backtest/run so comparisons can use real data.
+    Evicts oldest run from _run_by_id when deque is full so memory does not grow unbounded.
     """
     run_id = str(uuid.uuid4())[:8]
     entry = {
@@ -32,6 +33,9 @@ def store_backtest_run(result: Dict[str, Any]) -> str:
         "equity_curve": result.get("equity_curve", []),
         "trades_count": len(result.get("trades", [])),
     }
+    if len(_backtest_runs) == _MAX_BACKTEST_RUNS:
+        evicted = _backtest_runs[0]
+        _run_by_id.pop(evicted["run_id"], None)
     _backtest_runs.append(entry)
     _run_by_id[run_id] = entry
     return run_id
