@@ -738,11 +738,15 @@ class BotRunner:
 
     def _execute_trades(self, all_opportunities: Dict[str, List[Any]]) -> None:
         """
-        Execute trades for opportunities that meet criteria
-
-        Args:
-            all_opportunities: Dictionary mapping strategy name to list of opportunities
+        Execute trades for opportunities that meet criteria.
+        Phase 7A: Skip execution entirely if gate closed (paused, killed, or not paper-only).
         """
+        from services.execution_gate import may_execute_trade
+        allowed, reason = may_execute_trade(self.config, control_path=self.control_path)
+        if not allowed:
+            self.logger.log_warning(f"Execution gate closed – skipping trades: {reason}")
+            return
+
         trades_executed = self.strategy_manager.execute_best_opportunities(
             all_opportunities
         )

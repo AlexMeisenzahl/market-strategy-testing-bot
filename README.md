@@ -190,41 +190,40 @@ See [config.example.yaml](config.example.yaml) for all available options.
 
 **DO NOT change `paper_trading` to false!**
 
-## 🎮 How to Run the Bot
+## 🎮 How to Run the Engine
 
-### Start the Bot
+**One execution path:** The trading engine runs only via `main.py` (which starts `run_bot.py`). There is no other way to execute strategies or trades.
+
+### Start the Engine
 
 Run this command in your terminal:
 
 ```bash
-python bot.py
+python main.py
 ```
 
 Or on some systems:
 
 ```bash
-python3 bot.py
+python3 main.py
 ```
 
-### You Should See
+The engine will run until you stop it. You can also start or stop it from the web dashboard (Start Engine / Stop Engine).
 
-A live dashboard that looks like this:
+### Optional: TUI Monitor
 
-```
-╔════════════════════════════════════════════════════════════════╗
-║           POLYMARKET ARBITRAGE BOT - PAPER TRADING             ║
-║                    Status: ✓ RUNNING                           ║
-╠════════════════════════════════════════════════════════════════╣
-║ Runtime: 0h 2m                     Last Update: 10:23:45       ║
-╠════════════════════════════════════════════════════════════════╣
-║ CONNECTION                                                     ║
-║ Status: ✓ Healthy                  Response Time: 120ms       ║
-╚════════════════════════════════════════════════════════════════╝
+To view a live terminal dashboard (read-only; does not run the engine):
+
+```bash
+python bot.py
 ```
 
-### Stop the Bot
+The TUI shows status from `state/bot_state.json` and supports pause/resume via `state/control.json`. It does **not** fetch markets or execute trades.
 
-Press `Ctrl+C` (or `Cmd+C` on Mac) to stop the bot gracefully.
+### Stop the Engine
+
+- If you started the engine in a terminal: press `Ctrl+C` (or `Cmd+C` on Mac) to stop it gracefully.
+- If you started it from the web dashboard: use **Stop Engine** on the dashboard.
 
 ## 📊 Understanding the Dashboard
 
@@ -616,15 +615,17 @@ If you want to explore real trading (advanced users only):
 ```
 arbitrage-bot/
 ├── config.yaml          # User configuration
-├── bot.py              # Main entry point with dashboard
-├── monitor.py          # Price monitoring and API handling
-├── detector.py         # Arbitrage opportunity detection
-├── paper_trader.py     # Paper trading simulator
-├── logger.py           # Logging system
-├── requirements.txt    # Python dependencies
-├── README.md           # This file
-└── logs/              # Auto-created log directory
-    ├── trades.csv
+├── main.py              # Canonical entry point: starts the engine (run_bot.py)
+├── run_bot.py           # Execution engine (only started via main.py)
+├── bot.py               # TUI monitor only (read-only; optional)
+├── monitor.py           # Price monitoring and API handling
+├── detector.py          # Arbitrage opportunity detection
+├── paper_trader.py      # Paper trading simulator
+├── logger.py            # Logging system (writes logs/trades.csv, etc.)
+├── requirements.txt     # Python dependencies
+├── README.md            # This file
+└── logs/                # Auto-created log directory (canonical trade history)
+    ├── trades.csv       # Single source of truth for trade history
     ├── opportunities.csv
     ├── errors.log
     └── connection.log

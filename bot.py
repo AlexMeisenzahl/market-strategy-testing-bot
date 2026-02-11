@@ -1,9 +1,10 @@
 """
-Bot TUI Interface - Read-only display of engine state
+TUI Monitor (read-only). NOT the execution engine.
 
 Displays live status from state/bot_state.json and logs/activity.json.
-Does NOT fetch markets, execute strategies, or trade.
-Run the engine with: python main.py
+Does NOT fetch markets, execute strategies, or execute trades.
+- To run the trading engine: python main.py  (canonical execution path)
+- This TUI: python bot.py  (optional terminal dashboard; pause/resume via control.json)
 """
 
 import json

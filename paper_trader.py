@@ -128,6 +128,17 @@ class PaperTrader:
             )
             return None
 
+        # Phase 7A: Execution gate (no trade when paused, killed, or not paper-only)
+        try:
+            from services.execution_gate import may_execute_trade
+            allowed, reason = may_execute_trade(self.config)
+            if not allowed:
+                self.logger.log_warning(f"Execution gate closed: {reason}")
+                return None
+        except Exception as e:
+            self.logger.log_error(f"Execution gate check failed: {e}")
+            return None
+
         # Validate opportunity is still fresh
         if not opportunity.is_valid():
             self.logger.log_warning(

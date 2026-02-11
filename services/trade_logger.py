@@ -1,14 +1,10 @@
 """
-DEPRECATED FOR LIVE EXECUTION.
+DEPRECATED as dashboard/analytics trade source (Phase 7B).
 
-This module is NOT the source of truth for live trading.
-Live execution state lives in ExecutionEngine -> PaperTradingEngine.
-
-This module may be used for:
-- legacy paths
-- reporting
-- backtests
-- dashboard fallback
+- Single source of truth for trade history: logs/trades.csv (written by Logger).
+- Dashboard charts, analytics, and CSV export read from logs/trades.csv via DataParser.
+- This module (data/trades.json) is no longer used by the dashboard.
+- Kept for: legacy paths, backtests, or code that explicitly uses TradeLogger.
 """
 
 """

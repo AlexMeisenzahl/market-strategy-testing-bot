@@ -876,42 +876,49 @@ def get_notification_history():
 
 @app.route("/api/bot/status")
 def get_bot_status():
-    """Get current bot status. Prefers engine state (state/bot_state.json)."""
+    """Get current engine status. Prefers engine state (state/bot_state.json). Phase 7B: Engine = main.py only."""
     try:
-        # Prefer engine state when available
+        # Prefer engine state when available (written by run_bot.py)
         engine_status = engine_state_reader.get_bot_status_from_engine()
         if engine_status is not None:
             result = {**bot_status, **engine_status}
-            result["control_disabled"] = True
-            result["control_note"] = "Engine runs via python main.py. Use TUI (python bot.py) for pause/resume."
+            result["control_disabled"] = False
+            result["control_note"] = "Engine status from state. Start/Stop below control the engine (main.py)."
             return jsonify(result)
 
-        # Fallback: check for main.py or run_bot.py process
-        bot_running = False
-        bot_pid = None
+        # Fallback: process_manager tracks engine (main.py) started by dashboard; or scan for main.py/run_bot.py
+        bot_running = process_manager.is_bot_running()
+        bot_pid = process_manager.get_bot_pid()
         bot_uptime = 0
-        for proc in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
+        if bot_pid and bot_running:
             try:
-                cmdline = proc.info.get("cmdline", [])
-                if cmdline:
-                    c = " ".join(str(c) for c in cmdline)
-                    if "main.py" in c or "run_bot.py" in c or "bot.py" in c:
-                        bot_running = True
-                        bot_pid = proc.info["pid"]
-                        bot_uptime = int(
-                            datetime.now().timestamp() - proc.info["create_time"]
-                        )
-                        break
+                proc = psutil.Process(bot_pid)
+                bot_uptime = int(datetime.now().timestamp() - proc.create_time())
             except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
+                pass
+        if not bot_running and bot_pid is None:
+            for proc in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
+                try:
+                    cmdline = proc.info.get("cmdline", [])
+                    if cmdline:
+                        c = " ".join(str(c) for c in cmdline)
+                        if "main.py" in c or "run_bot.py" in c:
+                            bot_running = True
+                            bot_pid = proc.info["pid"]
+                            bot_uptime = int(
+                                datetime.now().timestamp() - proc.info["create_time"]
+                            )
+                            break
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
 
         result = {
             **bot_status,
             "running": bot_running,
             "pid": bot_pid,
             "uptime": bot_uptime,
-            "control_disabled": True,
-            "control_note": "Engine runs via python main.py. Use TUI (python bot.py) for pause/resume.",
+            "control_disabled": False,
+            "control_note": "Start engine: python main.py (or use Start Engine below).",
         }
         if bot_running:
             result["status_emoji"] = "🟢"
@@ -938,40 +945,45 @@ def get_bot_status():
 
 @app.route("/api/bot/start", methods=["POST"])
 def start_bot():
-    """Start the bot"""
+    """Start the engine (main.py). Phase 7B: Actually starts process."""
     try:
-        # This would trigger bot start
-        # For now, just update status
-        bot_status["running"] = True
-        bot_status["paused"] = False
-        bot_status["last_restart"] = datetime.now().isoformat()
-        return jsonify({"success": True, "message": "Bot started"})
+        success, pid = process_manager.start_bot()
+        if success:
+            bot_status["running"] = True
+            bot_status["paused"] = False
+            bot_status["last_restart"] = datetime.now().isoformat()
+            return jsonify({"success": True, "message": "Engine started", "pid": pid})
+        return jsonify({"success": False, "message": "Engine already running or failed to start"}), 400
     except Exception as e:
-        logger.error(f"Error starting bot: {str(e)}")
+        logger.error(f"Error starting engine: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/bot/stop", methods=["POST"])
 def stop_bot():
-    """Stop the bot"""
+    """Stop the engine (main.py). Phase 7B: Actually stops process."""
     try:
-        # This would trigger bot stop
-        bot_status["running"] = False
-        return jsonify({"success": True, "message": "Bot stopped"})
+        success = process_manager.stop_bot()
+        if success:
+            bot_status["running"] = False
+        return jsonify({"success": True, "message": "Engine stopped"})
     except Exception as e:
-        logger.error(f"Error stopping bot: {str(e)}")
+        logger.error(f"Error stopping engine: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/bot/restart", methods=["POST"])
 def restart_bot():
-    """Restart the bot"""
+    """Restart the engine (main.py). Phase 7B: Actually restarts process."""
     try:
-        # This would trigger bot restart
-        bot_status["last_restart"] = datetime.now().isoformat()
-        return jsonify({"success": True, "message": "Bot restarted"})
+        success, pid = process_manager.restart_bot()
+        if success:
+            bot_status["running"] = True
+            bot_status["last_restart"] = datetime.now().isoformat()
+            return jsonify({"success": True, "message": "Engine restarted", "pid": pid})
+        return jsonify({"success": False, "message": "Restart failed"}), 400
     except Exception as e:
-        logger.error(f"Error restarting bot: {str(e)}")
+        logger.error(f"Error restarting engine: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -3401,14 +3413,12 @@ def get_allocation_chart():
 
 @app.route("/api/chart/distribution")
 def get_distribution_chart():
-    """Trade win/loss distribution"""
+    """Trade win/loss distribution. Phase 7B: Single source logs/trades.csv via data_parser."""
     try:
-        # Read-only dashboard view.
-        # ExecutionEngine is the source of truth when available.
-        data_flow = DataFlowManager()
-        trades = data_flow.trade_logger.get_recent_trades(1000)
-        wins = len([t for t in trades if t.get("pnl", 0) > 0])
-        losses = len(trades) - wins
+        trades = data_parser.get_all_trades() or []
+        pnl_key = "pnl_usd" if trades and "pnl_usd" in trades[0] else "pnl"
+        wins = len([t for t in trades[-1000:] if float(t.get(pnl_key, 0) or 0) > 0])
+        losses = min(len(trades), 1000) - wins
 
         return jsonify({"labels": ["Wins", "Losses"], "data": [wins, losses]})
     except Exception as e:
@@ -3418,17 +3428,14 @@ def get_distribution_chart():
 
 @app.route("/api/chart/cumulative")
 def get_cumulative_chart():
-    """Cumulative returns over time"""
+    """Cumulative returns over time. Phase 7B: Single source logs/trades.csv via data_parser."""
     try:
-        # Read-only dashboard view.
-        # ExecutionEngine is the source of truth when available.
-        data_flow = DataFlowManager()
-        trades = data_flow.trade_logger.get_all_trades()
-
+        trades = data_parser.get_all_trades() or []
+        pnl_key = "pnl_usd" if trades and "pnl_usd" in trades[0] else "pnl"
         cumulative = []
-        total = 0
+        total = 0.0
         for trade in trades:
-            total += trade.get("pnl", 0)
+            total += float(trade.get(pnl_key, 0) or 0)
             cumulative.append(
                 {
                     "date": trade.get(
@@ -3499,13 +3506,15 @@ def get_journal_entries():
 
 @app.route("/api/export/trades")
 def export_trades_csv():
-    """Export trades to CSV"""
+    """Export trades to CSV. Phase 7B: Single source logs/trades.csv."""
     try:
-        # Read-only dashboard view.
-        # ExecutionEngine is the source of truth when available.
-        data_flow = DataFlowManager()
-        csv_data = data_flow.trade_logger.export_to_csv()
-
+        trades_file = LOGS_DIR / "trades.csv"
+        if trades_file.exists():
+            csv_data = trades_file.read_text(encoding="utf-8")
+        else:
+            csv_data = (
+                "timestamp,market,yes_price,no_price,sum,profit_pct,profit_usd,status,strategy,arbitrage_type\n"
+            )
         return Response(
             csv_data,
             mimetype="text/csv",
@@ -3633,17 +3642,23 @@ def get_portfolio_api():
 
 @app.route("/api/strategies/performance")
 def get_strategies_performance():
-    """Get performance data for all strategies"""
+    """Get performance data for all strategies. Phase 7B: Single source logs/trades.csv."""
     try:
-        data_flow = DataFlowManager()
-
-        # Get unique strategies from trades
-        all_trades = data_flow.trade_logger.get_all_trades()
+        all_trades = data_parser.get_all_trades() or []
         strategy_names = set(t.get("strategy", "unknown") for t in all_trades)
 
         strategies = []
         for name in strategy_names:
-            stats = data_flow.get_strategy_stats(name)
+            strat_trades = [t for t in all_trades if t.get("strategy") == name]
+            pnl_key = "pnl_usd" if strat_trades and "pnl_usd" in strat_trades[0] else "pnl"
+            total_pnl = sum(float(t.get(pnl_key, 0) or 0) for t in strat_trades)
+            wins = len([t for t in strat_trades if float(t.get(pnl_key, 0) or 0) > 0])
+            stats = {
+                "total_trades": len(strat_trades),
+                "total_pnl": total_pnl,
+                "win_rate": (wins / len(strat_trades) * 100) if strat_trades else 0,
+                "avg_pnl": (total_pnl / len(strat_trades)) if strat_trades else 0,
+            }
             strategies.append(
                 {
                     "name": name,
@@ -3948,15 +3963,11 @@ def test_api_keys():
 
 @app.route("/api/analytics/performance", methods=["GET"])
 def get_performance_metrics():
-    """Get calculated performance metrics"""
+    """Get calculated performance metrics. Phase 7B: Single source logs/trades.csv."""
     try:
         from services.performance_calculator import get_performance_calculator
 
-        # Get trades from data flow manager
-        data_flow = DataFlowManager()
-        trades = data_flow.trade_logger.get_all_trades()
-
-        # Calculate metrics
+        trades = data_parser.get_all_trades() or []
         calculator = get_performance_calculator()
         metrics = calculator.calculate_all_metrics(trades)
 
@@ -3973,16 +3984,12 @@ def get_performance_metrics():
 
 @app.route("/api/tax-report/irs-8949", methods=["GET"])
 def get_irs_8949_report():
-    """Generate IRS Form 8949 CSV report"""
+    """Generate IRS Form 8949 CSV report. Phase 7B: Single source logs/trades.csv."""
     try:
         from services.tax_report_generator import get_tax_report_generator
 
-        # Get closed trades
-        data_flow = DataFlowManager()
-        trades = data_flow.trade_logger.get_all_trades()
-
-        # Filter for closed trades only
-        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at")]
+        trades = data_parser.get_all_trades() or []
+        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at") or t.get("status") == "filled"]
 
         # Generate report
         generator = get_tax_report_generator()
@@ -4002,16 +4009,12 @@ def get_irs_8949_report():
 
 @app.route("/api/tax-report/turbotax", methods=["GET"])
 def get_turbotax_report():
-    """Generate TurboTax import CSV report"""
+    """Generate TurboTax import CSV report. Phase 7B: Single source logs/trades.csv."""
     try:
         from services.tax_report_generator import get_tax_report_generator
 
-        # Get closed trades
-        data_flow = DataFlowManager()
-        trades = data_flow.trade_logger.get_all_trades()
-
-        # Filter for closed trades only
-        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at")]
+        trades = data_parser.get_all_trades() or []
+        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at") or t.get("status") == "filled"]
 
         # Generate report
         generator = get_tax_report_generator()
@@ -4031,16 +4034,12 @@ def get_turbotax_report():
 
 @app.route("/api/tax-report/summary", methods=["GET"])
 def get_tax_summary():
-    """Get tax summary with short/long-term gains"""
+    """Get tax summary with short/long-term gains. Phase 7B: Single source logs/trades.csv."""
     try:
         from services.tax_report_generator import get_tax_report_generator
 
-        # Get closed trades
-        data_flow = DataFlowManager()
-        trades = data_flow.trade_logger.get_all_trades()
-
-        # Filter for closed trades only
-        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at")]
+        trades = data_parser.get_all_trades() or []
+        closed_trades = [t for t in trades if t.get("exit_price") or t.get("closed_at") or t.get("status") == "filled"]
 
         # Generate summary
         generator = get_tax_report_generator()

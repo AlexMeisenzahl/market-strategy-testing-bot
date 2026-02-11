@@ -2,12 +2,7 @@
 Paper Trading Engine - Unified Simulation System
 
 Simulates real trading with live market data without risking real money.
-Provides realistic execution simulation with:
-- Order book depth simulation
-- Slippage and market impact
-- Commission and fees
-- Portfolio tracking
-- Performance analytics
+Phase 7A: place_order and execute_order enforce execution gate (defense in depth).
 """
 
 from typing import Dict, List, Optional, Any, Tuple
@@ -171,6 +166,7 @@ class PaperTradingEngine:
         slippage_rate: float = 0.001,  # 0.1%
         log_dir: str = "logs",
         logger=None,
+        config: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize paper trading engine
@@ -181,10 +177,12 @@ class PaperTradingEngine:
             slippage_rate: Average slippage as decimal
             log_dir: Directory for trade logs
             logger: Logger instance
+            config: Bot config for execution gate (required for gate check; None = deny)
         """
         self.logger = logger or get_logger()
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
+        self._config = config
 
         # Account state
         self.initial_balance = initial_balance
@@ -229,6 +227,19 @@ class PaperTradingEngine:
         Returns:
             Order result dictionary
         """
+        # Phase 7A: Execution gate (defense in depth)
+        from services.execution_gate import may_execute_trade
+        if self._config is not None:
+            allowed, reason = may_execute_trade(self._config)
+            if not allowed:
+                if self.logger:
+                    self.logger.log_warning(f"Execution gate closed in place_order: {reason}")
+                return {"success": False, "error": reason}
+        else:
+            if self.logger:
+                self.logger.log_warning("Execution gate: no config (deny)")
+            return {"success": False, "error": "execution_gate: no config"}
+
         # Generate order ID
         self.order_counter += 1
         order_id = f"ORDER_{self.order_counter:06d}"
@@ -296,6 +307,17 @@ class PaperTradingEngine:
                 "success": False,
                 "error": "Order not found",
             }
+
+        # Phase 7A: Re-check gate at fill time (order may have been placed before kill)
+        from services.execution_gate import may_execute_trade
+        if self._config is not None:
+            allowed, reason = may_execute_trade(self._config)
+            if not allowed:
+                if self.logger:
+                    self.logger.log_warning(f"Execution gate closed in execute_order: {reason}")
+                return {"success": False, "error": reason}
+        else:
+            return {"success": False, "error": "execution_gate: no config"}
 
         order = self.orders[order_id]
 

@@ -3,6 +3,7 @@ Execution Engine - Single authoritative trade execution spine.
 
 All trade execution flows through ExecutionEngine. It owns a PaperTradingEngine
 internally and exposes execute_trade(signal) plus read-only state access.
+Phase 7A: Execution gate enforced here so no trade runs when paused/killed/not paper.
 """
 
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from logger import get_logger
 from services.paper_trading_engine import PaperTradingEngine
+from services.execution_gate import may_execute_trade
 
 
 @dataclass
@@ -39,6 +41,7 @@ class ExecutionEngine:
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         config = config or {}
+        self._config = config
         initial_balance = config.get("initial_capital", config.get("total_capital", 10000.0))
         commission_rate = config.get("commission_rate", 0.001)
         slippage_rate = config.get("slippage_rate", 0.001)
@@ -50,6 +53,7 @@ class ExecutionEngine:
             slippage_rate=float(slippage_rate),
             log_dir=log_dir,
             logger=self._logger,
+            config=config,
         )
 
     def execute_trade(self, signal: Any) -> Dict[str, Any]:
@@ -57,7 +61,13 @@ class ExecutionEngine:
         Execute a single trade from a signal (buy or sell).
         Buy and sell signals use the same path: place_order -> execute_order.
         Sell signals reduce/close positions, update realized PnL, append to trade history.
+        Phase 7A: No trade executes when paused, killed, or not paper-only.
         """
+        allowed, reason = may_execute_trade(self._config)
+        if not allowed:
+            self._logger.log_warning(f"Execution gate closed: {reason}")
+            return {"success": False, "error": reason}
+
         if isinstance(signal, TradeSignal):
             symbol = signal.symbol
             side = signal.side

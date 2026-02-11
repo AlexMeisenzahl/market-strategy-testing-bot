@@ -41,7 +41,7 @@ A professional-grade web dashboard for monitoring and controlling your trading b
 - **Granular Controls**: Enable/disable specific event types
 
 ### 🎛️ Bot Control
-- **Start/Stop/Restart**: Full control over bot operation
+- **Start/Stop/Restart**: Start or stop the engine (main.py) from the dashboard
 - **Status Monitoring**:
   - Real-time status indicator
   - Uptime tracking
@@ -137,7 +137,7 @@ Press Ctrl+C to stop the server
 - **Overview**: View your performance metrics and charts
 - **Trades**: Browse your trading history
 - **Settings**: Configure notifications and preferences
-- **Control**: Start/stop the bot
+- **Control**: Start/stop the engine (main.py)
 
 ## 📁 Project Structure
 
@@ -256,10 +256,10 @@ The dashboard provides a REST API that you can use programmatically:
 - `GET /api/notifications/history` - Get notification history
 
 ### Bot Control
-- `GET /api/bot/status` - Get bot status
-- `POST /api/bot/start` - Start the bot
-- `POST /api/bot/stop` - Stop the bot
-- `POST /api/bot/restart` - Restart the bot
+- `GET /api/bot/status` - Get engine status
+- `POST /api/bot/start` - Start the engine (main.py)
+- `POST /api/bot/stop` - Stop the engine
+- `POST /api/bot/restart` - Restart the engine
 
 ## 🔒 Security
 

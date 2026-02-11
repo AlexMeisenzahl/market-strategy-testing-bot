@@ -738,16 +738,16 @@ async function startBot() {
             showToast('Bot started successfully', 'success');
             loadBotStatus();
         } else {
-            showToast('Failed to start bot', 'error');
+            showToast('Failed to start engine', 'error');
         }
     } catch (error) {
         console.error('Error starting bot:', error);
-        showToast('Error starting bot', 'error');
+        showToast('Error starting engine', 'error');
     }
 }
 
 async function stopBot() {
-    if (!confirm('Are you sure you want to stop the bot?')) {
+    if (!confirm('Are you sure you want to stop the engine?')) {
         return;
     }
     
@@ -759,11 +759,11 @@ async function stopBot() {
             showToast('Bot stopped successfully', 'success');
             loadBotStatus();
         } else {
-            showToast('Failed to stop bot', 'error');
+            showToast('Failed to stop engine', 'error');
         }
     } catch (error) {
         console.error('Error stopping bot:', error);
-        showToast('Error stopping bot', 'error');
+        showToast('Error stopping engine', 'error');
     }
 }
 
@@ -776,11 +776,11 @@ async function restartBot() {
             showToast('Bot restarted successfully', 'success');
             loadBotStatus();
         } else {
-            showToast('Failed to restart bot', 'error');
+            showToast('Failed to restart engine', 'error');
         }
     } catch (error) {
         console.error('Error restarting bot:', error);
-        showToast('Error restarting bot', 'error');
+        showToast('Error restarting engine', 'error');
     }
 }
 

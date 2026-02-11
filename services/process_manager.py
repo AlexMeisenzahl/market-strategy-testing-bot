@@ -1,7 +1,9 @@
 """
 Process Manager for Market Strategy Testing Bot
 
-Manages bot and dashboard process lifecycle.
+Manages engine and dashboard process lifecycle.
+Phase 7B: Canonical execution path only. start_bot() starts the engine (main.py).
+bot.py is TUI/monitor only and is NOT started or tracked here.
 """
 
 import os
@@ -86,11 +88,13 @@ class ProcessManager:
         return self._read_pid(self.dashboard_pid_file)
 
     def is_bot_running(self) -> bool:
-        """Check if bot process is running"""
+        """Check if engine process is running (main.py or run_bot.py)."""
         pid = self.get_bot_pid()
         if pid is None:
             return False
-        return self._is_process_running(pid, "bot.py")
+        return self._is_process_running(pid, "main.py") or self._is_process_running(
+            pid, "run_bot.py"
+        )
 
     def is_dashboard_running(self) -> bool:
         """Check if dashboard process is running"""
@@ -177,10 +181,10 @@ class ProcessManager:
                 logger.log_warning("Bot is already running")
                 return False, self.get_bot_pid()
 
-            # Start bot process
-            logger.log_info("Starting bot process...")
+            # Start engine process (canonical path: main.py -> run_bot.py)
+            logger.log_info("Starting engine process (main.py)...")
             process = subprocess.Popen(
-                ["python3", "bot.py"],
+                ["python3", "main.py"],
                 cwd=self.base_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -192,12 +196,12 @@ class ProcessManager:
             # Wait a moment to ensure it started
             time.sleep(2)
 
-            if self._is_process_running(pid, "bot.py"):
+            if self._is_process_running(pid, "main.py"):
                 self._write_pid(self.bot_pid_file, pid)
-                logger.log_info(f"Bot started with PID {pid}")
+                logger.log_info(f"Engine started with PID {pid}")
                 return True, pid
             else:
-                logger.log_error("Bot process failed to start")
+                logger.log_error("Engine process failed to start")
                 return False, None
 
         except Exception as e:
@@ -285,7 +289,7 @@ class ProcessManager:
             for process in psutil.process_iter(["pid", "name", "cmdline"]):
                 try:
                     cmdline = " ".join(process.cmdline())
-                    if "bot.py" in cmdline or "start_dashboard.py" in cmdline:
+                    if "main.py" in cmdline or "run_bot.py" in cmdline or "start_dashboard.py" in cmdline:
                         logger.log_info(
                             f"Force killing process {process.pid}: {cmdline}"
                         )
