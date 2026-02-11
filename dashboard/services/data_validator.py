@@ -1,8 +1,10 @@
 """
-Data Validator Service
+Data Validator Service - CSV validation for dashboard display.
 
 Validates CSV structure, data quality, and integrity checks.
 Ensures all trading data meets quality standards before display.
+
+Note: For trading data validation (price, freshness), use services.data_validator.
 """
 
 import csv
@@ -12,7 +14,7 @@ from typing import Dict, List, Any
 from decimal import Decimal
 
 
-class DataValidator:
+class CsvDataValidator:
     """Validate trading data for quality and integrity"""
 
     def __init__(self):
@@ -268,3 +270,7 @@ class DataValidator:
             issues.append(f"{len(future_trades)} trades have future timestamps")
 
         return {"healthy": len(issues) == 0, "issues": issues, "checks_run": 5}
+
+
+# Backward compatibility
+DataValidator = CsvDataValidator

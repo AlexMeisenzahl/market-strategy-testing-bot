@@ -301,7 +301,8 @@ def get_config(config_path: Optional[str] = None, reload: bool = False) -> Confi
     Get global configuration loader instance.
 
     Args:
-        config_path: Path to YAML config file (used on first load)
+        config_path: Path to YAML config file (used on first load).
+            Defaults to CONFIG_PATH env var or "config.yaml".
         reload: Force reload configuration
 
     Returns:
@@ -310,6 +311,8 @@ def get_config(config_path: Optional[str] = None, reload: bool = False) -> Confi
     global _config_loader
 
     if _config_loader is None or reload:
+        if config_path is None:
+            config_path = os.environ.get("CONFIG_PATH", "config.yaml")
         _config_loader = ConfigLoader(config_path=config_path)
 
     return _config_loader

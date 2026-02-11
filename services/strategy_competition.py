@@ -8,8 +8,9 @@ Each strategy starts with same virtual capital and competes in real-time.
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
-import numpy as np
 from collections import defaultdict
+
+# numpy imported lazily in methods - avoids SIGFPE at import time on some platforms
 
 from database.competition_models import (
     Strategy,
@@ -240,6 +241,8 @@ class StrategyCompetition:
     def _calculate_sharpe(self, portfolio: Dict) -> float:
         """Calculate Sharpe ratio for portfolio"""
         try:
+            import numpy as np
+
             pnl_history = portfolio.get("pnl_history", [])
 
             if len(pnl_history) < 2:
@@ -387,6 +390,8 @@ class StrategyCompetition:
 
     def get_competition_summary(self) -> Dict:
         """Get overall competition summary"""
+        import numpy as np
+
         leaderboard = self.get_leaderboard()
 
         if not leaderboard:

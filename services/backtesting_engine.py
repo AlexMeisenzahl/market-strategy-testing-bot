@@ -6,8 +6,9 @@ before live trading.
 """
 
 import logging
-import numpy as np
 from datetime import datetime, timedelta
+
+# numpy imported lazily in methods - avoids SIGFPE at import time on some platforms
 from typing import Dict, List, Optional, Any
 from database.models import CryptoPriceHistory, PolymarketHistory
 
@@ -231,6 +232,8 @@ class BacktestingEngine:
         if len(historical_data) < 20:
             return None
 
+        import numpy as np
+
         # Simple moving average crossover example
         recent_prices = [d["price_usd"] for d in historical_data[-20:]]
         short_ma = np.mean(recent_prices[-5:])
@@ -293,6 +296,8 @@ class BacktestingEngine:
         total_wins = sum(t["profit"] for t in winning_trades)
         total_losses = sum(abs(t["profit"]) for t in losing_trades)
         profit_factor = total_wins / total_losses if total_losses > 0 else float("inf")
+
+        import numpy as np
 
         # Sharpe ratio (simplified)
         returns = np.diff(equity_curve) / equity_curve[:-1]

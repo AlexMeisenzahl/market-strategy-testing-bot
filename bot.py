@@ -22,11 +22,24 @@ from rich.live import Live
 from rich.text import Text
 from rich import box
 
-# Paths (project root)
-PROJECT_ROOT = Path(__file__).resolve().parent
-STATE_PATH = PROJECT_ROOT / "state" / "bot_state.json"
-ACTIVITY_PATH = PROJECT_ROOT / "logs" / "activity.json"
-CONTROL_PATH = PROJECT_ROOT / "state" / "control.json"
+# Paths (env-configurable via STATE_DIR, LOG_DIR)
+def _get_paths():
+    root = Path(__file__).resolve().parent
+    try:
+        from market_strategy_bot.paths import get_state_dir, get_log_dir
+        state_dir = get_state_dir()
+        log_dir = get_log_dir()
+    except ImportError:
+        import os
+        state_dir = Path(os.environ.get("STATE_DIR", "state"))
+        log_dir = Path(os.environ.get("LOG_DIR", "logs"))
+        if not state_dir.is_absolute():
+            state_dir = root / state_dir
+        if not log_dir.is_absolute():
+            log_dir = root / log_dir
+    return state_dir / "bot_state.json", log_dir / "activity.json", state_dir / "control.json"
+
+STATE_PATH, ACTIVITY_PATH, CONTROL_PATH = _get_paths()
 
 
 def _read_json(path: Path, default: Any) -> Any:

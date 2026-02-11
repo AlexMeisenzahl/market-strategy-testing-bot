@@ -3,12 +3,15 @@ Risk Metrics Service
 
 Calculate advanced risk metrics including Sharpe, Sortino, VaR, Calmar.
 Uses numpy for statistical calculations.
-"""
 
+Note: numpy is imported lazily inside methods to avoid SIGFPE on import
+on some platforms (e.g. macOS with certain numpy/LibreSSL combinations).
+"""
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
-import numpy as np
+
+# numpy imported lazily in methods that use it - avoids SIGFPE at import time
 
 
 class RiskMetrics:
@@ -41,6 +44,8 @@ class RiskMetrics:
         Returns:
             Dictionary with all risk metrics
         """
+        import numpy as np
+
         # Get trades
         trades_data = self.data_parser.get_trades(
             strategy=strategy_name,
@@ -147,6 +152,8 @@ class RiskMetrics:
         Returns:
             Dictionary with dates and rolling Sharpe values
         """
+        import numpy as np
+
         # Get trades
         trades_data = self.data_parser.get_trades(
             strategy=strategy_name,
@@ -199,6 +206,8 @@ class RiskMetrics:
         Returns:
             Dictionary with dates and drawdown percentages
         """
+        import numpy as np
+
         # Get trades
         trades_data = self.data_parser.get_trades(
             strategy=strategy_name,

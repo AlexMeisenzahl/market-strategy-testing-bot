@@ -197,12 +197,16 @@ class BotRunner:
                 "⚠️ Telegram not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)"
             )
 
-        # Setup directories
-        self.logs_dir = Path("logs")
+        # Setup directories (env-configurable via STATE_DIR, LOG_DIR)
+        try:
+            from market_strategy_bot.paths import get_state_dir, get_log_dir
+            self.logs_dir = get_log_dir()
+            self.state_dir = get_state_dir()
+        except ImportError:
+            self.logs_dir = Path(os.environ.get("LOG_DIR", "logs"))
+            self.state_dir = Path(os.environ.get("STATE_DIR", "state"))
         self.logs_dir.mkdir(exist_ok=True)
         self.activity_log_path = self.logs_dir / "activity.json"
-
-        self.state_dir = Path("state")
         self.state_dir.mkdir(exist_ok=True)
         self.state_path = self.state_dir / "bot_state.json"
         self.control_path = self.state_dir / "control.json"

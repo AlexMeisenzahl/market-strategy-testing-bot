@@ -1339,9 +1339,9 @@ def verify_data_quality():
     Returns health status, issues, and check results
     """
     try:
-        from dashboard.services.data_validator import DataValidator
+        from dashboard.services.data_validator import CsvDataValidator
 
-        validator = DataValidator()
+        validator = CsvDataValidator()
         results = {
             "status": "healthy",  # or 'warning' or 'error'
             "checks": {},
@@ -4680,6 +4680,12 @@ app.register_blueprint(system_bp)
 
 # Fail fast if any duplicate endpoint names (prevents route collisions)
 validate_no_duplicate_endpoints(app)
+
+
+def create_app():
+    """App factory - returns the configured Flask application."""
+    return app
+
 
 # ============================================================================
 # RUN APPLICATION

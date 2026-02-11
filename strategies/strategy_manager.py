@@ -1,8 +1,12 @@
 """
-Strategy Manager Module
+Strategy Manager Module (DEPRECATED)
 
-Coordinates multiple trading strategies and manages their execution.
-Loads all enabled strategies from config and runs them together.
+This module is deprecated. Use the canonical strategy_manager at project root:
+    from strategy_manager import StrategyManager
+
+The root StrategyManager integrates with ExecutionEngine and is used by run_bot.
+This strategies/ version has a different interface (no execution_engine) and is
+retained only for reference. See docs/DUPLICATE_RESOLUTION.md.
 """
 
 from typing import Dict, List, Any, Optional
