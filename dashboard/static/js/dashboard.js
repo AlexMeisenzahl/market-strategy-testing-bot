@@ -39,36 +39,125 @@ function escapeHtml(text) {
 // Initialize API client
 const apiClient = new APIClient(API_BASE);
 
-// Auto-refresh interval (15 seconds to prevent spam)
-const REFRESH_INTERVAL = 15000;
-const MIN_REFRESH_DELAY = 2000; // Minimum 2 seconds between manual refreshes
+// Phase 9B: Real-time update contract — explicit polling intervals (2–5s)
+const REFRESH_INTERVAL = window.RealtimeContract ? (window.RealtimeContract.CONTRACT.POLL_PANELS_MS || 5000) : 5000;
+const SYSTEM_POLL_MS = window.RealtimeContract ? (window.RealtimeContract.CONTRACT.POLL_SYSTEM_MS || 3000) : 3000;
+const MIN_REFRESH_DELAY = 2000;
+
+// Phase 9B: Restore navigation context after browser refresh
+function restoreNavigationContext() {
+    try {
+        const saved = storage.get('dashboardPage', null);
+        if (saved && document.getElementById('page-' + saved)) {
+            showPage(saved, null);
+            return true;
+        }
+    } catch (e) {}
+    return false;
+}
+
+// Phase 9B: Show global error banner (non-blocking); no alert()
+function showGlobalError(message) {
+    const banner = document.getElementById('dash-global-error-banner');
+    const text = document.getElementById('dash-global-error-text');
+    if (banner && text) {
+        text.textContent = message;
+        banner.classList.remove('hidden');
+    } else if (typeof showToast === 'function') {
+        showToast(message, 'error');
+    }
+}
+
+function dismissGlobalError() {
+    const banner = document.getElementById('dash-global-error-banner');
+    if (banner) banner.classList.add('hidden');
+}
 
 // Initialize dashboard on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard loaded');
-    
+
+    // Phase 9B: Dismiss global error on button click
+    const dismissBtn = document.getElementById('dash-global-error-dismiss');
+    if (dismissBtn) dismissBtn.addEventListener('click', dismissGlobalError);
+
     // Check connection status first
     checkConnectionStatus();
-    
-    // Load initial data
-    loadOverviewData();
-    loadBotStatus();
-    
-    // Setup auto-refresh with longer interval (30s)
+
+    // Phase 9B: Immediately show system status (mission bar) so landing answers "Is it running?"
+    pollSystemOnce();
+
+    // Restore last page after refresh if valid (Phase 9B: preserve mental state)
+    if (!restoreNavigationContext()) {
+        loadOverviewData();
+        loadBotStatus();
+    } else {
+        loadBotStatus();
+        if (currentPage === 'overview') loadOverviewData();
+    }
+
     startAutoRefresh();
-    
-    // Add manual refresh button handler
+    startSystemPolling();
+
     const refreshBtn = document.getElementById('manual-refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', handleManualRefresh);
-    }
-    
-    // Add auto-refresh toggle handler
+    if (refreshBtn) refreshBtn.addEventListener('click', handleManualRefresh);
+
     const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
-    if (autoRefreshToggle) {
-        autoRefreshToggle.addEventListener('change', handleAutoRefreshToggle);
-    }
+    if (autoRefreshToggle) autoRefreshToggle.addEventListener('change', handleAutoRefreshToggle);
+
+    // Load auto-refresh preference
+    const savedAuto = storage.get('autoRefreshEnabled', true);
+    if (autoRefreshToggle) autoRefreshToggle.checked = savedAuto;
+    autoRefreshEnabled = savedAuto;
 });
+
+// Phase 9B: Fast system-only poll for mission bar (heartbeat, gate, engine status)
+let systemPollInterval = null;
+function pollSystemOnce() {
+    fetch(API_BASE + '/api/dashboard/system')
+        .then(r => r.json())
+        .then(function (data) {
+            if (window.RealtimeContract) {
+                window.RealtimeContract.setHeartbeat(data.last_heartbeat || null);
+                window.RealtimeContract.updateHeartbeatUI();
+            }
+            updateMissionBarFromSystem(data);
+        })
+        .catch(function () {
+            if (window.RealtimeContract) window.RealtimeContract.updateHeartbeatUI();
+        });
+}
+function startSystemPolling() {
+    if (systemPollInterval) clearInterval(systemPollInterval);
+    systemPollInterval = setInterval(pollSystemOnce, SYSTEM_POLL_MS);
+}
+function updateMissionBarFromSystem(sys) {
+    if (!sys) return;
+    const engineStatus = (sys.engine_status || 'unknown').toLowerCase();
+    const enginePill = document.getElementById('dash-engine-pill');
+    const engineLabelEl = document.getElementById('dash-engine-label');
+    const paperPill = document.getElementById('dash-paper-pill');
+    const gatePill = document.getElementById('dash-gate-pill');
+    const gateLabel = document.getElementById('dash-gate-label');
+    const errorEl = document.getElementById('dash-error-state');
+    if (enginePill) {
+        enginePill.className = 'dash-pill ' + (engineStatus === 'running' ? 'dash-pill-running' : engineStatus === 'paused' ? 'dash-pill-paused' : engineStatus === 'stopped' ? 'dash-pill-stopped' : 'dash-pill-error');
+    }
+    if (engineLabelEl) engineLabelEl.textContent = sys.engine_status_label || 'Unknown';
+    if (paperPill) paperPill.textContent = sys.paper_trading_label || 'Paper trading';
+    const gate = sys.execution_gate || {};
+    if (gatePill) gatePill.className = 'dash-pill ' + (gate.allowed ? 'dash-pill-gate-open' : 'dash-pill-gate-closed');
+    if (gateLabel) gateLabel.textContent = gate.allowed ? 'Gate open' : (gate.reason || 'Gate closed');
+    if (errorEl) {
+        if (sys.error_state) {
+            errorEl.textContent = sys.error_state;
+            errorEl.classList.remove('hidden');
+        } else {
+            errorEl.textContent = '';
+            errorEl.classList.add('hidden');
+        }
+    }
+}
 
 // Connection status checker
 async function checkConnectionStatus() {
@@ -272,6 +361,9 @@ function showPage(pageName, event) {
 
     currentPage = pageName;
 
+    // Phase 9B: Persist page for refresh/reload
+    try { storage.set('dashboardPage', pageName); } catch (e) {}
+
     // Load page-specific data
     if (pageName === 'trades') {
         loadTradesData();
@@ -287,12 +379,15 @@ function showPage(pageName, event) {
         loadExecutionData();
     } else if (pageName === 'system') {
         loadSystemData();
+    } else if (pageName === 'diagnostics') {
+        loadDiagnostics();
     } else if (pageName === 'markets') {
         loadMarketsCharts();
     }
 }
 
-// Phase 9: Load mission control, trades, strategies from dashboard API
+// Phase 9 / 9B: Load mission control, trades, strategies from dashboard API.
+// Data contracts: see dashboard/DATA_CONTRACTS.md (sources, fallbacks, empty states).
 async function loadPhase9Dashboard() {
     const missionBar = document.getElementById('dash-mission-bar');
     const tradesTbody = document.getElementById('dash-trades-tbody');
@@ -316,6 +411,15 @@ async function loadPhase9Dashboard() {
         const gateAllowed = gate.allowed;
         const lastHeartbeat = sys.last_heartbeat || '—';
         const errorState = sys.error_state;
+
+        if (window.RealtimeContract) {
+            window.RealtimeContract.setHeartbeat(sys.last_heartbeat || null);
+            window.RealtimeContract.setPanelUpdated('trades');
+            window.RealtimeContract.setPanelUpdated('strategies');
+            window.RealtimeContract.updateHeartbeatUI();
+            window.RealtimeContract.updatePanelTimestampUI('trades', 'dash-trades-updated', 'dash-panel-trades');
+            window.RealtimeContract.updatePanelTimestampUI('strategies', 'dash-strategies-updated', 'dash-panel-strategies');
+        }
 
         if (missionBar) {
             const enginePill = document.getElementById('dash-engine-pill');
@@ -450,10 +554,11 @@ async function loadCumulativePNLChart(timeRange) {
         // Properly destroy existing chart
         cumulativePNLChart = destroyChart(cumulativePNLChart);
         
-        // Prepare data
-        const labels = data.data.map(d => new Date(d.timestamp).toLocaleDateString());
-        const values = data.data.map(d => d.value);
-        
+        // Phase 9B: Cap chart points for performance (thousands of points)
+        const capped = window.RealtimeContract ? window.RealtimeContract.capChartData(data.data || []) : (data.data || []);
+        const labels = capped.map(d => new Date(d.timestamp).toLocaleDateString());
+        const values = capped.map(d => d.value);
+
         // Create chart with no animations
         cumulativePNLChart = createChart(ctx, 'line', {
             labels: labels,
@@ -509,11 +614,12 @@ async function loadDailyPNLChart() {
         // Properly destroy existing chart
         dailyPNLChart = destroyChart(dailyPNLChart);
         
-        // Prepare data
-        const labels = data.data.map(d => new Date(d.date).toLocaleDateString());
-        const values = data.data.map(d => d.pnl);
-        const colors = data.data.map(d => d.pnl >= 0 ? '#10b981' : '#ef4444');
-        
+        // Phase 9B: Cap chart points
+        const capped = window.RealtimeContract ? window.RealtimeContract.capChartData(data.data || []) : (data.data || []);
+        const labels = capped.map(d => new Date(d.date).toLocaleDateString());
+        const values = capped.map(d => d.pnl);
+        const colors = capped.map(d => d.pnl >= 0 ? '#10b981' : '#ef4444');
+
         // Create chart with no animations
         dailyPNLChart = createChart(ctx, 'bar', {
             labels: labels,
@@ -557,11 +663,13 @@ async function loadStrategyPerformance() {
         // Properly destroy existing chart
         strategyChart = destroyChart(strategyChart);
         
-        // Prepare data
-        const labels = data.strategies.map(s => s.name);
-        const values = data.strategies.map(s => s.pnl);
+        // Phase 9B: Cap strategy list for performance
+        const strategies = data.strategies || [];
+        const capped = window.RealtimeContract ? window.RealtimeContract.capChartData(strategies) : strategies;
+        const labels = capped.map(s => s.name);
+        const values = capped.map(s => s.pnl);
         const colors = values.map(v => v >= 0 ? '#10b981' : '#ef4444');
-        
+
         // Create chart with no animations
         strategyChart = createChart(ctx, 'bar', {
             labels: labels,
@@ -723,6 +831,48 @@ async function loadExecutionData() {
         console.error('Error loading execution data:', e);
         if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-gray-500 text-center">Error loading positions</td></tr>';
         if (activityList) activityList.innerHTML = '<div class="px-6 py-4 text-gray-500 text-center">Error loading activity</div>';
+    }
+}
+
+// Phase 9B: Load Diagnostics page (read-only validation)
+async function loadDiagnostics() {
+    const tbody = document.getElementById('diagnostics-sources-tbody');
+    const heartbeatEl = document.getElementById('diagnostics-heartbeat');
+    const heartbeatAgeEl = document.getElementById('diagnostics-heartbeat-age');
+    const gateStateEl = document.getElementById('diagnostics-gate-state');
+    const gateReasonEl = document.getElementById('diagnostics-gate-reason');
+    const engineStatusEl = document.getElementById('diagnostics-engine-status');
+
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="dash-empty">Loading…</td></tr>';
+
+    try {
+        const res = await fetch(API_BASE + '/api/dashboard/diagnostics');
+        const data = await res.json();
+
+        if (tbody) {
+            const sources = data.data_sources || [];
+            if (sources.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="dash-empty">No sources</td></tr>';
+            } else {
+                tbody.innerHTML = sources.map(function (s) {
+                    const lastRead = s.last_success_read ? new Date(s.last_success_read).toLocaleString() : '—';
+                    const status = s.ok ? '<span class="dash-badge-healthy px-2 py-0.5 rounded text-xs">OK</span>' : '<span class="dash-badge-error px-2 py-0.5 rounded text-xs">Error</span>';
+                    return '<tr><td>' + escapeHtml(s.name) + '</td><td>' + lastRead + '</td><td class="dash-numeric">' + (s.row_count ?? '—') + '</td><td>' + status + '</td></tr>';
+                }).join('');
+            }
+        }
+
+        if (heartbeatEl) heartbeatEl.textContent = data.engine_heartbeat ? new Date(data.engine_heartbeat).toLocaleString() : '—';
+        if (heartbeatAgeEl) heartbeatAgeEl.textContent = data.engine_heartbeat_age_seconds != null ? data.engine_heartbeat_age_seconds + 's ago' : '—';
+        const gate = data.execution_gate || {};
+        if (gateStateEl) gateStateEl.textContent = gate.allowed ? 'Open' : 'Closed';
+        if (gateStateEl) gateStateEl.className = 'text-xl font-semibold ' + (gate.allowed ? 'dash-color-healthy' : 'dash-color-blocked');
+        if (gateReasonEl) gateReasonEl.textContent = gate.reason || '—';
+        if (engineStatusEl) engineStatusEl.textContent = data.engine_status || '—';
+    } catch (e) {
+        console.error('Diagnostics load failed:', e);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="dash-empty">Error loading diagnostics</td></tr>';
+        showGlobalError('Could not load diagnostics: ' + (e.message || 'Network error'));
     }
 }
 
@@ -1244,7 +1394,9 @@ function applyOpportunityFilters() {
 }
 
 function viewOpportunityDetails(opp) {
-    alert(`Opportunity Details:\n\nSymbol: ${opp.symbol}\nStrategy: ${opp.strategy}\nSignal: ${opp.signal}\nConfidence: ${opp.confidence}%\nPrice: $${opp.price}\nStatus: ${opp.status}\nNotes: ${opp.notes || 'N/A'}`);
+    const msg = 'Symbol: ' + (opp.symbol || '—') + ' · Strategy: ' + (opp.strategy || '—') + ' · Signal: ' + (opp.signal || '—') + ' · Confidence: ' + (opp.confidence || '—') + '% · Price: $' + (opp.price != null ? opp.price : '—') + ' · Status: ' + (opp.status || '—');
+    if (typeof showToast === 'function') showToast(msg, 'info');
+    else console.log('Opportunity:', opp);
 }
 
 // Initialize opportunities page
@@ -1497,11 +1649,12 @@ function createActivityElement(activity) {
 }
 
 /**
- * Show activity details in modal
+ * Show activity details (non-blocking: toast or inline)
  */
 function showActivityDetails(activity) {
-    const details = JSON.stringify(activity.details, null, 2);
-    alert(`Activity Details:\n\n${details}`);
+    const msg = activity.message || (activity.type || '') + ': ' + (activity.strategy || '');
+    if (typeof showToast === 'function') showToast(msg, 'info');
+    else console.log('Activity:', activity);
 }
 
 /**
@@ -1604,10 +1757,10 @@ async function verifyDataQuality() {
             showToast(`${results.issues.length} errors found`, 'error');
         }
         
-        // Show detailed report if there are issues
+        // Show detailed report if there are issues (non-blocking)
         if (results.issues.length > 0) {
-            const issuesList = results.issues.join('\n• ');
-            alert(`Data Quality Issues:\n\n• ${issuesList}`);
+            const issuesList = results.issues.join(' · ');
+            showGlobalError('Data quality: ' + issuesList);
         }
     } catch (error) {
         console.error('Error verifying data:', error);

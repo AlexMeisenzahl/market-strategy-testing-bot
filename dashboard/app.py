@@ -1566,6 +1566,133 @@ def api_dashboard_strategies():
         return jsonify({"strategies": [], "error": str(e)})
 
 
+@core_bp.route("/api/dashboard/diagnostics", endpoint="core_api_dashboard_diagnostics")
+def api_dashboard_diagnostics():
+    """
+    Phase 9B: Read-only diagnostics for validation without terminal.
+    Returns: connected data sources, last successful read per source, row counts,
+    engine heartbeat age, execution gate state.
+    """
+    try:
+        state = engine_state_reader.get_bot_state()
+        config = config_manager.get_config()
+        gate = execution_gate_status(config or {})
+        last_update = (state or {}).get("last_update") or ""
+
+        # Data sources with last read time (file mtime where applicable) and row counts
+        sources = []
+
+        # Engine state (bot_state.json)
+        state_path = BASE_DIR / "state" / "bot_state.json"
+        state_mtime = None
+        if state_path.exists():
+            try:
+                state_mtime = datetime.fromtimestamp(state_path.stat().st_mtime, tz=timezone.utc).isoformat()
+            except OSError:
+                pass
+        sources.append({
+            "id": "engine_state",
+            "name": "Engine state (bot_state.json)",
+            "last_success_read": state_mtime,
+            "row_count": 1 if state and isinstance(state, dict) else 0,
+            "ok": engine_state_reader.has_engine_state(),
+        })
+
+        # Trades (normalized from CSV + engine)
+        try:
+            trades_data = get_normalized_trades(data_parser, engine_state_reader)
+            open_count = trades_data.get("count_open", 0) or len(trades_data.get("open", []))
+            closed_count = trades_data.get("count_closed", 0) or len(trades_data.get("closed", []))
+            sources.append({
+                "id": "trades",
+                "name": "Trades (CSV + engine)",
+                "last_success_read": last_update or None,
+                "row_count": open_count + closed_count,
+                "ok": True,
+            })
+        except Exception as e:
+            sources.append({
+                "id": "trades",
+                "name": "Trades (CSV + engine)",
+                "last_success_read": None,
+                "row_count": 0,
+                "ok": False,
+                "error": str(e),
+            })
+
+        # Strategies
+        try:
+            names = data_parser.get_all_strategy_names()
+            sources.append({
+                "id": "strategies",
+                "name": "Strategies",
+                "last_success_read": last_update or None,
+                "row_count": len(names),
+                "ok": True,
+            })
+        except Exception as e:
+            sources.append({
+                "id": "strategies",
+                "name": "Strategies",
+                "last_success_read": None,
+                "row_count": 0,
+                "ok": False,
+                "error": str(e),
+            })
+
+        # Activity log
+        activity_path = BASE_DIR / "logs" / "activity.json"
+        activity_mtime = None
+        activity_count = 0
+        if activity_path.exists():
+            try:
+                activity_mtime = datetime.fromtimestamp(activity_path.stat().st_mtime, tz=timezone.utc).isoformat()
+                activity = engine_state_reader.get_activity()
+                activity_count = len(activity) if isinstance(activity, list) else 0
+            except (OSError, TypeError):
+                pass
+        sources.append({
+            "id": "activity",
+            "name": "Activity log",
+            "last_success_read": activity_mtime,
+            "row_count": activity_count,
+            "ok": True,
+        })
+
+        # Heartbeat age in seconds
+        heartbeat_age_seconds = None
+        if last_update:
+            try:
+                dt = datetime.fromisoformat(last_update.replace("Z", "+00:00"))
+                heartbeat_age_seconds = (datetime.now(timezone.utc) - dt).total_seconds()
+            except (ValueError, TypeError):
+                pass
+
+        return jsonify({
+            "data_sources": sources,
+            "engine_heartbeat": last_update or None,
+            "engine_heartbeat_age_seconds": round(heartbeat_age_seconds, 1) if heartbeat_age_seconds is not None else None,
+            "execution_gate": {
+                "allowed": gate.get("allowed", False),
+                "reason": gate.get("reason", ""),
+                "paused": gate.get("paused", False),
+                "kill_switch": gate.get("kill_switch", False),
+                "emergency_kill": gate.get("emergency_kill", False),
+            },
+            "engine_status": (state or {}).get("status") if isinstance(state, dict) else None,
+        })
+    except Exception as e:
+        logger.error(f"Dashboard diagnostics API: {e}", exc_info=True)
+        return jsonify({
+            "data_sources": [],
+            "engine_heartbeat": None,
+            "engine_heartbeat_age_seconds": None,
+            "execution_gate": {"allowed": False, "reason": str(e), "paused": False, "kill_switch": False, "emergency_kill": False},
+            "engine_status": None,
+            "error": str(e),
+        })
+
+
 # ============================================================================
 # CRYPTO PRICE API ENDPOINTS
 # ============================================================================
