@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "market-strategy-bot"
+version = "1.0.0"
+description = "Market Strategy Testing Bot - Paper trading engine with multi-strategy support"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Market Strategy Bot Contributors"}
+]
+keywords = ["trading", "paper-trading", "polymarket", "crypto", "strategy"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "Flask>=2.3.0,<4",
+    "Flask-Cors>=4.0.0",
+    "requests>=2.28.0,<3",
+    "PyYAML>=6.0",
+    "python-dotenv>=1.0.0",
+    "werkzeug>=3.0.0,<4",
+]
+
+[project.optional-dependencies]
+dashboard = [
+    "Flask-SQLAlchemy>=3.0,<4",
+    "Flask-SocketIO>=5.3",
+    "Flask-Limiter>=3.5",
+    "psutil>=5.9",
+    "prometheus-client>=0.18.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.10",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+msb = "market_strategy_bot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["market_strategy_bot*"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 127
+exclude = [".venv", "venv", ".git", "migrations", "node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true

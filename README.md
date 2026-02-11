@@ -119,17 +119,21 @@ cd arbitrage-bot
 
 ### Step 2: Install Python Dependencies
 
-Install the required Python packages:
+**Option A – From project (recommended for development):**
+
+```bash
+pip install -e ".[dashboard,dev]"
+```
+
+**Option B – From requirements file:**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Or if you're using Python 3:
+Or with Python 3: `pip3 install -r requirements.txt`
 
-```bash
-pip3 install -r requirements.txt
-```
+**CLI (if installed with Option A):** You can run `msb system-check`, `msb run-dashboard`, `msb run-engine`, etc. See `msb --help`.
 
 ### Step 3: Configure the Bot
 

@@ -6,6 +6,9 @@ Creates and manages log files:
 - logs/opportunities.csv: All arbitrage opportunities found
 - logs/errors.log: Error and warning messages
 - logs/connection.log: Connection health monitoring
+
+Log level is configurable via environment variable LOG_LEVEL (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+Default: INFO.
 """
 
 import csv
@@ -13,6 +16,16 @@ import os
 from datetime import datetime
 from typing import Dict, Any, Optional
 from pathlib import Path
+
+# Configurable minimum log level (from env LOG_LEVEL)
+_LEVELS = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
+
+
+def _min_level() -> int:
+    return _LEVELS.get(
+        (os.environ.get("LOG_LEVEL") or "INFO").upper(),
+        20,
+    )
 
 
 class Logger:
@@ -111,8 +124,9 @@ class Logger:
                         row["arbitrage_type"] = "Unknown"
                     writer.writerow(row)
         except Exception as e:
-            # If migration fails, just log it and continue
-            print(f"Warning: Could not migrate trades.csv: {e}")
+            # If migration fails, log and continue (no logger yet if early in init)
+            import sys
+            sys.stderr.write(f"Warning: Could not migrate trades.csv: {e}\n")
 
     def _migrate_opportunities_csv(self, opportunities_file: Path) -> None:
         """Add strategy and arbitrage_type columns to existing opportunities.csv"""
@@ -145,8 +159,9 @@ class Logger:
                         row["arbitrage_type"] = "Unknown"
                     writer.writerow(row)
         except Exception as e:
-            # If migration fails, just log it and continue
-            print(f"Warning: Could not migrate opportunities.csv: {e}")
+            # If migration fails, log and continue (no logger yet if early in init)
+            import sys
+            sys.stderr.write(f"Warning: Could not migrate opportunities.csv: {e}\n")
 
     def log_trade(
         self,
@@ -235,12 +250,17 @@ class Logger:
 
     def log_error(self, message: str, level: str = "ERROR") -> None:
         """
-        Log an error or warning message
+        Log an error or warning message.
+
+        Respects LOG_LEVEL environment variable: only writes if level is at or above configured minimum.
 
         Args:
             message: Error message
-            level: Severity level (ERROR, WARNING, CRITICAL)
+            level: Severity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         """
+        level_num = _LEVELS.get(level.upper(), 40)
+        if level_num < _min_level():
+            return
         errors_file = self.log_dir / "errors.log"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -275,6 +295,13 @@ class Logger:
     def debug(self, message: str) -> None:
         """Alias for log_info with DEBUG level for compatibility with standard logging"""
         self.log_error(message, level="DEBUG")
+
+    def exception(self, message: str, *args) -> None:
+        """Log an error with exception traceback (compatible with standard logging)."""
+        import traceback
+        full = message % args if args else message
+        full += "\n" + traceback.format_exc()
+        self.log_error(full, level="ERROR")
 
     def log_connection(
         self, status: str, response_time_ms: Optional[int] = None, message: str = ""

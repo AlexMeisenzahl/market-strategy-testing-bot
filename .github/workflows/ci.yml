@@ -1,93 +1,77 @@
-name: CI - Tests and Quality Checks
+# CI: install, import tests, system_check, pytest. Fail on errors.
+name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ['3.9', '3.10', '3.11']
+        python-version: ["3.9", "3.10", "3.11"]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install project (core + dashboard + dev)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dashboard,dev]"
 
-    - name: Run linting (flake8)
-      run: |
-        pip install flake8
-        # Stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Create state and logs dirs
+        run: mkdir -p state logs
 
-    - name: Run type checking (mypy)
-      continue-on-error: true
-      run: |
-        pip install mypy
-        mypy --ignore-missing-imports --no-strict-optional .
+      - name: Config from example if missing
+        run: |
+          if [ ! -f config.yaml ]; then
+            cp config.example.yaml config.yaml 2>/dev/null || true
+          fi
 
-    - name: Run unit tests
-      run: |
-        pip install pytest pytest-cov pytest-mock
-        pytest tests/ -v --cov=. --cov-report=xml --cov-report=html
+      - name: Import engine
+        run: python -c "from engine import ExecutionEngine; print('engine OK')"
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
+      - name: Import dashboard (create_app)
+        run: |
+          python -c "
+          from market_strategy_bot.dashboard_app import create_app
+          app = create_app()
+          n = len(list(app.url_map.iter_rules()))
+          print('dashboard OK, routes:', n)
+          "
 
-    - name: Run security checks
-      run: |
-        pip install safety bandit
-        # Check for known security vulnerabilities in dependencies
-        safety check || true
-        # Run bandit security linter
-        bandit -r . -f json -o bandit-report.json || true
+      - name: Run system_check (skip engine cycle to avoid side effects)
+        run: python -m market_strategy_bot.system_check --skip-cycle
 
-    - name: Validate configuration
-      run: |
-        python -m utils.config_validator config.example.yaml
+      - name: Run pytest
+        run: pytest tests/ -v --tb=short
 
-  code-quality:
+  lint:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Check code formatting (black)
-      run: |
-        pip install black
-        black --check .
+      - name: Install project and dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dashboard,dev]"
 
-    - name: Check import sorting (isort)
-      run: |
-        pip install isort
-        isort --check-only .
-      continue-on-error: true
+      - name: Ruff check
+        run: ruff check . --output-format=concise
+
+      - name: Ruff format check
+        run: ruff format --check .

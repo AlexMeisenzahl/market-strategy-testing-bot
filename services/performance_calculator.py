@@ -9,10 +9,12 @@ Calculates real performance metrics for trading strategies:
 - Profit Factor
 - CAGR (Compound Annual Growth Rate)
 - Recovery Factor
+
+Note: numpy is imported lazily inside methods to avoid SIGFPE at import time
+on some platforms (e.g. macOS with certain numpy/LibreSSL combinations).
 """
 
 import logging
-import numpy as np
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -89,6 +91,7 @@ class PerformanceCalculator:
             return 0.0
 
         try:
+            import numpy as np
             returns_array = np.array(returns)
 
             # Calculate excess returns
@@ -127,6 +130,7 @@ class PerformanceCalculator:
             return 0.0
 
         try:
+            import numpy as np
             returns_array = np.array(returns)
 
             # Calculate mean return
@@ -170,6 +174,7 @@ class PerformanceCalculator:
             return 0.0
 
         try:
+            import numpy as np
             # Calculate cumulative returns
             cumulative = np.cumprod(1 + np.array(returns))
 
@@ -201,6 +206,7 @@ class PerformanceCalculator:
             return 0.0
 
         try:
+            import numpy as np
             # Calculate cumulative returns
             cumulative = np.cumprod(1 + np.array(returns))
 
@@ -296,6 +302,7 @@ class PerformanceCalculator:
             years = days / 365.25
 
             # Calculate total return
+            import numpy as np
             total_return = np.prod(1 + np.array(returns))
 
             # Calculate CAGR
@@ -343,6 +350,7 @@ class PerformanceCalculator:
         if not returns:
             return 0.0
 
+        import numpy as np
         total = (np.prod(1 + np.array(returns)) - 1) * 100
         return float(total)
 
@@ -359,6 +367,7 @@ class PerformanceCalculator:
         if not returns or len(returns) < 2:
             return 0.0
 
+        import numpy as np
         # Calculate standard deviation
         std = np.std(returns, ddof=1)
 
@@ -384,6 +393,7 @@ class PerformanceCalculator:
         if not winning_trades:
             return 0.0
 
+        import numpy as np
         return np.mean(winning_trades)
 
     def calculate_avg_loss(self, trades: List[Dict[str, Any]]) -> float:
@@ -403,6 +413,7 @@ class PerformanceCalculator:
         if not losing_trades:
             return 0.0
 
+        import numpy as np
         return np.mean(losing_trades)
 
     def calculate_largest_win(self, trades: List[Dict[str, Any]]) -> float:

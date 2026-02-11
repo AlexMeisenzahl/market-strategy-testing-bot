@@ -173,19 +173,31 @@ except Exception as e:
     logger.warning("Dashboard will continue without real-time updates")
     realtime_server = None
 
-# Initialize new analytics services
-strategy_analytics = StrategyAnalytics(data_parser)
-market_analytics = MarketAnalytics(data_parser)
-time_analytics = TimeAnalytics(data_parser)
-risk_metrics = RiskMetrics(data_parser)
+# Initialize new analytics services (no heavy/numeric libs at import; lazy in services)
+try:
+    strategy_analytics = StrategyAnalytics(data_parser)
+    market_analytics = MarketAnalytics(data_parser)
+    time_analytics = TimeAnalytics(data_parser)
+    risk_metrics = RiskMetrics(data_parser)
+except Exception as e:
+    logger.exception("Dashboard startup: failed to initialize analytics services: %s", e)
+    raise
 
 # Initialize database
-init_db()
+try:
+    init_db()
+except Exception as e:
+    logger.exception("Dashboard startup: failed to initialize settings database: %s", e)
+    raise
 
 # Initialize update system services
-version_manager = VersionManager(BASE_DIR)
-update_service = UpdateService(BASE_DIR)
-process_manager = ProcessManager(BASE_DIR)
+try:
+    version_manager = VersionManager(BASE_DIR)
+    update_service = UpdateService(BASE_DIR)
+    process_manager = ProcessManager(BASE_DIR)
+except Exception as e:
+    logger.exception("Dashboard startup: failed to initialize update/process services: %s", e)
+    raise
 
 
 # ============================================================================
@@ -1943,6 +1955,7 @@ def get_strategy_performance_analytics():
         event_window_start = request.args.get("event_window_start")
         event_window_end = request.args.get("event_window_end")
 
+        from services.research_service import filter_trades_by_regime
         trades_data = data_parser.get_trades(
             start_date=start_date, end_date=end_date, per_page=10000
         )
@@ -2138,6 +2151,7 @@ def export_analytics():
         event_window_start = request.args.get("event_window_start")
         event_window_end = request.args.get("event_window_end")
 
+        from services.research_service import filter_trades_by_regime
         trades_data = data_parser.get_trades(
             start_date=start_date, end_date=end_date, per_page=10000
         )
@@ -2588,8 +2602,7 @@ if __name__ == "__main__":
     try:
         # Check if config exists
         if not CONFIG_PATH.exists():
-            print(f"ERROR: Config file not found: {CONFIG_PATH}")
-            print("Please copy config.example.yaml to config.yaml and configure it")
+            logger.error("Config file not found: %s. Copy config.example.yaml to config.yaml.", CONFIG_PATH)
             sys.exit(1)
 
         # Create logs directory if it doesn't exist
@@ -2598,15 +2611,10 @@ if __name__ == "__main__":
         # Get debug mode from environment (default to False for security)
         debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
 
-        print("\n" + "=" * 60)
-        print("🚀 Market Strategy Testing Bot - Web Dashboard")
-        print("=" * 60)
-        print(f"\n📊 Dashboard URL: http://localhost:5000")
-        print(f"📁 Config file: {CONFIG_PATH}")
-        print(f"📂 Logs directory: {LOGS_DIR}")
+        logger.info("Market Strategy Testing Bot - Web Dashboard starting")
+        logger.info("Dashboard URL: http://localhost:5000 | Config: %s | Logs: %s", CONFIG_PATH, LOGS_DIR)
         if debug_mode:
-            print("\n⚠️  DEBUG MODE ENABLED - For development only!")
-        print("\nPress Ctrl+C to stop the server\n")
+            logger.warning("DEBUG MODE ENABLED - For development only")
 
         # Run Flask app
         # Debug mode is disabled by default for security
@@ -2614,13 +2622,10 @@ if __name__ == "__main__":
         app.run(host="0.0.0.0", port=5000, debug=debug_mode, use_reloader=debug_mode)
 
     except KeyboardInterrupt:
-        print("\n\n🛑 Dashboard stopped by user (Ctrl+C)")
+        logger.info("Dashboard stopped by user (Ctrl+C)")
         sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Failed to start dashboard: {str(e)}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Failed to start dashboard: %s", e)
         sys.exit(1)
 
 
@@ -2762,35 +2767,26 @@ def get_realtime_status():
         return jsonify({"error": str(e)}), 500
 
 
-if __name__ == "__main__":
-    # Run with WebSocket support
-    port = config_manager.get("dashboard", {}).get("port", 5000)
-    debug = config_manager.get("dashboard", {}).get("debug", False)
-
-    logger.info(f"Starting dashboard with WebSocket support on port {port}")
-
-    # Use SocketIO's run method instead of Flask's
-    realtime_server.run(host="0.0.0.0", port=port, debug=debug)
-
 # ============================================================================
-# NEW ROUTES FOR PR#20K - Backtesting, Risk, UX Features
+# Lazy imports for PR#20K - Backtesting, Risk, UX Features
+# These are imported inside route handlers to avoid heavy/numeric libs at import time
+# (prevents FPE crashes in some environments). init_trading_db() is called on first use.
 # ============================================================================
 
-# Import new services
-from services.backtesting_engine import backtesting_engine
-from services.strategy_optimizer import strategy_optimizer
-from services.research_service import (
-    store_backtest_run,
-    get_backtest_runs,
-    get_backtest_run,
-    get_run_ids_for_comparison,
-    filter_trades_by_regime,
-)
-from services.alert_manager import alert_manager
-from database.models import TradeJournal, Alert, APIKey, init_trading_db
+_trading_db_initialized = False
 
-# Initialize trading database
-init_trading_db()
+
+def _ensure_trading_db():
+    """Call init_trading_db() once. Used by routes that need TradeJournal/Alert/APIKey."""
+    global _trading_db_initialized
+    if not _trading_db_initialized:
+        try:
+            from database.models import init_trading_db
+            init_trading_db()
+            _trading_db_initialized = True
+        except Exception as e:
+            logger.exception("Failed to initialize trading database: %s", e)
+            raise
 
 
 @core_bp.route("/api_keys", endpoint="core_api_keys_page")
@@ -2889,6 +2885,7 @@ def list_strategies():
 def compare_strategies():
     """Compare multiple strategies: by saved run_ids or by running backtests (Phase 7E)."""
     try:
+        from services.research_service import get_run_ids_for_comparison
         data = request.get_json() or {}
         run_ids = data.get("run_ids", [])
         strategies = data.get("strategies", [])
@@ -2914,6 +2911,7 @@ def compare_strategies():
                 }
                 equity_curves[name] = r.get("equity_curve", [])
         elif strategies and start_date_str and end_date_str:
+            from services.backtesting_engine import backtesting_engine
             start_date = datetime.fromisoformat(start_date_str)
             end_date = datetime.fromisoformat(end_date_str)
             for strategy_name in strategies:
@@ -2953,6 +2951,8 @@ def compare_strategies():
 def list_journal_entries():
     """List all trade journal entries"""
     try:
+        _ensure_trading_db()
+        from database.models import TradeJournal
         entries = TradeJournal.get_all()
         return jsonify({"success": True, "entries": entries})
     except Exception as e:
@@ -2964,6 +2964,8 @@ def list_journal_entries():
 def save_journal_entry():
     """Save trade journal entry"""
     try:
+        _ensure_trading_db()
+        from database.models import TradeJournal
         data = request.get_json()
 
         entry_id = TradeJournal.create(
@@ -2990,6 +2992,7 @@ def save_journal_entry():
 def list_alerts():
     """List all alerts"""
     try:
+        from services.alert_manager import alert_manager
         alerts = alert_manager.get_all_alerts()
         return jsonify({"success": True, "alerts": alerts})
     except Exception as e:
@@ -3001,6 +3004,7 @@ def list_alerts():
 def create_alert():
     """Create new alert"""
     try:
+        from services.alert_manager import alert_manager
         data = request.get_json()
         alert_id = alert_manager.create_alert(
             data.get("alert_type"),
@@ -3017,6 +3021,7 @@ def create_alert():
 def toggle_alert(alert_id):
     """Toggle alert enabled/disabled"""
     try:
+        from services.alert_manager import alert_manager
         data = request.get_json()
         alert_manager.update_alert(alert_id, enabled=data.get("enabled"))
         return jsonify({"success": True})
@@ -3029,6 +3034,7 @@ def toggle_alert(alert_id):
 def delete_alert(alert_id):
     """Delete alert"""
     try:
+        from services.alert_manager import alert_manager
         alert_manager.delete_alert(alert_id)
         return jsonify({"success": True})
     except Exception as e:
@@ -3041,6 +3047,8 @@ def delete_alert(alert_id):
 def run_backtest():
     """Run backtest for a strategy; result is stored for comparison/export."""
     try:
+        from services.backtesting_engine import backtesting_engine
+        from services.research_service import store_backtest_run
         data = request.get_json()
         strategy_name = data.get("strategy")
         start_date = datetime.fromisoformat(data.get("start_date"))
@@ -3065,6 +3073,7 @@ def run_backtest():
 def list_backtest_runs():
     """List recent backtest runs for comparison/export (Phase 7E)."""
     try:
+        from services.research_service import get_backtest_runs
         limit = request.args.get("limit", 20, type=int)
         runs = get_backtest_runs(limit=min(limit, 50))
         return jsonify({"success": True, "runs": runs})
@@ -3077,6 +3086,7 @@ def list_backtest_runs():
 def get_backtest_run_by_id(run_id):
     """Get a single backtest run by id (Phase 7E)."""
     try:
+        from services.research_service import get_backtest_run
         run = get_backtest_run(run_id)
         if not run:
             return jsonify({"success": False, "error": "Run not found"}), 404
@@ -3091,6 +3101,7 @@ def get_backtest_run_by_id(run_id):
 def run_optimizer():
     """Run parameter sweep for a strategy; returns all results for visualization."""
     try:
+        from services.strategy_optimizer import strategy_optimizer
         data = request.get_json() or {}
         strategy_name = data.get("strategy_name")
         param_ranges = data.get("param_ranges", {})
@@ -3128,6 +3139,7 @@ def run_optimizer():
 def get_optimizer_history():
     """Get optimization history for parameter sweep visualization (Phase 7E)."""
     try:
+        from services.strategy_optimizer import strategy_optimizer
         history = strategy_optimizer.get_optimization_history()
         return jsonify({"success": True, "history": history})
     except Exception as e:
@@ -3152,6 +3164,7 @@ def research_export():
         event_window_end = request.args.get("event_window_end")
 
         if export_type == "analytics":
+            from services.research_service import filter_trades_by_regime
             trades_data = data_parser.get_trades(
                 start_date=start_date, end_date=end_date, per_page=10000
             )
@@ -3171,6 +3184,7 @@ def research_export():
                 return jsonify({"error": "No data to export"}), 404
             data = strategies
         elif export_type == "comparison":
+            from services.research_service import get_run_ids_for_comparison
             run_ids = request.args.getlist("run_ids") or request.args.get("run_ids", "")
             if isinstance(run_ids, str):
                 run_ids = [r.strip() for r in run_ids.split(",") if r.strip()]
@@ -3187,6 +3201,7 @@ def research_export():
             if not data:
                 return jsonify({"error": "No comparison data; provide run_ids"}), 404
         elif export_type == "sweep":
+            from services.strategy_optimizer import strategy_optimizer
             history = strategy_optimizer.get_optimization_history()
             data = []
             for h in history:
