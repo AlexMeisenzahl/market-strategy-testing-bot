@@ -40,14 +40,15 @@
         <!-- Restart notice (global) -->
         <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg px-4 py-3 text-sm text-amber-200">
             <i class="fas fa-info-circle mr-2"></i>
-            <strong>Restart required:</strong> Changes to trading mode or config take effect after you restart the engine (e.g. <code class="bg-black/30 px-1 rounded">python main.py</code>). You can start or stop the engine from the Engine Control page or from a terminal.
+            <strong>Restart required:</strong> Changes to trading mode or credentials take effect after you restart the engine (e.g. <code class="bg-black/30 px-1 rounded">python main.py</code>). You can start or stop the engine from the Engine Control page or from a terminal.
         </div>
 
-        <!-- 1. Trading Mode -->
+        <!-- 1. Trading Mode (Phase 7C: one gated path; restart required) -->
         <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
-            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2 flex-wrap">
                 <i class="fas fa-exchange-alt text-blue-400"></i>
                 Trading mode
+                <span class="text-xs font-normal text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded">Restart required</span>
             </h2>
             <div class="p-6 space-y-4">
                 <p class="text-sm text-gray-400">Paper trading is default. Live trading uses real money and requires explicit confirmation.</p>
@@ -78,11 +79,12 @@
             </div>
         </section>
 
-        <!-- 2. API Keys & Integrations (canonical: SecureConfigManager) -->
+        <!-- 2. API Keys & Integrations (Phase 7C: canonical SecureConfigManager; restart required for engine to use new creds) -->
         <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
-            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2 flex-wrap">
                 <i class="fas fa-key text-yellow-500"></i>
                 API keys &amp; integrations
+                <span class="text-xs font-normal text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded">Restart required</span>
             </h2>
             <div class="p-6">
                 <p class="text-sm text-gray-400 mb-4">Credentials are stored encrypted (SecureConfigManager). Values are masked in the UI. Leave a field blank to keep the existing value.</p>
@@ -92,11 +94,13 @@
             </div>
         </section>
 
-        <!-- 3. Strategy defaults (scaffolding) -->
+        <!-- 3. Strategy defaults (Phase 7C: restart required; informational only in UI) -->
         <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
-            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2 flex-wrap">
                 <i class="fas fa-chess text-purple-400"></i>
                 Strategy defaults
+                <span class="text-xs font-normal text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded">Restart required</span>
+                <span class="text-xs font-normal text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded">Informational only</span>
             </h2>
             <div class="p-6 text-sm text-gray-400">
                 <p>Enable/disable strategies and set parameters in <code class="bg-dark-bg px-1 rounded">config.yaml</code> under <code class="bg-dark-bg px-1 rounded">strategies</code>. The engine reads config at startup.</p>
@@ -104,22 +108,24 @@
             </div>
         </section>
 
-        <!-- 4. Execution settings (scaffolding) -->
+        <!-- 4. Execution settings (Phase 7C: informational only; no execution controls) -->
         <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
-            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2 flex-wrap">
                 <i class="fas fa-play-circle text-green-500"></i>
                 Execution settings
+                <span class="text-xs font-normal text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded">Informational only</span>
             </h2>
             <div class="p-6 text-sm text-gray-400">
-                <p>Data refresh and execution frequency are controlled by the engine and config. This dashboard does not start, stop, or restart the process.</p>
+                <p>Data refresh and execution frequency are controlled by the engine and config. Start/stop the engine from Engine Control or <code class="bg-dark-bg px-1 rounded">python main.py</code>.</p>
             </div>
         </section>
 
-        <!-- 5. System updates -->
+        <!-- 5. System updates (Phase 7C: restart required after update) -->
         <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
-            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2">
+            <h2 class="px-6 py-4 border-b border-dark-border font-semibold flex items-center gap-2 flex-wrap">
                 <i class="fas fa-download text-blue-400"></i>
                 System updates
+                <span class="text-xs font-normal text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded">Restart required after update</span>
             </h2>
             <div class="p-6 space-y-3">
                 <p class="text-sm text-gray-400">Current version: <span id="current-version" class="text-white font-mono">—</span></p>
@@ -129,15 +135,16 @@
             </div>
         </section>
 
-        <!-- 6. Advanced (collapsed) -->
+        <!-- 6. Advanced (Phase 7C: informational only) -->
         <section class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
             <button type="button" id="advanced-toggle" class="w-full px-6 py-4 text-left flex justify-between items-center font-semibold text-gray-400 hover:text-gray-300">
                 <span><i class="fas fa-tools mr-2"></i>Advanced / developer</span>
+                <span class="text-xs font-normal text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded mr-2">Informational only</span>
                 <i class="fas fa-chevron-down" id="advanced-chevron"></i>
             </button>
             <div id="advanced-content" class="hidden border-t border-dark-border px-6 py-4">
                 <p class="text-sm text-amber-200/90"><i class="fas fa-exclamation-triangle mr-2"></i>Dangerous: editing raw config or credentials can break the bot. Use with care.</p>
-                <p class="text-sm text-gray-500 mt-2">No process start/stop/restart from this UI. Engine is started via terminal.</p>
+                <p class="text-sm text-gray-500 mt-2">Engine is started via Engine Control or <code class="bg-dark-bg px-1 rounded">python main.py</code>.</p>
             </div>
         </section>
     </main>

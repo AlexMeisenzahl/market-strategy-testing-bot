@@ -4,14 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Key Management - Market Strategy Testing Bot</title>
-    
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Custom Tailwind Config -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -28,7 +22,6 @@
     </script>
 </head>
 <body class="bg-dark-bg text-white min-h-screen">
-    <!-- Navigation -->
     <nav class="bg-dark-card border-b border-dark-border p-4">
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-bold">
@@ -41,338 +34,24 @@
         </div>
     </nav>
 
-    <div class="container mx-auto p-6">
-        <!-- Alert Banner -->
-        <div id="alert-banner" class="hidden mb-6 p-4 rounded-lg"></div>
-
-        <!-- Exchange API Keys -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Binance -->
-            <div class="bg-dark-card rounded-lg p-6 border border-dark-border">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold flex items-center">
-                        <i class="fas fa-exchange-alt text-yellow-400 mr-2"></i>
-                        Binance
-                    </h2>
-                    <span id="binance-status" class="px-3 py-1 rounded-full text-sm">
-                        <i class="fas fa-circle"></i> Not Connected
-                    </span>
-                </div>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">API Key</label>
-                        <input type="text" id="binance-key" 
-                               class="w-full bg-dark-bg border border-dark-border rounded px-4 py-2 text-white"
-                               placeholder="Enter Binance API Key">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">API Secret</label>
-                        <input type="password" id="binance-secret" 
-                               class="w-full bg-dark-bg border border-dark-border rounded px-4 py-2 text-white"
-                               placeholder="Enter Binance API Secret">
-                    </div>
-                    
-                    <div class="flex gap-2">
-                        <button onclick="testConnection('binance')" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded">
-                            <i class="fas fa-plug"></i> Test Connection
-                        </button>
-                        <button onclick="saveApiKey('binance')" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded">
-                            <i class="fas fa-save"></i> Save
-                        </button>
-                    </div>
-                </div>
+    <div class="container mx-auto p-6 max-w-2xl">
+        <!-- Phase 7C: Single credential system; API keys managed in System & Settings -->
+        <div class="bg-dark-card rounded-xl border border-amber-700/50 p-8 text-center">
+            <div class="text-amber-400 text-5xl mb-4">
+                <i class="fas fa-info-circle"></i>
             </div>
-
-            <!-- Polymarket -->
-            <div class="bg-dark-card rounded-lg p-6 border border-dark-border">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold flex items-center">
-                        <i class="fas fa-chart-line text-purple-400 mr-2"></i>
-                        Polymarket
-                    </h2>
-                    <span id="polymarket-status" class="px-3 py-1 rounded-full text-sm">
-                        <i class="fas fa-circle"></i> Not Connected
-                    </span>
-                </div>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">API Key</label>
-                        <input type="text" id="polymarket-key" 
-                               class="w-full bg-dark-bg border border-dark-border rounded px-4 py-2 text-white"
-                               placeholder="Enter Polymarket API Key">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">API Secret</label>
-                        <input type="password" id="polymarket-secret" 
-                               class="w-full bg-dark-bg border border-dark-border rounded px-4 py-2 text-white"
-                               placeholder="Enter Polymarket API Secret">
-                    </div>
-                    
-                    <div class="flex gap-2">
-                        <button onclick="testConnection('polymarket')" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded">
-                            <i class="fas fa-plug"></i> Test Connection
-                        </button>
-                        <button onclick="saveApiKey('polymarket')" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded">
-                            <i class="fas fa-save"></i> Save
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Coinbase -->
-            <div class="bg-dark-card rounded-lg p-6 border border-dark-border">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold flex items-center">
-                        <i class="fas fa-coins text-blue-400 mr-2"></i>
-                        Coinbase
-                    </h2>
-                    <span id="coinbase-status" class="px-3 py-1 rounded-full text-sm">
-                        <i class="fas fa-circle"></i> Not Connected
-                    </span>
-                </div>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">API Key</label>
-                        <input type="text" id="coinbase-key" 
-                               class="w-full bg-dark-bg border border-dark-border rounded px-4 py-2 text-white"
-                               placeholder="Enter Coinbase API Key">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">API Secret</label>
-                        <input type="password" id="coinbase-secret" 
-                               class="w-full bg-dark-bg border border-dark-border rounded px-4 py-2 text-white"
-                               placeholder="Enter Coinbase API Secret">
-                    </div>
-                    
-                    <div class="flex gap-2">
-                        <button onclick="testConnection('coinbase')" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded">
-                            <i class="fas fa-plug"></i> Test Connection
-                        </button>
-                        <button onclick="saveApiKey('coinbase')" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded">
-                            <i class="fas fa-save"></i> Save
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Kraken -->
-            <div class="bg-dark-card rounded-lg p-6 border border-dark-border">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold flex items-center">
-                        <i class="fas fa-kraken text-indigo-400 mr-2"></i>
-                        Kraken
-                    </h2>
-                    <span id="kraken-status" class="px-3 py-1 rounded-full text-sm">
-                        <i class="fas fa-circle"></i> Not Connected
-                    </span>
-                </div>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">API Key</label>
-                        <input type="text" id="kraken-key" 
-                               class="w-full bg-dark-bg border border-dark-border rounded px-4 py-2 text-white"
-                               placeholder="Enter Kraken API Key">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">API Secret</label>
-                        <input type="password" id="kraken-secret" 
-                               class="w-full bg-dark-bg border border-dark-border rounded px-4 py-2 text-white"
-                               placeholder="Enter Kraken API Secret">
-                    </div>
-                    
-                    <div class="flex gap-2">
-                        <button onclick="testConnection('kraken')" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded">
-                            <i class="fas fa-plug"></i> Test Connection
-                        </button>
-                        <button onclick="saveApiKey('kraken')" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded">
-                            <i class="fas fa-save"></i> Save
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Security Notice -->
-        <div class="mt-6 bg-yellow-900/30 border border-yellow-700 rounded-lg p-4">
-            <h3 class="font-bold text-yellow-400 mb-2">
-                <i class="fas fa-shield-alt"></i> Security Notice
-            </h3>
-            <ul class="text-sm text-gray-300 space-y-1 list-disc list-inside">
-                <li>API keys are encrypted before being stored</li>
-                <li>Never share your API keys with anyone</li>
-                <li>Use API keys with restricted permissions (read-only or trade-only)</li>
-                <li>Disable withdrawal permissions on exchange API keys</li>
-                <li>Regularly rotate your API keys for security</li>
-            </ul>
+            <h2 class="text-xl font-bold text-gray-100 mb-2">API keys moved to System &amp; Settings</h2>
+            <p class="text-gray-400 mb-6">
+                All API keys and integrations are now managed in one place. Credentials are stored securely (SecureConfigManager) and never exposed. Use the button below to open System &amp; Settings.
+            </p>
+            <a href="/system-settings" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium">
+                <i class="fas fa-cog"></i>
+                Open System &amp; Settings
+            </a>
+            <p class="text-sm text-gray-500 mt-6">
+                Used by: Polymarket, Crypto (CoinGecko), Telegram, Email. Test connection and update credentials there.
+            </p>
         </div>
     </div>
-
-    <script>
-        // Load existing API keys on page load
-        window.addEventListener('DOMContentLoaded', loadApiKeys);
-
-        async function loadApiKeys() {
-            try {
-                const response = await fetch('/api/keys/list');
-                const data = await response.json();
-                
-                if (data.success) {
-                    data.keys.forEach(keyInfo => {
-                        updateStatus(keyInfo.exchange, keyInfo.is_connected);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading API keys:', error);
-            }
-        }
-
-        async function testConnection(exchange) {
-            const key = document.getElementById(`${exchange}-key`).value;
-            const secret = document.getElementById(`${exchange}-secret`).value;
-            
-            if (!key || !secret) {
-                showAlert('error', 'Please enter both API key and secret');
-                return;
-            }
-            
-            showAlert('info', `Testing ${exchange} connection...`);
-            
-            try {
-                const response = await fetch('/api/keys/test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ exchange, api_key: key, api_secret: secret })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    showAlert('success', `${exchange} connection successful!`);
-                    updateStatus(exchange, true);
-                } else {
-                    showAlert('error', `${exchange} connection failed: ${data.error}`);
-                    updateStatus(exchange, false);
-                }
-            } catch (error) {
-                showAlert('error', `Error testing ${exchange}: ${error.message}`);
-                updateStatus(exchange, false);
-            }
-        }
-
-        async function saveApiKey(exchange) {
-            const key = document.getElementById(`${exchange}-key`).value;
-            const secret = document.getElementById(`${exchange}-secret`).value;
-            
-            if (!key || !secret) {
-                showAlert('error', 'Please enter both API key and secret');
-                return;
-            }
-            
-            showAlert('info', `Saving ${exchange} API key...`);
-            
-            try {
-                const response = await fetch('/api/keys/save', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ exchange, api_key: key, api_secret: secret })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    showAlert('success', `${exchange} API key saved successfully!`);
-                    // Clear fields for security
-                    document.getElementById(`${exchange}-key`).value = '';
-                    document.getElementById(`${exchange}-secret`).value = '';
-                } else {
-                    showAlert('error', `Failed to save ${exchange} API key: ${data.error}`);
-                }
-            } catch (error) {
-                showAlert('error', `Error saving ${exchange}: ${error.message}`);
-            }
-        }
-
-        function updateStatus(exchange, connected) {
-            const statusEl = document.getElementById(`${exchange}-status`);
-            if (connected) {
-                statusEl.className = 'px-3 py-1 rounded-full text-sm bg-green-900 text-green-300';
-                statusEl.innerHTML = '<i class="fas fa-circle"></i> Connected';
-            } else {
-                statusEl.className = 'px-3 py-1 rounded-full text-sm bg-gray-700 text-gray-300';
-                statusEl.innerHTML = '<i class="fas fa-circle"></i> Not Connected';
-            }
-        }
-
-        function showAlert(type, message) {
-            const banner = document.getElementById('alert-banner');
-            const colors = {
-                'success': 'bg-green-900 border-green-700 text-green-300',
-                'error': 'bg-red-900 border-red-700 text-red-300',
-                'info': 'bg-blue-900 border-blue-700 text-blue-300'
-            };
-            
-            banner.className = `mb-6 p-4 rounded-lg border ${colors[type]}`;
-            banner.textContent = message;
-            banner.classList.remove('hidden');
-            
-            setTimeout(() => {
-                banner.classList.add('hidden');
-            }, 5000);
-        }
-        
-        async function testKey(service) {
-            try {
-                const keyInput = document.getElementById(service + '_key');
-                const key = keyInput ? keyInput.value : '';
-                
-                if (!key) {
-                    showAlert('error', 'Please enter an API key first');
-                    return;
-                }
-                
-                const body = { service, key };
-                
-                // Add chat_id for telegram
-                if (service === 'telegram') {
-                    const chatIdInput = document.getElementById('telegram_chat_id');
-                    if (chatIdInput) {
-                        body.chat_id = chatIdInput.value;
-                    }
-                }
-                
-                const response = await fetch('/api/keys/test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showAlert('success', result.message || 'Connection successful!');
-                } else {
-                    showAlert('error', result.error || 'Connection failed');
-                }
-            } catch (error) {
-                showAlert('error', 'Error: ' + error.message);
-            }
-        }
-    </script>
 </body>
 </html>

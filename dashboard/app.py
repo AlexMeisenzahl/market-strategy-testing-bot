@@ -2520,28 +2520,8 @@ def alerts_page():
     return render_template("alerts.html")
 
 
-# API Routes for API Keys (Phase 6B: masked only, never expose secrets)
-@app.route("/api/keys/list")
-def list_api_keys():
-    """List all API keys with masked values only. Never returns raw secrets."""
-    try:
-        rows = APIKey.get_all()
-        keys = []
-        for row in rows:
-            raw_key = (row.get("api_key_encrypted") or "") if row else ""
-            keys.append({
-                "exchange": row.get("exchange", ""),
-                "masked_key": _mask_secret(raw_key, 4) if raw_key else "",
-                "has_key": bool(raw_key),
-                "has_secret": bool(row.get("api_secret_encrypted")),
-                "is_connected": bool(row.get("is_connected")),
-                "last_tested": row.get("last_tested"),
-            })
-        return jsonify({"success": True, "keys": keys})
-    except Exception as e:
-        logger.error(f"Error listing API keys: {e}")
-        return jsonify({"success": False, "error": str(e)})
-
+# Phase 7C: Canonical credential system is SecureConfigManager. All writes go to POST /api/settings/data-sources.
+# DB api_keys is deprecated for writes; list/save/test below return 410 and point to System Settings.
 
 def _mask_secret(value: str, visible_tail: int = 4) -> str:
     """Mask a secret for UI display. Never log or expose the original."""
@@ -2552,42 +2532,43 @@ def _mask_secret(value: str, visible_tail: int = 4) -> str:
     return "••••••••" + value[-visible_tail:]
 
 
+@app.route("/api/keys/list")
+def list_api_keys():
+    """Deprecated. Use GET /api/settings/integrations. Credentials are in SecureConfigManager only."""
+    return (
+        jsonify({
+            "deprecated": True,
+            "message": "Use System & Settings for API keys. Canonical list: GET /api/settings/integrations",
+            "redirect": "/system-settings",
+        }),
+        410,
+    )
+
+
 @app.route("/api/keys/test", methods=["POST"])
-def test_api_key():
-    """Test API key connection. Never logs or stores request body."""
-    try:
-        data = request.get_json() or {}
-        exchange = (data.get("exchange") or "").strip()
-        if not exchange:
-            return jsonify({"success": False, "error": "Exchange required"}), 400
-        # Do not log api_key or api_secret
-        success = True  # Placeholder: would test actual connection here
-        if success:
-            APIKey.update_connection_status(exchange, True)
-            return jsonify({"success": True, "message": "Connection successful"})
-        APIKey.update_connection_status(exchange, False)
-        return jsonify({"success": False, "error": "Connection failed"})
-    except Exception as e:
-        logger.error(f"Error testing API key: {e}")
-        return jsonify({"success": False, "error": str(e)})
+def test_api_key_deprecated():
+    """Deprecated. Use POST /api/settings/test-connection. Canonical test is in System Settings."""
+    return (
+        jsonify({
+            "deprecated": True,
+            "message": "Use System & Settings to test connections. Canonical: POST /api/settings/test-connection",
+            "redirect": "/system-settings",
+        }),
+        410,
+    )
 
 
 @app.route("/api/keys/save", methods=["POST"])
-def save_api_key():
-    """Save API key (encrypted). Never logs keys or secrets."""
-    try:
-        data = request.get_json() or {}
-        exchange = (data.get("exchange") or "").strip()
-        api_key = data.get("api_key") or ""
-        api_secret = data.get("api_secret") or ""
-        if not exchange:
-            return jsonify({"success": False, "error": "Exchange required"}), 400
-        # Store as-is; in production use SecureConfigManager or encrypt before DB
-        APIKey.save_key(exchange, api_key, api_secret)
-        return jsonify({"success": True})
-    except Exception as e:
-        logger.error(f"Error saving API key: {e}")
-        return jsonify({"success": False, "error": str(e)})
+def save_api_key_deprecated():
+    """Deprecated. All credential writes go to SecureConfigManager via POST /api/settings/data-sources."""
+    return (
+        jsonify({
+            "deprecated": True,
+            "message": "Save API keys in System & Settings. Canonical write: POST /api/settings/data-sources",
+            "redirect": "/system-settings",
+        }),
+        410,
+    )
 
 
 # API Routes for Strategy Comparison
@@ -3061,82 +3042,12 @@ def get_pnl_chart_data():
         return jsonify({"labels": [], "values": [], "error": str(e)}), 500
 
 
-@app.route("/api/keys", methods=["POST"])
-def save_api_key():
-    """Save API key securely"""
-    try:
-        from services.secure_config_manager import SecureConfigManager
-
-        config = SecureConfigManager()
-        data = request.json
-        provider = data.get("provider")
-        key = data.get("key")
-
-        if not provider or not key:
-            return (
-                jsonify({"success": False, "error": "Provider and key required"}),
-                400,
-            )
-
-        config.set_api_key(provider, key)
-        return jsonify({"success": True})
-    except Exception as e:
-        logger.error(f"Error saving API key: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/keys/test", methods=["POST"])
-def test_api_key():
-    """Test API key connection"""
-    try:
-        data = request.json
-        provider = data.get("provider", "").lower()
-        key = data.get("key")
-
-        if not provider or not key:
-            return (
-                jsonify({"connected": False, "message": "Provider and key required"}),
-                400,
-            )
-
-        # Test connection based on provider
-        if provider == "polymarket":
-            from clients import PolymarketClient
-
-            client = PolymarketClient(api_key=key)
-            result = client.test_connection()
-            return jsonify(
-                {
-                    "connected": result.get("success", False),
-                    "message": result.get("message", "Test failed"),
-                }
-            )
-        elif provider in ["coingecko", "crypto"]:
-            from clients import CoinGeckoClient
-
-            client = CoinGeckoClient(api_key=key)
-            result = client.test_connection()
-            return jsonify(
-                {
-                    "connected": result.get("success", False),
-                    "message": result.get("message", "Test failed"),
-                }
-            )
-        else:
-            return jsonify(
-                {
-                    "connected": True,
-                    "message": f"Provider {provider} configured (no test available)",
-                }
-            )
-    except Exception as e:
-        logger.error(f"Error testing API key: {e}")
-        return jsonify({"connected": False, "message": str(e)}), 500
+# Phase 7C: POST /api/keys removed (no set_api_key on SecureConfigManager). Writes: POST /api/settings/data-sources only.
 
 
 @app.route("/api/keys", methods=["GET"])
 def get_api_keys():
-    """Get list of configured API keys (masked only). Never exposes secrets."""
+    """Read-only proxy to canonical credential list (SecureConfigManager). Never exposes secrets."""
     try:
         from services.secure_config_manager import SecureConfigManager
 
@@ -3863,79 +3774,7 @@ def import_settings():
         return jsonify({"error": str(e)}), 500
 
 
-# ============================================================================
-# API KEY TESTING ENDPOINTS
-# ============================================================================
-
-
-@app.route("/api/keys/test", methods=["POST"])
-def test_api_keys():
-    """Test API key connections"""
-    try:
-        data = request.get_json()
-        service = data.get("service")  # polymarket, telegram, coingecko
-        credentials = data.get("credentials", {})
-
-        results = {}
-
-        if service == "telegram":
-            try:
-                from telegram import Bot
-
-                bot = Bot(token=credentials.get("bot_token"))
-                bot_info = bot.get_me()
-                results["telegram"] = {
-                    "success": True,
-                    "message": f"Connected to bot: @{bot_info.username}",
-                    "bot_name": bot_info.first_name,
-                }
-            except Exception as e:
-                results["telegram"] = {
-                    "success": False,
-                    "error": str(e),
-                }
-
-        elif service == "polymarket":
-            try:
-                from clients import PolymarketClient
-
-                client = PolymarketClient(
-                    endpoint=credentials.get("endpoint", "https://clob.polymarket.com"),
-                    api_key=credentials.get("api_key"),
-                )
-                result = client.test_connection()
-                results["polymarket"] = result
-            except Exception as e:
-                results["polymarket"] = {
-                    "success": False,
-                    "error": str(e),
-                }
-
-        elif service == "coingecko":
-            try:
-                from clients import CoinGeckoClient
-
-                client = CoinGeckoClient(
-                    endpoint=credentials.get(
-                        "endpoint", "https://api.coingecko.com/api/v3"
-                    ),
-                    api_key=credentials.get("api_key"),
-                )
-                result = client.test_connection()
-                results["coingecko"] = result
-            except Exception as e:
-                results["coingecko"] = {
-                    "success": False,
-                    "error": str(e),
-                }
-
-        else:
-            return jsonify({"error": "Unknown service"}), 400
-
-        return jsonify(results)
-    except Exception as e:
-        logger.error(f"Error testing API keys: {e}")
-        return jsonify({"error": str(e)}), 500
+# Phase 7C: Canonical test is POST /api/settings/test-connection (data_sources_api). No duplicate /api/keys/test here.
 
 
 # ============================================================================
@@ -4202,55 +4041,7 @@ def stop_strategy(name):
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
-# ============================================================================
-# API KEY TESTING ENDPOINTS
-# ============================================================================
-
-
-@app.route("/api/keys/test", methods=["POST"])
-def test_api_key():
-    """Test API key connection"""
-    try:
-        data = request.json
-        service = data.get("service")
-        key = data.get("key")
-
-        if service == "telegram":
-            # Test telegram connection
-            import requests
-
-            chat_id = data.get("chat_id", "")
-            url = f"https://api.telegram.org/bot{key}/getMe"
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            bot_data = response.json()
-            bot_name = bot_data["result"].get("username", "Unknown")
-            return jsonify({"success": True, "message": f"Connected to @{bot_name}"})
-
-        elif service == "coingecko":
-            # Test CoinGecko API by making a simple request
-            import requests
-
-            try:
-                # Try to get ping endpoint (doesn't require API key)
-                response = requests.get(
-                    "https://api.coingecko.com/api/v3/ping", timeout=10
-                )
-                response.raise_for_status()
-                return jsonify(
-                    {"success": True, "message": "CoinGecko API is accessible"}
-                )
-            except Exception as e:
-                return jsonify(
-                    {"success": False, "error": f"CoinGecko API test failed: {str(e)}"}
-                )
-
-        else:
-            return jsonify({"success": False, "error": f"Unknown service: {service}"})
-
-    except Exception as e:
-        logger.error(f"Error testing API key: {e}")
-        return jsonify({"success": False, "error": str(e)})
+# Phase 7C: Canonical test is POST /api/settings/test-connection. No duplicate /api/keys/test.
 
 
 # ============================================================================

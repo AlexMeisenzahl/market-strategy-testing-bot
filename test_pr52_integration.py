@@ -87,7 +87,7 @@ def test_dashboard_api_endpoints():
         ('/api/settings', 'GET'),
         ('/api/settings', 'POST'),
         ('/api/settings/reset', 'POST'),
-        ('/api/keys/test', 'POST'),
+        ('/api/keys/test', 'POST'),  # Phase 7C: deprecated (410) but still defined in app.py
         ('/api/analytics/performance', 'GET'),
         ('/api/strategies/<name>/start', 'POST'),
         ('/api/strategies/<name>/stop', 'POST'),
@@ -111,12 +111,12 @@ def test_template_javascript():
     assert 'function testAlert()' in alerts_content, "testAlert() function not found in alerts.html"
     assert '/api/alerts/test' in alerts_content, "testAlert() doesn't call correct endpoint"
     
-    # Check api_keys.html
+    # Check api_keys.html (Phase 7C: page redirects to System Settings; canonical test is /api/settings/test-connection)
     with open('dashboard/templates/api_keys.html', 'r') as f:
         api_keys_content = f.read()
     
-    assert 'function testKey(service)' in api_keys_content, "testKey() function not found in api_keys.html"
-    assert '/api/keys/test' in api_keys_content, "testKey() doesn't call correct endpoint"
+    assert '/system-settings' in api_keys_content, "api_keys.html should link to System & Settings"
+    assert 'API keys' in api_keys_content or 'api key' in api_keys_content.lower(), "api_keys.html should mention API keys"
     
     print("✅ Template JavaScript functions properly added")
 
