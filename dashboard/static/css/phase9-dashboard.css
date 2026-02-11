@@ -1,0 +1,248 @@
+/**
+ * Phase 9: Authoritative Dashboard — Design System
+ * Clean, calm, information-dense. Inspired by Webull, TradingView, Stripe, Zillow.
+ * No jank. No popups. No debug-looking UI.
+ */
+
+/* Typography */
+.dash-font-sans {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.dash-heading {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #f1f5f9;
+}
+
+.dash-muted {
+  color: #94a3b8;
+}
+
+.dash-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mission control header */
+.dash-mission-bar {
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  padding: 0.75rem 1.5rem;
+}
+
+.dash-mission-bar .dash-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.dash-pill-running { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.dash-pill-paused  { background: rgba(234, 179, 8, 0.15);  color: #eab308; }
+.dash-pill-stopped { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+.dash-pill-error   { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
+.dash-pill-gate-open   { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
+.dash-pill-gate-closed { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+
+.dash-mission-bar .dash-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dash-pill-running .dash-pill-dot { background: #22c55e; }
+.dash-pill-paused .dash-pill-dot  { background: #eab308; }
+.dash-pill-stopped .dash-pill-dot { background: #94a3b8; }
+
+/* Cards & panels */
+.dash-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.dash-card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #334155;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #f1f5f9;
+}
+
+.dash-card-body {
+  padding: 1.25rem;
+}
+
+/* Tables */
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.dash-table th {
+  text-align: left;
+  padding: 0.625rem 1rem;
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.dash-table td {
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid #334155;
+  color: #e2e8f0;
+}
+
+.dash-table tbody tr:hover {
+  background: rgba(51, 65, 85, 0.3);
+}
+
+.dash-table .dash-pnl-positive { color: #22c55e; }
+.dash-table .dash-pnl-negative { color: #ef4444; }
+.dash-table .dash-lifecycle-open    { color: #38bdf8; }
+.dash-table .dash-lifecycle-closed  { color: #94a3b8; }
+.dash-table .dash-lifecycle-cancelled { color: #f59e0b; }
+.dash-table .dash-lifecycle-error   { color: #ef4444; }
+
+/* Empty state */
+.dash-empty {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.dash-empty-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.6;
+}
+
+/* Strategy rows */
+.dash-strategy-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #334155;
+  font-size: 0.875rem;
+}
+
+.dash-strategy-row:last-child { border-bottom: none; }
+
+.dash-strategy-name { font-weight: 500; color: #f1f5f9; }
+.dash-strategy-meta { color: #94a3b8; font-size: 0.8125rem; }
+
+/* Activity / log items */
+.dash-activity-item {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #334155;
+  font-size: 0.8125rem;
+  color: #cbd5e1;
+}
+
+.dash-activity-item:last-child { border-bottom: none; }
+.dash-activity-time { color: #64748b; margin-right: 0.5rem; }
+
+/* Safe error text (no stack traces) */
+.dash-error-msg {
+  color: #f87171;
+  font-size: 0.875rem;
+  max-width: 40ch;
+}
+
+/* Grid layout for overview */
+.dash-grid-overview {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .dash-grid-overview { grid-template-columns: 1fr 1fr; }
+}
+
+.dash-grid-overview .dash-card-full { grid-column: 1 / -1; }
+
+/* ==========================================================================
+   Phase 9B: Visual Design System — typography, spacing, color semantics
+   Green = healthy/profitable; Yellow = warning/degraded; Red = error/blocked
+   ========================================================================== */
+
+/* Typography scale */
+.dash-text-xs   { font-size: 0.75rem; line-height: 1rem; }
+.dash-text-sm  { font-size: 0.875rem; line-height: 1.25rem; }
+.dash-text-base { font-size: 1rem; line-height: 1.5rem; }
+.dash-text-lg  { font-size: 1.125rem; line-height: 1.75rem; }
+.dash-text-xl  { font-size: 1.25rem; line-height: 1.75rem; }
+.dash-text-2xl { font-size: 1.5rem; line-height: 2rem; }
+
+/* Spacing system (multiples of 4px) */
+.dash-space-1 { margin-bottom: 0.25rem; }
+.dash-space-2 { margin-bottom: 0.5rem; }
+.dash-space-3 { margin-bottom: 0.75rem; }
+.dash-space-4 { margin-bottom: 1rem; }
+.dash-space-6 { margin-bottom: 1.5rem; }
+.dash-space-8 { margin-bottom: 2rem; }
+
+/* Color semantics — do not use for decoration only */
+.dash-color-healthy,
+.dash-color-profit { color: #22c55e; }
+.dash-bg-healthy,
+.dash-bg-profit { background-color: rgba(34, 197, 94, 0.15); }
+.dash-color-warning,
+.dash-color-degraded { color: #eab308; }
+.dash-bg-warning,
+.dash-bg-degraded { background-color: rgba(234, 179, 8, 0.15); }
+.dash-color-error,
+.dash-color-blocked { color: #ef4444; }
+.dash-bg-error,
+.dash-bg-blocked { background-color: rgba(239, 68, 68, 0.15); }
+.dash-color-muted { color: #94a3b8; }
+
+/* Stale indicator: data not refreshed within threshold */
+.dash-stale { color: #f59e0b; }
+.dash-panel-stale { border-left: 3px solid #f59e0b; }
+.dash-panel-stale .dash-card-header { color: #94a3b8; }
+
+/* Inline error banner (non-blocking) */
+.dash-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+.dash-error-banner .dash-error-dismiss { cursor: pointer; opacity: 0.8; }
+.dash-error-banner .dash-error-dismiss:hover { opacity: 1; }
+
+/* Status badges (semantic) */
+.dash-badge-healthy { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.dash-badge-warning { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+.dash-badge-error   { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+/* Onboarding / empty state block */
+.dash-onboarding {
+  padding: 1.5rem;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px dashed #475569;
+  border-radius: 0.75rem;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.dash-onboarding strong { color: #e2e8f0; }
+.dash-onboarding ul { margin: 0.5rem 0 0 1rem; padding: 0; }
+.dash-onboarding li { margin: 0.25rem 0; }
