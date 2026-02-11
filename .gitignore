@@ -56,6 +56,10 @@ backups/
 .dashboard.pid
 logs/update_progress.json
 
+# Launcher (single-instance lock and deps hash)
+.launcher.lock
+launcher/.deps_hash
+
 # Docker volumes
 prometheus-data/
 grafana-data/
