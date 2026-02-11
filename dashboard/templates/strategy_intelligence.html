@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Intelligence - Market Strategy Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'dark-bg': '#0f172a', 'dark-card': '#1e293b', 'dark-border': '#334155' } } } };
+    </script>
+</head>
+<body class="bg-dark-bg text-gray-100">
+    <nav class="bg-dark-card border-b border-dark-border p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <a href="/" class="text-xl font-bold">📊 Market Strategy Bot</a>
+                <a href="/" class="text-gray-400 hover:text-white">Dashboard</a>
+                <a href="/analytics" class="text-gray-400 hover:text-white">Analytics</a>
+                <a href="/intelligence" class="text-white font-semibold">Strategy Intelligence</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-6 max-w-6xl">
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold">Strategy Intelligence</h1>
+                <p class="text-gray-400 mt-1">Diagnostics and improvement suggestions (read-only). No automatic changes.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-400">Strategy</label>
+                <select id="strategy-filter" class="bg-dark-card border border-dark-border rounded px-3 py-2 text-sm">
+                    <option value="">All</option>
+                </select>
+                <button type="button" id="btn-refresh" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                    <i class="fas fa-sync-alt mr-1"></i> Refresh
+                </button>
+                <a id="btn-export" href="/api/intelligence/export" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm inline-flex items-center">
+                    <i class="fas fa-download mr-1"></i> Export JSON
+                </a>
+            </div>
+        </div>
+
+        <!-- Safety disclaimer -->
+        <div class="bg-amber-900/30 border border-amber-600/50 rounded-lg p-4 mb-6">
+            <p class="text-amber-200 text-sm font-medium">
+                <i class="fas fa-info-circle mr-2"></i>
+                <strong>Suggestion only.</strong> No automatic changes to strategy, config, or code. All recommendations require human review and validation (e.g. backtest, paper run) before any change.
+            </p>
+        </div>
+
+        <!-- Diagnostics -->
+        <section class="bg-dark-card rounded-lg p-6 border border-dark-border mb-6">
+            <h2 class="text-xl font-bold mb-4">Diagnostics</h2>
+            <div id="diagnostics-content" class="text-gray-300 text-sm space-y-2">
+                <p>Loading...</p>
+            </div>
+            <p id="diagnostics-meta" class="text-gray-500 text-xs mt-4"></p>
+        </section>
+
+        <!-- Suggestions -->
+        <section class="bg-dark-card rounded-lg p-6 border border-dark-border">
+            <h2 class="text-xl font-bold mb-4">Ranked Suggestions</h2>
+            <p class="text-gray-400 text-sm mb-4">Recommendations are ranked by confidence and evidence. No apply button — review and validate manually.</p>
+            <div id="suggestions-content">
+                <p class="text-gray-400">Loading...</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const strategyFilter = document.getElementById('strategy-filter');
+        const btnRefresh = document.getElementById('btn-refresh');
+        const btnExport = document.getElementById('btn-export');
+        const diagnosticsContent = document.getElementById('diagnostics-content');
+        const diagnosticsMeta = document.getElementById('diagnostics-meta');
+        const suggestionsContent = document.getElementById('suggestions-content');
+
+        function query(strategy) {
+            const s = strategy ? '?strategy=' + encodeURIComponent(strategy) : '';
+            return s;
+        }
+
+        function refresh() {
+            const strategy = strategyFilter.value || '';
+            const q = (strategy ? '?strategy=' + encodeURIComponent(strategy) + '&' : '?') + 'refresh=1';
+            fetch('/api/intelligence/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ strategy: strategy || null }) })
+                .then(r => r.json())
+                .then(() => { loadDiagnostics(); loadSuggestions(); })
+                .catch(e => { diagnosticsContent.innerHTML = '<p class="text-red-400">Error: ' + e.message + '</p>'; });
+        }
+
+        function loadDiagnostics() {
+            const strategy = strategyFilter.value || '';
+            fetch('/api/intelligence/diagnostics' + query(strategy))
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        diagnosticsContent.innerHTML = '<p class="text-red-400">' + data.error + '</p>';
+                        return;
+                    }
+                    const n = data.sample_size || 0;
+                    if (n === 0) {
+                        diagnosticsContent.innerHTML = '<p class="text-gray-400">No trades — run paper trading to generate diagnostics.</p>';
+                        diagnosticsMeta.textContent = '';
+                        return;
+                    }
+                    const perf = data.performance || {};
+                    const risk = data.risk_adjusted || {};
+                    let html = '<ul class="space-y-1">';
+                    html += '<li>Sample size: ' + n + ' trades</li>';
+                    html += '<li>Win rate (overall): ' + (perf.win_rate_overall != null ? (perf.win_rate_overall * 100).toFixed(1) + '%' : '—') + '</li>';
+                    html += '<li>Total P&L: $' + (perf.total_pnl != null ? Number(perf.total_pnl).toFixed(2) : '—') + '</li>';
+                    html += '<li>Sharpe: ' + (risk.sharpe_ratio != null ? risk.sharpe_ratio.toFixed(2) : '—') + '</li>';
+                    html += '<li>Max drawdown: $' + (risk.max_drawdown_usd != null ? risk.max_drawdown_usd.toFixed(2) : '—') + ' (' + (risk.max_drawdown_pct != null ? risk.max_drawdown_pct.toFixed(1) : '—') + '%)</li>';
+                    if (perf.win_rate_by_volatility && Object.keys(perf.win_rate_by_volatility).length) {
+                        html += '<li>Win rate by volatility: ' + JSON.stringify(perf.win_rate_by_volatility) + '</li>';
+                    }
+                    if (perf.win_rate_by_time_of_day && Object.keys(perf.win_rate_by_time_of_day).length) {
+                        html += '<li>Win rate by time of day: ' + JSON.stringify(perf.win_rate_by_time_of_day) + '</li>';
+                    }
+                    html += '</ul>';
+                    diagnosticsContent.innerHTML = html;
+                    diagnosticsMeta.textContent = 'Generated: ' + (data.generated_at || '—');
+                })
+                .catch(e => { diagnosticsContent.innerHTML = '<p class="text-red-400">Error: ' + e.message + '</p>'; });
+        }
+
+        function loadSuggestions() {
+            const strategy = strategyFilter.value || '';
+            fetch('/api/intelligence/suggestions' + query(strategy))
+                .then(r => r.json())
+                .then(data => {
+                    const list = data.suggestions || [];
+                    if (data.error) {
+                        suggestionsContent.innerHTML = '<p class="text-red-400">' + data.error + '</p>';
+                        return;
+                    }
+                    if (list.length === 0) {
+                        suggestionsContent.innerHTML = '<p class="text-gray-400">No suggestions (no trades, or small sample, or no significant patterns).</p>';
+                        return;
+                    }
+                    let html = '<div class="space-y-4">';
+                    list.forEach((s, i) => {
+                        html += '<div class="border border-dark-border rounded-lg p-4 bg-dark-bg/50">';
+                        html += '<div class="flex items-center justify-between mb-2"><span class="font-semibold">#' + (i + 1) + ' ' + (s.strategy || '') + '</span><span class="text-amber-400">Confidence: ' + (s.confidence != null ? (s.confidence * 100).toFixed(0) : '—') + '%</span></div>';
+                        html += '<p class="text-gray-300 text-sm mb-1"><strong>Issue:</strong> ' + (s.issue_detected || '—') + '</p>';
+                        html += '<p class="text-gray-300 text-sm mb-1"><strong>Suggested change:</strong> ' + (s.suggested_change || '—') + '</p>';
+                        if (s.risk) html += '<p class="text-yellow-600 text-xs mb-1">Risk: ' + s.risk + '</p>';
+                        if (s.evidence && Object.keys(s.evidence).length) {
+                            html += '<p class="text-gray-500 text-xs">Evidence: sample_size=' + (s.evidence.sample_size ?? '—') + ', win_rate_before=' + (s.evidence.win_rate_before ?? '—') + ', p_value=' + (s.evidence.p_value ?? '—') + '</p>';
+                        }
+                        if (s.validation_required && s.validation_required.length) {
+                            html += '<ul class="text-gray-500 text-xs mt-1 list-disc list-inside">';
+                            s.validation_required.forEach(v => { html += '<li>' + v + '</li>'; });
+                            html += '</ul>';
+                        }
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    suggestionsContent.innerHTML = html;
+                })
+                .catch(e => { suggestionsContent.innerHTML = '<p class="text-red-400">Error: ' + e.message + '</p>'; });
+        }
+
+        function loadStrategies() {
+            fetch('/api/strategies')
+                .then(r => r.json())
+                .then(data => {
+                    const strategies = data.strategies || [];
+                    const name = (s) => (typeof s === 'string' ? s : (s && s.name) || 'Unknown');
+                    strategyFilter.innerHTML = '<option value="">All</option>' + strategies.map(s => '<option value="' + name(s) + '">' + name(s) + '</option>').join('');
+                })
+                .catch(() => {});
+        }
+
+        btnRefresh.addEventListener('click', refresh);
+        strategyFilter.addEventListener('change', () => { loadDiagnostics(); loadSuggestions(); });
+        loadStrategies();
+        loadDiagnostics();
+        loadSuggestions();
+    </script>
+</body>
+</html>
