@@ -79,3 +79,4 @@ build/
 # Secure credentials (encrypted)
 config/credentials.json
 config/encryption.key
+state/*.json

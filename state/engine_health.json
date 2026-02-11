@@ -1,9 +1,0 @@
-{
-  "status": "stopped",
-  "last_cycle_timestamp": "2026-02-11T05:53:59.932186+00:00",
-  "uptime_seconds": 10,
-  "error_count": 0,
-  "cycle_duration_seconds": null,
-  "cycles_completed": 2,
-  "memory_mb": 39.63671875
-}
