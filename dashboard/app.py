@@ -1677,15 +1677,29 @@ def analytics_page():
 
 @app.route("/api/analytics/strategy_performance")
 def get_strategy_performance_analytics():
-    """Get comprehensive strategy performance metrics"""
+    """Get comprehensive strategy performance metrics (Phase 7E: regime slicing)."""
     try:
         start_date = request.args.get("start_date")
         end_date = request.args.get("end_date")
+        volatility_regime = request.args.get("volatility_regime")
+        event_window_start = request.args.get("event_window_start")
+        event_window_end = request.args.get("event_window_end")
 
-        strategies = strategy_analytics.get_all_strategies_performance(
-            start_date, end_date
+        trades_data = data_parser.get_trades(
+            start_date=start_date, end_date=end_date, per_page=10000
         )
-
+        trades = trades_data.get("trades", [])
+        trades = filter_trades_by_regime(
+            trades,
+            start_date=start_date,
+            end_date=end_date,
+            volatility_regime=volatility_regime,
+            event_window_start=event_window_start,
+            event_window_end=event_window_end,
+        )
+        strategies = strategy_analytics.get_all_strategies_performance_from_trades(
+            trades
+        )
         return jsonify({"strategies": strategies})
     except Exception as e:
         logger.error(f"Error getting strategy performance: {str(e)}")
@@ -1857,36 +1871,54 @@ def get_drawdown_history():
 
 @app.route("/api/analytics/export")
 def export_analytics():
-    """Export analytics data to CSV"""
+    """Export analytics data to CSV or JSON (Phase 7E: regime params supported)."""
     try:
         start_date = request.args.get("start_date")
         end_date = request.args.get("end_date")
+        fmt = request.args.get("format", "csv").lower()
+        volatility_regime = request.args.get("volatility_regime")
+        event_window_start = request.args.get("event_window_start")
+        event_window_end = request.args.get("event_window_end")
 
-        # Get strategy performance data
-        strategies = strategy_analytics.get_all_strategies_performance(
-            start_date, end_date
+        trades_data = data_parser.get_trades(
+            start_date=start_date, end_date=end_date, per_page=10000
+        )
+        trades = trades_data.get("trades", [])
+        trades = filter_trades_by_regime(
+            trades,
+            start_date=start_date,
+            end_date=end_date,
+            volatility_regime=volatility_regime,
+            event_window_start=event_window_start,
+            event_window_end=event_window_end,
+        )
+        strategies = strategy_analytics.get_all_strategies_performance_from_trades(
+            trades
         )
 
         if not strategies:
             return jsonify({"error": "No data to export"}), 404
 
-        # Create CSV
+        if fmt == "json":
+            return Response(
+                json.dumps({"strategies": strategies}, indent=2),
+                mimetype="application/json",
+                headers={
+                    "Content-Disposition": "attachment; filename=analytics_export.json"
+                },
+            )
         output = io.StringIO()
         fieldnames = strategies[0].keys()
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(strategies)
-
-        # Create response
-        response = Response(
+        return Response(
             output.getvalue(),
             mimetype="text/csv",
             headers={
                 "Content-Disposition": "attachment; filename=analytics_export.csv"
             },
         )
-
-        return response
     except Exception as e:
         logger.error(f"Error exporting analytics: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -2489,6 +2521,13 @@ if __name__ == "__main__":
 # Import new services
 from services.backtesting_engine import backtesting_engine
 from services.strategy_optimizer import strategy_optimizer
+from services.research_service import (
+    store_backtest_run,
+    get_backtest_runs,
+    get_backtest_run,
+    get_run_ids_for_comparison,
+    filter_trades_by_regime,
+)
 from services.alert_manager import alert_manager
 from database.models import TradeJournal, Alert, APIKey, init_trading_db
 
@@ -2590,27 +2629,62 @@ def list_strategies():
 
 @app.route("/api/strategies/compare", methods=["POST"])
 def compare_strategies():
-    """Compare multiple strategies"""
+    """Compare multiple strategies: by saved run_ids or by running backtests (Phase 7E)."""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
+        run_ids = data.get("run_ids", [])
         strategies = data.get("strategies", [])
+        start_date_str = data.get("start_date")
+        end_date_str = data.get("end_date")
 
         comparison = {}
         equity_curves = {}
+        labels = []
 
-        for strategy in strategies:
-            comparison[strategy] = {
-                "total_return": 15.5 + len(strategy),
-                "win_rate": 55.0 + len(strategy),
-                "sharpe_ratio": 1.2 + (len(strategy) / 10),
-                "max_drawdown": 8.5 - (len(strategy) / 10),
-                "total_trades": 50 + len(strategy) * 2,
-            }
-            equity_curves[strategy] = [10000 + i * 100 for i in range(30)]
+        if run_ids:
+            runs = get_run_ids_for_comparison(run_ids)
+            for r in runs:
+                name = r.get("strategy", "unknown") + " (" + r.get("run_id", "") + ")"
+                labels.append(name)
+                m = r.get("metrics", {})
+                comparison[name] = {
+                    "total_return": m.get("return_pct", 0),
+                    "win_rate": m.get("win_rate", 0),
+                    "sharpe_ratio": m.get("sharpe_ratio", 0),
+                    "max_drawdown": m.get("max_drawdown", 0),
+                    "total_trades": m.get("total_trades", 0),
+                }
+                equity_curves[name] = r.get("equity_curve", [])
+        elif strategies and start_date_str and end_date_str:
+            start_date = datetime.fromisoformat(start_date_str)
+            end_date = datetime.fromisoformat(end_date_str)
+            for strategy_name in strategies:
+                class PlaceholderStrategy:
+                    __name__ = strategy_name
+                result = backtesting_engine.run_backtest(
+                    PlaceholderStrategy(), start_date, end_date
+                )
+                if result.get("success"):
+                    m = result.get("metrics", {})
+                    comparison[strategy_name] = {
+                        "total_return": m.get("return_pct", 0),
+                        "win_rate": m.get("win_rate", 0),
+                        "sharpe_ratio": m.get("sharpe_ratio", 0),
+                        "max_drawdown": m.get("max_drawdown", 0),
+                        "total_trades": m.get("total_trades", 0),
+                    }
+                    equity_curves[strategy_name] = result.get("equity_curve", [])
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Provide run_ids or (strategies + start_date + end_date)",
+            }), 400
 
-        return jsonify(
-            {"success": True, "comparison": comparison, "equity_curves": equity_curves}
-        )
+        return jsonify({
+            "success": True,
+            "comparison": comparison,
+            "equity_curves": equity_curves,
+        })
     except Exception as e:
         logger.error(f"Error comparing strategies: {e}")
         return jsonify({"success": False, "error": str(e)})
@@ -2704,10 +2778,10 @@ def delete_alert(alert_id):
         return jsonify({"success": False, "error": str(e)})
 
 
-# API Routes for Backtesting
+# API Routes for Backtesting (Phase 7E: research-grade; no execution impact)
 @app.route("/api/backtest/run", methods=["POST"])
 def run_backtest():
-    """Run backtest for a strategy"""
+    """Run backtest for a strategy; result is stored for comparison/export."""
     try:
         data = request.get_json()
         strategy_name = data.get("strategy")
@@ -2720,11 +2794,181 @@ def run_backtest():
         result = backtesting_engine.run_backtest(
             PlaceholderStrategy(), start_date, end_date
         )
-
+        if result.get("success"):
+            run_id = store_backtest_run(result)
+            result["run_id"] = run_id
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error running backtest: {e}")
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/api/backtest/runs")
+def list_backtest_runs():
+    """List recent backtest runs for comparison/export (Phase 7E)."""
+    try:
+        limit = request.args.get("limit", 20, type=int)
+        runs = get_backtest_runs(limit=min(limit, 50))
+        return jsonify({"success": True, "runs": runs})
+    except Exception as e:
+        logger.error(f"Error listing backtest runs: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/api/backtest/runs/<run_id>")
+def get_backtest_run_by_id(run_id):
+    """Get a single backtest run by id (Phase 7E)."""
+    try:
+        run = get_backtest_run(run_id)
+        if not run:
+            return jsonify({"success": False, "error": "Run not found"}), 404
+        return jsonify({"success": True, "run": run})
+    except Exception as e:
+        logger.error(f"Error getting backtest run: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+# Parameter sweep / optimizer (Phase 7E — read-only research)
+@app.route("/api/optimizer/run", methods=["POST"])
+def run_optimizer():
+    """Run parameter sweep for a strategy; returns all results for visualization."""
+    try:
+        data = request.get_json() or {}
+        strategy_name = data.get("strategy_name")
+        param_ranges = data.get("param_ranges", {})
+        optimization_metric = data.get("optimization_metric", "sharpe_ratio")
+        start_date_str = data.get("start_date")
+        end_date_str = data.get("end_date")
+
+        if not strategy_name or not param_ranges:
+            return jsonify({
+                "success": False,
+                "error": "strategy_name and param_ranges required",
+            }), 400
+
+        end_date = datetime.fromisoformat(end_date_str) if end_date_str else datetime.utcnow()
+        start_date = (
+            datetime.fromisoformat(start_date_str)
+            if start_date_str
+            else end_date - timedelta(days=90)
+        )
+
+        result = strategy_optimizer.optimize_strategy(
+            strategy_name,
+            param_ranges,
+            start_date=start_date,
+            end_date=end_date,
+            optimization_metric=optimization_metric,
+        )
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error running optimizer: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/api/optimizer/history")
+def get_optimizer_history():
+    """Get optimization history for parameter sweep visualization (Phase 7E)."""
+    try:
+        history = strategy_optimizer.get_optimization_history()
+        return jsonify({"success": True, "history": history})
+    except Exception as e:
+        logger.error(f"Error getting optimizer history: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+# Research export: CSV/JSON for analytics, comparison, sweep (Phase 7E)
+@app.route("/api/research/export")
+def research_export():
+    """Export research data: analytics, backtest comparison, or parameter sweep (CSV/JSON)."""
+    try:
+        export_type = request.args.get("type", "analytics")
+        fmt = request.args.get("format", "csv").lower()
+        if fmt not in ("csv", "json"):
+            fmt = "csv"
+
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+        volatility_regime = request.args.get("volatility_regime")
+        event_window_start = request.args.get("event_window_start")
+        event_window_end = request.args.get("event_window_end")
+
+        if export_type == "analytics":
+            trades_data = data_parser.get_trades(
+                start_date=start_date, end_date=end_date, per_page=10000
+            )
+            trades = trades_data.get("trades", [])
+            trades = filter_trades_by_regime(
+                trades,
+                start_date=start_date,
+                end_date=end_date,
+                volatility_regime=volatility_regime,
+                event_window_start=event_window_start,
+                event_window_end=event_window_end,
+            )
+            strategies = strategy_analytics.get_all_strategies_performance_from_trades(
+                trades
+            )
+            if not strategies:
+                return jsonify({"error": "No data to export"}), 404
+            data = strategies
+        elif export_type == "comparison":
+            run_ids = request.args.getlist("run_ids") or request.args.get("run_ids", "")
+            if isinstance(run_ids, str):
+                run_ids = [r.strip() for r in run_ids.split(",") if r.strip()]
+            runs = get_run_ids_for_comparison(run_ids)
+            data = [
+                {
+                    "run_id": r.get("run_id"),
+                    "strategy": r.get("strategy"),
+                    "stored_at": r.get("stored_at"),
+                    **r.get("metrics", {}),
+                }
+                for r in runs
+            ]
+            if not data:
+                return jsonify({"error": "No comparison data; provide run_ids"}), 404
+        elif export_type == "sweep":
+            history = strategy_optimizer.get_optimization_history()
+            data = []
+            for h in history:
+                opt_metrics = h.get("optimal_metrics") or {}
+                data.append({
+                    "strategy_name": h.get("strategy_name"),
+                    "timestamp": h.get("timestamp"),
+                    "optimization_metric": h.get("optimization_metric"),
+                    "combinations_tested": h.get("combinations_tested"),
+                    "optimal_parameters": json.dumps(h.get("optimal_parameters") or {}),
+                    "optimal_return_pct": opt_metrics.get("return_pct"),
+                    "optimal_sharpe_ratio": opt_metrics.get("sharpe_ratio"),
+                    "optimal_win_rate": opt_metrics.get("win_rate"),
+                })
+            if not data:
+                return jsonify({"error": "No sweep data; run optimizer first"}), 404
+        else:
+            return jsonify({"error": "type must be analytics|comparison|sweep"}), 400
+
+        if fmt == "json":
+            filename = f"research_{export_type}_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.json"
+            return Response(
+                json.dumps({"data": data}, indent=2),
+                mimetype="application/json",
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
+            )
+        output = io.StringIO()
+        if data:
+            writer = csv.DictWriter(output, fieldnames=data[0].keys())
+            writer.writeheader()
+            writer.writerows(data)
+        filename = f"research_{export_type}_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.csv"
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        logger.error(f"Error exporting research: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ============================================================================

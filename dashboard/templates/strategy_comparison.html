@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strategy Comparison - Market Strategy Testing Bot</title>
+    <title>Strategy Comparison & Research - Market Strategy Testing Bot</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -29,23 +29,60 @@
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-bold">
                 <i class="fas fa-chart-bar text-blue-400"></i>
-                Strategy Comparison
+                Strategy Comparison & Research
             </h1>
-            <a href="/" class="text-blue-400 hover:text-blue-300">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </a>
+            <div class="flex gap-4">
+                <a href="/analytics" class="text-gray-400 hover:text-white">Analytics</a>
+                <a href="/" class="text-blue-400 hover:text-blue-300">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </a>
+            </div>
         </div>
     </nav>
 
     <div class="container mx-auto p-6">
-        <!-- Strategy Selector -->
+        <!-- Backtest comparison -->
         <div class="bg-dark-card rounded-lg p-6 border border-dark-border mb-6">
-            <h2 class="text-xl font-bold mb-4">Select Strategies to Compare (2-4)</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="strategy-selector"></div>
-            <button onclick="loadComparison()" 
-                    class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
-                <i class="fas fa-sync"></i> Compare Selected Strategies
-            </button>
+            <h2 class="text-xl font-bold mb-4">Backtest Comparison</h2>
+            <p class="text-gray-400 text-sm mb-4">Compare strategies by running backtests over a date range, or compare saved backtest runs.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div>
+                    <h3 class="font-semibold mb-2">Compare by date range</h3>
+                    <div class="flex flex-wrap gap-2 items-end">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Start</label>
+                            <input type="date" id="compare-start-date" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">End</label>
+                            <input type="date" id="compare-end-date" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm">
+                        </div>
+                        <button onclick="loadComparisonByDateRange()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                            <i class="fas fa-play"></i> Run & Compare
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Select 2–4 strategies below, then run.</p>
+                </div>
+                <div>
+                    <h3 class="font-semibold mb-2">Or compare saved runs</h3>
+                    <div id="saved-runs-list" class="text-sm text-gray-400 mb-2 max-h-24 overflow-y-auto"></div>
+                    <button onclick="loadSavedRuns()" class="text-blue-400 hover:underline text-sm mr-2">Refresh runs</button>
+                    <button onclick="loadComparisonByRunIds()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm">
+                        Compare selected runs
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4" id="strategy-selector"></div>
+
+            <div class="flex gap-2 mt-2">
+                <button onclick="loadComparison()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
+                    <i class="fas fa-sync"></i> Compare selected strategies (date range)
+                </button>
+                <a id="export-comparison-csv" href="#" class="hidden px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 text-sm">Export CSV</a>
+                <a id="export-comparison-json" href="#" class="hidden px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 text-sm">Export JSON</a>
+            </div>
         </div>
 
         <!-- Metrics Table -->
@@ -64,137 +101,251 @@
         </div>
 
         <!-- Equity Curves -->
-        <div class="bg-dark-card rounded-lg p-6 border border-dark-border">
+        <div class="bg-dark-card rounded-lg p-6 border border-dark-border mb-6">
             <h2 class="text-xl font-bold mb-4">Equity Curves</h2>
             <canvas id="equity-chart" height="80"></canvas>
+        </div>
+
+        <!-- Parameter sweep -->
+        <div class="bg-dark-card rounded-lg p-6 border border-dark-border mb-6">
+            <h2 class="text-xl font-bold mb-4">Parameter Sweep</h2>
+            <p class="text-gray-400 text-sm mb-4">Run a grid search over strategy parameters and visualize results.</p>
+            <div class="flex flex-wrap gap-4 mb-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Strategy</label>
+                    <select id="sweep-strategy" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm w-48"></select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Param ranges (JSON)</label>
+                    <input type="text" id="sweep-params" placeholder='{"lookback": [10,20], "threshold": [0.02,0.05]}' class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm w-80">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Metric</label>
+                    <select id="sweep-metric" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm">
+                        <option value="sharpe_ratio">Sharpe ratio</option>
+                        <option value="return_pct">Return %</option>
+                        <option value="win_rate">Win rate</option>
+                    </select>
+                </div>
+                <button onclick="runSweep()" id="sweep-btn" class="self-end bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm">
+                    <i class="fas fa-cogs"></i> Run sweep
+                </button>
+            </div>
+            <div id="sweep-status" class="text-sm text-gray-400 mb-2"></div>
+            <div class="overflow-x-auto mb-4">
+                <table class="w-full text-sm" id="sweep-table">
+                    <thead>
+                        <tr class="border-b border-dark-border">
+                            <th class="text-left p-2">#</th>
+                            <th class="text-left p-2">Parameters</th>
+                            <th class="text-right p-2">Score</th>
+                            <th class="text-right p-2">Return %</th>
+                            <th class="text-right p-2">Win rate</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="mb-4"><canvas id="sweep-chart" height="120"></canvas></div>
+            <div>
+                <a id="export-sweep-csv" href="#" class="mr-2 px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 text-sm inline-block">Export sweep CSV</a>
+                <a id="export-sweep-json" href="#" class="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 text-sm inline-block">Export sweep JSON</a>
+            </div>
         </div>
     </div>
 
     <script>
         let selectedStrategies = new Set();
+        let selectedRunIds = new Set();
         let equityChart = null;
+        let sweepChart = null;
+        let lastComparisonRunIds = [];
+        let lastSweepResult = null;
 
-        // Load available strategies on page load
-        window.addEventListener('DOMContentLoaded', loadAvailableStrategies);
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAvailableStrategies();
+            loadSavedRuns();
+            setDefaultDates();
+            loadSweepStrategies();
+        });
+
+        function setDefaultDates() {
+            const end = new Date();
+            const start = new Date(end);
+            start.setDate(start.getDate() - 90);
+            document.getElementById('compare-end-date').value = end.toISOString().slice(0, 10);
+            document.getElementById('compare-start-date').value = start.toISOString().slice(0, 10);
+        }
 
         async function loadAvailableStrategies() {
             try {
                 const response = await fetch('/api/strategies/list');
                 const data = await response.json();
-                
-                if (data.success) {
-                    renderStrategySelector(data.strategies);
-                }
-            } catch (error) {
-                console.error('Error loading strategies:', error);
-            }
+                if (data.success) renderStrategySelector(data.strategies);
+            } catch (e) { console.error(e); }
         }
 
         function renderStrategySelector(strategies) {
             const selector = document.getElementById('strategy-selector');
-            selector.innerHTML = strategies.map(strategy => `
+            selector.innerHTML = strategies.map(s => `
                 <label class="flex items-center space-x-2 cursor-pointer p-3 bg-dark-bg rounded hover:bg-gray-700">
-                    <input type="checkbox" value="${strategy}" 
-                           onchange="toggleStrategy('${strategy}')"
-                           class="form-checkbox h-5 w-5 text-blue-600">
-                    <span>${strategy}</span>
+                    <input type="checkbox" value="${s}" onchange="toggleStrategy('${s}')" class="form-checkbox h-5 w-5 text-blue-600">
+                    <span>${s}</span>
                 </label>
             `).join('');
         }
 
         function toggleStrategy(strategy) {
-            if (selectedStrategies.has(strategy)) {
-                selectedStrategies.delete(strategy);
-            } else {
-                if (selectedStrategies.size >= 4) {
-                    alert('Maximum 4 strategies can be compared');
-                    event.target.checked = false;
-                    return;
-                }
+            if (selectedStrategies.has(strategy)) selectedStrategies.delete(strategy);
+            else {
+                if (selectedStrategies.size >= 4) { alert('Max 4 strategies'); event.target.checked = false; return; }
                 selectedStrategies.add(strategy);
             }
         }
 
-        async function loadComparison() {
-            if (selectedStrategies.size < 2) {
-                alert('Please select at least 2 strategies');
-                return;
-            }
+        async function loadSavedRuns() {
+            try {
+                const response = await fetch('/api/backtest/runs?limit=20');
+                const data = await response.json();
+                const list = document.getElementById('saved-runs-list');
+                if (!data.success || !data.runs.length) {
+                    list.innerHTML = 'No saved runs. Run a backtest from Dashboard or use "Run & Compare" above.';
+                    return;
+                }
+                list.innerHTML = data.runs.map(r => `
+                    <label class="flex items-center gap-2 py-1">
+                        <input type="checkbox" value="${r.run_id}" onchange="toggleRunId('${r.run_id}')" class="form-checkbox h-4 w-4 text-blue-600">
+                        <span>${r.strategy} (${r.run_id}) ${r.period?.start?.slice(0,10) || ''}</span>
+                    </label>
+                `).join('');
+            } catch (e) { console.error(e); }
+        }
 
+        function toggleRunId(id) {
+            if (selectedRunIds.has(id)) selectedRunIds.delete(id);
+            else selectedRunIds.add(id);
+        }
+
+        async function loadComparisonByDateRange() {
+            const strategies = Array.from(selectedStrategies);
+            if (strategies.length < 2) { alert('Select at least 2 strategies'); return; }
+            const start = document.getElementById('compare-start-date').value;
+            const end = document.getElementById('compare-end-date').value;
+            if (!start || !end) { alert('Set start and end date'); return; }
             try {
                 const response = await fetch('/api/strategies/compare', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ strategies: Array.from(selectedStrategies) })
+                    body: JSON.stringify({ strategies, start_date: start, end_date: end })
                 });
-                
                 const data = await response.json();
-                
                 if (data.success) {
+                    lastComparisonRunIds = [];
                     renderMetricsTable(data.comparison);
                     renderEquityChart(data.equity_curves);
-                }
-            } catch (error) {
-                console.error('Error loading comparison:', error);
+                    showExportComparisonLinks([]);
+                } else alert(data.error || 'Compare failed');
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadComparisonByRunIds() {
+            const runIds = Array.from(selectedRunIds);
+            if (runIds.length < 2) { alert('Select at least 2 saved runs'); return; }
+            try {
+                const response = await fetch('/api/strategies/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ run_ids: runIds })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    lastComparisonRunIds = runIds;
+                    renderMetricsTable(data.comparison);
+                    renderEquityChart(data.equity_curves);
+                    showExportComparisonLinks(runIds);
+                } else alert(data.error || 'Compare failed');
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadComparison() {
+            const strategies = Array.from(selectedStrategies);
+            if (strategies.length < 2) { alert('Select at least 2 strategies'); return; }
+            const start = document.getElementById('compare-start-date').value;
+            const end = document.getElementById('compare-end-date').value;
+            if (!start || !end) { alert('Set start and end date'); return; }
+            try {
+                const response = await fetch('/api/strategies/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strategies, start_date: start, end_date: end })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    lastComparisonRunIds = [];
+                    renderMetricsTable(data.comparison);
+                    renderEquityChart(data.equity_curves);
+                    showExportComparisonLinks([]);
+                } else alert(data.error || 'Compare failed');
+            } catch (e) { console.error(e); }
+        }
+
+        function showExportComparisonLinks(runIds) {
+            const csv = document.getElementById('export-comparison-csv');
+            const json = document.getElementById('export-comparison-json');
+            if (runIds.length) {
+                const q = runIds.map(id => 'run_ids=' + id).join('&');
+                csv.href = '/api/research/export?type=comparison&format=csv&' + q;
+                json.href = '/api/research/export?type=comparison&format=json&' + q;
+                csv.classList.remove('hidden');
+                json.classList.remove('hidden');
+            } else {
+                csv.classList.add('hidden');
+                json.classList.add('hidden');
             }
         }
 
         function renderMetricsTable(comparison) {
             const table = document.getElementById('metrics-table');
             const strategies = Object.keys(comparison);
-            
-            // Update header
-            table.querySelector('thead tr').innerHTML = `
-                <th class="text-left p-3">Metric</th>
-                ${strategies.map(s => `<th class="text-right p-3">${s}</th>`).join('')}
-            `;
-            
-            // Render metrics rows
+            if (!strategies.length) {
+                table.querySelector('thead tr').innerHTML = '<th class="text-left p-3">Metric</th>';
+                table.querySelector('tbody').innerHTML = '<tr><td class="p-3 text-gray-400">Run a comparison to see metrics.</td></tr>';
+                return;
+            }
+            table.querySelector('thead tr').innerHTML = '<th class="text-left p-3">Metric</th>' + strategies.map(s => `<th class="text-right p-3">${s}</th>`).join('');
             const metrics = [
-                { key: 'total_return', label: 'Total Return', format: v => `${v.toFixed(2)}%`, isBest: 'max' },
-                { key: 'win_rate', label: 'Win Rate', format: v => `${v.toFixed(1)}%`, isBest: 'max' },
-                { key: 'sharpe_ratio', label: 'Sharpe Ratio', format: v => v.toFixed(2), isBest: 'max' },
-                { key: 'max_drawdown', label: 'Max Drawdown', format: v => `${v.toFixed(1)}%`, isBest: 'min' },
+                { key: 'total_return', label: 'Total Return', format: v => `${Number(v).toFixed(2)}%`, isBest: 'max' },
+                { key: 'win_rate', label: 'Win Rate', format: v => `${Number(v).toFixed(1)}%`, isBest: 'max' },
+                { key: 'sharpe_ratio', label: 'Sharpe Ratio', format: v => Number(v).toFixed(2), isBest: 'max' },
+                { key: 'max_drawdown', label: 'Max Drawdown', format: v => `${Number(v).toFixed(1)}%`, isBest: 'min' },
                 { key: 'total_trades', label: 'Total Trades', format: v => v, isBest: 'none' }
             ];
-            
             table.querySelector('tbody').innerHTML = metrics.map(metric => {
-                const values = strategies.map(s => comparison[s][metric.key]);
-                const bestValue = metric.isBest === 'max' ? Math.max(...values) : 
-                                 metric.isBest === 'min' ? Math.min(...values) : null;
-                
-                return `
-                    <tr class="border-b border-dark-border">
-                        <td class="p-3 font-semibold">${metric.label}</td>
-                        ${strategies.map((s, i) => {
-                            const value = comparison[s][metric.key];
-                            const isBest = bestValue !== null && value === bestValue;
-                            return `<td class="text-right p-3 ${isBest ? 'bg-green-900/30 font-bold' : ''}">
-                                ${metric.format(value)}
-                                ${isBest ? '<i class="fas fa-trophy text-yellow-400 ml-1"></i>' : ''}
-                            </td>`;
-                        }).join('')}
-                    </tr>
-                `;
+                const values = strategies.map(s => comparison[s][metric.key]).filter(x => x !== undefined);
+                const bestValue = metric.isBest === 'max' && values.length ? Math.max(...values) : metric.isBest === 'min' && values.length ? Math.min(...values) : null;
+                return '<tr class="border-b border-dark-border"><td class="p-3 font-semibold">' + metric.label + '</td>' +
+                    strategies.map(s => {
+                        const value = comparison[s][metric.key];
+                        const isBest = bestValue !== null && value === bestValue;
+                        return '<td class="text-right p-3 ' + (isBest ? 'bg-green-900/30 font-bold' : '') + '">' + (value !== undefined ? metric.format(value) : '—') + (isBest ? ' <i class="fas fa-trophy text-yellow-400 ml-1"></i>' : '') + '</td>';
+                    }).join('') + '</tr>';
             }).join('');
         }
 
         function renderEquityChart(equityCurves) {
             const ctx = document.getElementById('equity-chart');
-            
-            if (equityChart) {
-                equityChart.destroy();
-            }
-            
+            if (equityChart) equityChart.destroy();
+            const keys = Object.keys(equityCurves || {});
+            if (!keys.length) return;
+            const first = equityCurves[keys[0]] || [];
             const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-            
             equityChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: equityCurves[Object.keys(equityCurves)[0]].map((_, i) => i),
-                    datasets: Object.keys(equityCurves).map((strategy, i) => ({
-                        label: strategy,
-                        data: equityCurves[strategy],
+                    labels: first.map((_, i) => i),
+                    datasets: keys.map((name, i) => ({
+                        label: name,
+                        data: equityCurves[name],
                         borderColor: colors[i % colors.length],
                         backgroundColor: colors[i % colors.length] + '20',
                         borderWidth: 2,
@@ -205,20 +356,99 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            labels: { color: '#fff' }
-                        }
-                    },
+                    plugins: { legend: { labels: { color: '#fff' } } },
                     scales: {
-                        y: {
-                            ticks: { color: '#9ca3af' },
-                            grid: { color: '#334155' }
-                        },
-                        x: {
-                            ticks: { color: '#9ca3af' },
-                            grid: { color: '#334155' }
-                        }
+                        y: { ticks: { color: '#9ca3af' }, grid: { color: '#334155' } },
+                        x: { ticks: { color: '#9ca3af' }, grid: { color: '#334155' } }
+                    }
+                }
+            });
+        }
+
+        function loadSweepStrategies() {
+            fetch('/api/strategies/list').then(r => r.json()).then(data => {
+                if (data.success) {
+                    const sel = document.getElementById('sweep-strategy');
+                    sel.innerHTML = data.strategies.map(s => '<option value="' + s + '">' + s + '</option>').join('');
+                }
+            }).catch(() => {});
+        }
+
+        async function runSweep() {
+            const strategy = document.getElementById('sweep-strategy').value;
+            let paramRanges = {};
+            try {
+                paramRanges = JSON.parse(document.getElementById('sweep-params').value || '{}');
+            } catch (e) {
+                alert('Invalid JSON for param ranges');
+                return;
+            }
+            if (!Object.keys(paramRanges).length) {
+                alert('Add param ranges, e.g. {"lookback": [10,20], "threshold": [0.02,0.05]}');
+                return;
+            }
+            const metric = document.getElementById('sweep-metric').value;
+            const end = new Date();
+            const start = new Date(end);
+            start.setDate(start.getDate() - 90);
+            document.getElementById('sweep-status').textContent = 'Running sweep...';
+            document.getElementById('sweep-btn').disabled = true;
+            try {
+                const response = await fetch('/api/optimizer/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        strategy_name: strategy,
+                        param_ranges: paramRanges,
+                        optimization_metric: metric,
+                        start_date: start.toISOString().slice(0, 10),
+                        end_date: end.toISOString().slice(0, 10)
+                    })
+                });
+                const data = await response.json();
+                lastSweepResult = data;
+                if (data.success && data.all_results) {
+                    renderSweepTable(data.all_results, metric);
+                    renderSweepChart(data.all_results, metric);
+                    document.getElementById('export-sweep-csv').href = '/api/research/export?type=sweep&format=csv';
+                    document.getElementById('export-sweep-json').href = '/api/research/export?type=sweep&format=json';
+                } else {
+                    document.getElementById('sweep-status').textContent = data.error || 'Sweep failed';
+                }
+            } catch (e) {
+                document.getElementById('sweep-status').textContent = 'Error: ' + e.message;
+            }
+            document.getElementById('sweep-btn').disabled = false;
+        }
+
+        function renderSweepTable(results, metricKey) {
+            const tbody = document.getElementById('sweep-table').querySelector('tbody');
+            tbody.innerHTML = results.slice(0, 20).map((r, i) => {
+                const params = JSON.stringify(r.parameters || {});
+                const score = r.optimization_score != null ? Number(r.optimization_score).toFixed(2) : '—';
+                const ret = r.metrics?.return_pct != null ? (r.metrics.return_pct).toFixed(2) + '%' : '—';
+                const wr = r.metrics?.win_rate != null ? (r.metrics.win_rate).toFixed(1) + '%' : '—';
+                return '<tr class="border-b border-dark-border"><td class="p-2">' + (i + 1) + '</td><td class="p-2 font-mono text-xs">' + params + '</td><td class="text-right p-2">' + score + '</td><td class="text-right p-2">' + ret + '</td><td class="text-right p-2">' + wr + '</td></tr>';
+            }).join('');
+        }
+
+        function renderSweepChart(results, metricKey) {
+            const ctx = document.getElementById('sweep-chart');
+            if (sweepChart) sweepChart.destroy();
+            const labels = results.slice(0, 15).map((r, i) => 'Combo ' + (i + 1));
+            const scores = results.slice(0, 15).map(r => r.optimization_score != null ? r.optimization_score : 0);
+            sweepChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ label: metricKey, data: scores, backgroundColor: 'rgba(59, 130, 246, 0.6)', borderColor: '#3b82f6', borderWidth: 1 }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: '#fff' } } },
+                    scales: {
+                        y: { ticks: { color: '#9ca3af' }, grid: { color: '#334155' } },
+                        x: { ticks: { color: '#9ca3af' }, grid: { color: '#334155' } }
                     }
                 }
             });

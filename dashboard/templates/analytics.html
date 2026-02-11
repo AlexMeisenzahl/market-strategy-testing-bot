@@ -65,6 +65,42 @@
             <h1 class="text-4xl font-bold mb-2">📊 Advanced Analytics Dashboard</h1>
             <p class="text-gray-400">Comprehensive performance and risk metrics for your trading strategies</p>
           </div>
+
+          <!-- Regime-based slicing (Phase 7E) -->
+          <section class="regime-filters mb-6">
+            <div class="bg-dark-card rounded-lg p-6 border border-dark-border">
+              <h2 class="text-xl font-bold mb-4">Regime Filters</h2>
+              <p class="text-gray-400 text-sm mb-4">Slice analytics by time, volatility regime, or event window. Results and exports respect these filters.</p>
+              <div class="flex flex-wrap gap-4 items-end">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1">Start date</label>
+                  <input type="date" id="regime-start" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1">End date</label>
+                  <input type="date" id="regime-end" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1">Volatility regime</label>
+                  <select id="regime-volatility" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm">
+                    <option value="">All</option>
+                    <option value="low">Low</option>
+                    <option value="med">Med</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1">Event window start</label>
+                  <input type="date" id="regime-event-start" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm" placeholder="Optional">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1">Event window end</label>
+                  <input type="date" id="regime-event-end" class="bg-dark-bg border border-dark-border rounded px-3 py-2 text-sm" placeholder="Optional">
+                </div>
+                <button type="button" onclick="applyRegimeAndRefresh()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">Apply &amp; refresh</button>
+              </div>
+            </div>
+          </section>
           
           <!-- Section 1: Strategy Performance Breakdown -->
           <section class="strategy-performance-section mb-8">
@@ -220,7 +256,11 @@
           <!-- Section 5: Export -->
           <section class="export-section bg-dark-card rounded-lg p-6 border border-dark-border">
             <h3 class="text-xl font-semibold mb-4">📥 Export Reports</h3>
-            <button class="btn-export px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition" onclick="exportAnalytics('csv')">📊 Export to CSV</button>
+            <p class="text-gray-400 text-sm mb-2">Exports use current regime filters (date range, volatility, event window).</p>
+            <div class="flex gap-4">
+              <button class="btn-export px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition" onclick="exportAnalytics('csv')">📊 Export CSV</button>
+              <button class="btn-export px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition" onclick="exportAnalytics('json')">📋 Export JSON</button>
+            </div>
           </section>
           
         </div>

@@ -94,6 +94,24 @@ class StrategyAnalytics:
 
         return results
 
+    def get_all_strategies_performance_from_trades(
+        self, trades: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Calculate performance for all strategies from a pre-filtered trade list.
+        Used for regime-based slicing (Phase 7E).
+        """
+        strategy_trades = defaultdict(list)
+        for trade in trades:
+            strategy_trades[trade["strategy"]].append(trade)
+        results = []
+        for strategy_name, strat_trades in strategy_trades.items():
+            sorted_trades = sorted(strat_trades, key=lambda t: t["entry_time"])
+            metrics = self._calculate_metrics(strategy_name, sorted_trades)
+            results.append(metrics)
+        results.sort(key=lambda x: float(x["total_pnl"]), reverse=True)
+        return results
+
     def _calculate_metrics(
         self, strategy_name: str, trades: List[Dict]
     ) -> Dict[str, Any]:

@@ -1,7 +1,30 @@
 /**
  * Analytics Dashboard JavaScript
- * Handles loading and displaying advanced analytics and risk metrics
+ * Handles loading and displaying advanced analytics and risk metrics.
+ * Phase 7E: regime-based slicing (time, volatility, event window).
  */
+
+function getRegimeQueryString() {
+    const start = document.getElementById('regime-start')?.value;
+    const end = document.getElementById('regime-end')?.value;
+    const vol = document.getElementById('regime-volatility')?.value;
+    const evStart = document.getElementById('regime-event-start')?.value;
+    const evEnd = document.getElementById('regime-event-end')?.value;
+    const params = new URLSearchParams();
+    if (start) params.set('start_date', start);
+    if (end) params.set('end_date', end);
+    if (vol) params.set('volatility_regime', vol);
+    if (evStart) params.set('event_window_start', evStart);
+    if (evEnd) params.set('event_window_end', evEnd);
+    const q = params.toString();
+    return q ? '?' + q : '';
+}
+
+function applyRegimeAndRefresh() {
+    if (window.analyticsDashboardInstance) {
+        window.analyticsDashboardInstance.init();
+    }
+}
 
 class AnalyticsDashboard {
     constructor() {
@@ -15,7 +38,7 @@ class AnalyticsDashboard {
         // Set up event listeners
         this.setupEventListeners();
         
-        // Load all data in parallel
+        // Load all data in parallel (strategy performance uses regime params)
         try {
             await Promise.all([
                 this.loadStrategyPerformance(),
@@ -57,7 +80,8 @@ class AnalyticsDashboard {
     
     async loadStrategyPerformance() {
         try {
-            const response = await fetch('/api/analytics/strategy_performance');
+            const qs = getRegimeQueryString();
+            const response = await fetch('/api/analytics/strategy_performance' + qs);
             const data = await response.json();
             
             if (!data.strategies || data.strategies.length === 0) {
@@ -402,13 +426,28 @@ class AnalyticsDashboard {
     }
 }
 
-// Export analytics function
+// Export analytics function (Phase 7E: regime params + CSV/JSON)
 function exportAnalytics(format) {
-    window.location.href = `/api/analytics/export?format=${format}`;
+    const qs = getRegimeQueryString();
+    const sep = qs ? '&' : '?';
+    window.location.href = `/api/analytics/export?format=${format}${qs ? sep + qs.slice(1) : ''}`;
 }
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', () => {
     const dashboard = new AnalyticsDashboard();
+    window.analyticsDashboardInstance = dashboard;
     dashboard.init();
+    // Set default regime dates if empty
+    const endEl = document.getElementById('regime-end');
+    const startEl = document.getElementById('regime-start');
+    if (endEl && !endEl.value) {
+        const end = new Date();
+        endEl.value = end.toISOString().slice(0, 10);
+    }
+    if (startEl && !startEl.value) {
+        const start = new Date();
+        start.setDate(start.getDate() - 90);
+        startEl.value = start.toISOString().slice(0, 10);
+    }
 });
