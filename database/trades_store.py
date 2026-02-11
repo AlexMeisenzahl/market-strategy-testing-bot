@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -17,17 +18,26 @@ TRADES_MAX_ROWS = 500_000
 OPPORTUNITIES_MAX_ROWS = 500_000
 
 DB_FILENAME = "trades.db"
+# Explicit timeout (seconds) and retry for lock contention / transient errors
+SQLITE_TIMEOUT_SEC = 15.0
+SQLITE_RETRY_BACKOFF_SEC = 0.5
 
 
 def _get_db_path(log_dir: Path) -> Path:
     return Path(log_dir) / DB_FILENAME
 
 
+def _connect(log_dir: Path) -> sqlite3.Connection:
+    """Open connection with explicit timeout."""
+    path = _get_db_path(log_dir)
+    return sqlite3.connect(str(path), timeout=SQLITE_TIMEOUT_SEC)
+
+
 def init_db(log_dir: Path) -> Path:
     """Ensure DB and tables exist. Returns path to DB file."""
     path = _get_db_path(log_dir)
     Path(log_dir).mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    conn = _connect(log_dir)
     try:
         conn.execute(
             """
@@ -104,36 +114,45 @@ def insert_trade(
     strategy: str = "Unknown",
     arbitrage_type: str = "Unknown",
 ) -> None:
-    """Append one trade row. Prunes old rows if over cap."""
+    """Append one trade row. Prunes old rows if over cap. Retries once on OperationalError."""
     path = _get_db_path(log_dir)
     if not path.exists():
         init_db(log_dir)
-    conn = sqlite3.connect(str(path))
-    try:
-        conn.execute(
-            """
-            INSERT INTO trades (timestamp, market, yes_price, no_price, sum_price, profit_pct, profit_usd, status, strategy, arbitrage_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                timestamp,
-                market,
-                yes_price,
-                no_price,
-                yes_price + no_price,
-                profit_pct,
-                profit_usd,
-                status,
-                strategy,
-                arbitrage_type,
-            ),
-        )
-        conn.commit()
-        cur = conn.execute("SELECT COUNT(*) FROM trades")
-        if cur.fetchone()[0] > TRADES_MAX_ROWS:
-            _prune_trades(conn)
-    finally:
-        conn.close()
+    row = (
+        timestamp,
+        market,
+        yes_price,
+        no_price,
+        yes_price + no_price,
+        profit_pct,
+        profit_usd,
+        status,
+        strategy,
+        arbitrage_type,
+    )
+    for attempt in range(2):
+        try:
+            conn = _connect(log_dir)
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO trades (timestamp, market, yes_price, no_price, sum_price, profit_pct, profit_usd, status, strategy, arbitrage_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    row,
+                )
+                conn.commit()
+                cur = conn.execute("SELECT COUNT(*) FROM trades")
+                if cur.fetchone()[0] > TRADES_MAX_ROWS:
+                    _prune_trades(conn)
+                return
+            finally:
+                conn.close()
+        except sqlite3.OperationalError:
+            if attempt == 0:
+                time.sleep(SQLITE_RETRY_BACKOFF_SEC)
+            else:
+                raise
 
 
 def insert_opportunity(
@@ -147,35 +166,44 @@ def insert_opportunity(
     strategy: str = "Unknown",
     arbitrage_type: str = "Unknown",
 ) -> None:
-    """Append one opportunity row. Prunes old rows if over cap."""
+    """Append one opportunity row. Prunes old rows if over cap. Retries once on OperationalError."""
     path = _get_db_path(log_dir)
     if not path.exists():
         init_db(log_dir)
-    conn = sqlite3.connect(str(path))
-    try:
-        conn.execute(
-            """
-            INSERT INTO opportunities (timestamp, market, yes_price, no_price, sum_price, profit_pct, action_taken, strategy, arbitrage_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                timestamp,
-                market,
-                yes_price,
-                no_price,
-                yes_price + no_price,
-                profit_pct,
-                action_taken,
-                strategy,
-                arbitrage_type,
-            ),
-        )
-        conn.commit()
-        cur = conn.execute("SELECT COUNT(*) FROM opportunities")
-        if cur.fetchone()[0] > OPPORTUNITIES_MAX_ROWS:
-            _prune_opportunities(conn)
-    finally:
-        conn.close()
+    row = (
+        timestamp,
+        market,
+        yes_price,
+        no_price,
+        yes_price + no_price,
+        profit_pct,
+        action_taken,
+        strategy,
+        arbitrage_type,
+    )
+    for attempt in range(2):
+        try:
+            conn = _connect(log_dir)
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO opportunities (timestamp, market, yes_price, no_price, sum_price, profit_pct, action_taken, strategy, arbitrage_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    row,
+                )
+                conn.commit()
+                cur = conn.execute("SELECT COUNT(*) FROM opportunities")
+                if cur.fetchone()[0] > OPPORTUNITIES_MAX_ROWS:
+                    _prune_opportunities(conn)
+                return
+            finally:
+                conn.close()
+        except sqlite3.OperationalError:
+            if attempt == 0:
+                time.sleep(SQLITE_RETRY_BACKOFF_SEC)
+            else:
+                raise
 
 
 def get_trades(
@@ -188,7 +216,7 @@ def get_trades(
     path = _get_db_path(log_dir)
     if not path.exists():
         return []
-    conn = sqlite3.connect(str(path))
+    conn = _connect(log_dir)
     conn.row_factory = sqlite3.Row
     try:
         if year is not None:
@@ -246,7 +274,7 @@ def get_opportunities(
     path = _get_db_path(log_dir)
     if not path.exists():
         return []
-    conn = sqlite3.connect(str(path))
+    conn = _connect(log_dir)
     conn.row_factory = sqlite3.Row
     try:
         rows = conn.execute(
@@ -284,7 +312,7 @@ def migrate_csv_to_db(log_dir: Path) -> int:
     if not csv_path.exists():
         return 0
     init_db(log_dir)
-    conn = sqlite3.connect(str(path))
+    conn = _connect(log_dir)
     try:
         n = conn.execute("SELECT COUNT(*) FROM trades").fetchone()[0]
         if n > 0:
@@ -325,7 +353,7 @@ def migrate_opportunities_csv_to_db(log_dir: Path) -> int:
     if not csv_path.exists():
         return 0
     init_db(log_dir)
-    conn = sqlite3.connect(str(path))
+    conn = _connect(log_dir)
     try:
         n = conn.execute("SELECT COUNT(*) FROM opportunities").fetchone()[0]
         if n > 0:

@@ -315,6 +315,12 @@ def health_check():
             engine_health = engine_state_reader.get_engine_health()
             if engine_health:
                 health_status["engine"] = engine_health
+                # Degrade overall if disk critical or write errors (reliability mitigation)
+                if health_status.get("overall_status") != "down":
+                    if engine_health.get("disk_status") == "critical":
+                        health_status["overall_status"] = "degraded"
+                    if engine_health.get("write_error_count", 0) > 0:
+                        health_status["overall_status"] = "degraded"
         except Exception:
             pass
 

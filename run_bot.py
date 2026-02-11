@@ -227,7 +227,11 @@ class BotRunner:
         self.start_time = datetime.now(timezone.utc)
         self.cycles_completed = 0
         self.error_count = 0
+        self.write_error_count = 0  # Disk write failures (exposed via /health)
         self._last_cycle_start: Optional[float] = None
+        self._last_cycle_end_time: Optional[float] = None  # For sleep/resume detection
+        self._data_source = "unknown"  # "live" | "mock" (exposed via /health)
+        self._mock_cycles = 0  # Consecutive cycles on mock; warn when >= MOCK_WARN_CYCLES
         self._cycle_timeout_seconds = int(
             os.getenv("CYCLE_TIMEOUT_SECONDS", "300")
         )
@@ -242,6 +246,10 @@ class BotRunner:
         self.total_opportunities_found = 0
         self.total_trades_executed = 0
         self.total_opportunities_skipped = 0
+        self.MOCK_WARN_CYCLES = 3  # Log warning when mock data used this many cycles in a row
+        self.SLEEP_RESUME_THRESHOLD_SEC = max(
+            300, 2 * (self.scan_interval_seconds or 60)
+        )  # Delta between cycles above this = possible sleep/resume
 
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -462,8 +470,23 @@ class BotRunner:
                 state,
                 backup_path=self.state_dir / "paper_engine_state.backup.json",
             )
+        except Exception as e:
+            self.logger.log_error(f"Disk write failed (paper_engine_state): {e}")
+            self.write_error_count += 1
+
+    def _disk_health(self) -> tuple:
+        """Return (used_pct_float or None, status: 'ok'|'warn'|'critical'|None)."""
+        try:
+            import shutil
+            usage = shutil.disk_usage(self.state_dir)
+            used_pct = (usage.used / usage.total) * 100.0 if usage.total else 0.0
+            if used_pct >= 95.0:
+                return (round(used_pct, 1), "critical")
+            if used_pct >= 85.0:
+                return (round(used_pct, 1), "warn")
+            return (round(used_pct, 1), "ok")
         except Exception:
-            pass
+            return (None, None)
 
     def _read_control(self) -> None:
         """
@@ -530,9 +553,9 @@ class BotRunner:
                     state,
                     backup_path=backup_path,
                 )
-        except Exception:
-            # Non-blocking: do not crash engine on state write failure
-            pass
+        except Exception as e:
+            self.logger.log_error(f"Disk write failed (bot_state): {e}")
+            self.write_error_count += 1
 
     def _write_engine_health(
         self,
@@ -540,28 +563,43 @@ class BotRunner:
         cycle_duration_seconds: Optional[float] = None,
     ) -> None:
         """Write engine_health.json for /health endpoint (lightweight, no heavy imports)."""
+        now = datetime.now(timezone.utc)
+        uptime_seconds = int((now - self.start_time).total_seconds())
+        memory_mb: Optional[float] = None
         try:
-            now = datetime.now(timezone.utc)
-            uptime_seconds = int((now - self.start_time).total_seconds())
-            memory_mb: Optional[float] = None
-            try:
-                import psutil
-                proc = psutil.Process()
-                memory_mb = proc.memory_info().rss / (1024 * 1024)
-            except Exception:
-                pass
-            health = {
-                "status": "running" if self.running else "stopped",
-                "last_cycle_timestamp": last_cycle_timestamp or now.isoformat(),
-                "uptime_seconds": uptime_seconds,
-                "error_count": self.error_count,
-                "cycle_duration_seconds": cycle_duration_seconds,
-                "cycles_completed": self.cycles_completed,
-                "memory_mb": memory_mb,
-            }
-            atomic_write_json(self.engine_health_path, health)
+            import psutil
+            proc = psutil.Process()
+            memory_mb = proc.memory_info().rss / (1024 * 1024)
         except Exception:
             pass
+        disk_used_pct, disk_status = self._disk_health()
+        if disk_status == "warn":
+            self.logger.log_warning(
+                f"Disk usage at {disk_used_pct}% (warn threshold 85%)"
+            )
+        if disk_status == "critical":
+            self.logger.log_critical(
+                f"Disk usage at {disk_used_pct}% (critical threshold 95%)"
+            )
+        health = {
+            "status": "running" if self.running else "stopped",
+            "last_cycle_timestamp": last_cycle_timestamp or now.isoformat(),
+            "uptime_seconds": uptime_seconds,
+            "error_count": self.error_count,
+            "write_error_count": self.write_error_count,
+            "cycle_duration_seconds": cycle_duration_seconds,
+            "cycles_completed": self.cycles_completed,
+            "memory_mb": memory_mb,
+            "disk_used_pct": disk_used_pct,
+            "disk_status": disk_status,
+            "data_source": self._data_source,
+            "mock_cycles": self._mock_cycles,
+        }
+        try:
+            atomic_write_json(self.engine_health_path, health)
+        except Exception as e:
+            self.logger.log_error(f"Disk write failed (engine_health): {e}")
+            self.write_error_count += 1
 
     def _log_activity(self, activity: Dict[str, Any]) -> None:
         """
@@ -584,7 +622,8 @@ class BotRunner:
 
             locked_write_json(self.activity_log_path, activities)
         except Exception as e:
-            self.logger.log_error(f"Failed to log activity: {str(e)}")
+            self.logger.log_error(f"Failed to log activity (disk write): {e}")
+            self.write_error_count += 1
 
     def _fetch_markets(self) -> List[Dict[str, Any]]:
         """
@@ -598,24 +637,36 @@ class BotRunner:
             markets = self.market_client.get_markets(min_volume=1000, limit=100)
 
             if markets:
-                market_type = (
-                    "LIVE"
-                    if isinstance(self.market_client, PolymarketClient)
-                    else "MOCK"
-                )
+                is_live = isinstance(self.market_client, PolymarketClient)
+                self._data_source = "live" if is_live else "mock"
+                if is_live:
+                    self._mock_cycles = 0
+                else:
+                    self._mock_cycles += 1
+                market_type = "LIVE" if is_live else "MOCK"
                 self.logger.log_warning(
                     f"📊 Fetched {len(markets)} {market_type} markets"
                 )
-
-                # Convert to expected format if needed
                 return self._normalize_market_format(markets)
             else:
                 self.logger.log_warning("⚠️  No markets returned, using mock data")
+                self._data_source = "mock"
+                self._mock_cycles += 1
+                if self._mock_cycles >= self.MOCK_WARN_CYCLES:
+                    self.logger.log_warning(
+                        f"⚠️  Mock data in use for {self._mock_cycles} consecutive cycles (no live data)"
+                    )
                 return self._get_mock_markets()
 
         except Exception as e:
             self.logger.log_warning(f"⚠️  Error fetching markets: {str(e)}")
             self.logger.log_warning("📊 Falling back to mock market data")
+            self._data_source = "mock"
+            self._mock_cycles += 1
+            if self._mock_cycles >= self.MOCK_WARN_CYCLES:
+                self.logger.log_warning(
+                    f"⚠️  Mock data in use for {self._mock_cycles} consecutive cycles (no live data)"
+                )
             return self._get_mock_markets()
 
     def _normalize_market_format(
@@ -1133,6 +1184,21 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
                 print("❤️ Bot heartbeat – cycle started", flush=True)
                 cycle_start = time.time()
                 self._last_cycle_start = cycle_start
+                # Detect sleep/resume: gap since last cycle end > threshold
+                if (
+                    self._last_cycle_end_time is not None
+                    and (cycle_start - self._last_cycle_end_time)
+                    > self.SLEEP_RESUME_THRESHOLD_SEC
+                ):
+                    gap = int(cycle_start - self._last_cycle_end_time)
+                    self.logger.log_warning(
+                        f"System resume detected (gap {gap}s since last cycle). Forcing reconnection."
+                    )
+                    try:
+                        if hasattr(self.market_client, "connect"):
+                            self.market_client.connect()
+                    except Exception as rc:
+                        self.logger.log_warning(f"Reconnect after resume failed: {rc}")
                 opp_before = self.total_opportunities_found
                 trades_before = self.total_trades_executed
                 self.run_cycle()
@@ -1175,6 +1241,7 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
                         pass
                 self._write_bot_state()
                 self._save_paper_engine_state()
+                self._last_cycle_end_time = time.time()
                 loop_cycles += 1
                 if self.max_cycles is not None and loop_cycles >= self.max_cycles:
                     self.logger.log_warning("Max cycles reached, shutting down")
