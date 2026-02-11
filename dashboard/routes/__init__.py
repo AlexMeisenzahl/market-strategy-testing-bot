@@ -10,8 +10,8 @@ Refactor summary (prevents duplicate endpoint crashes):
   each URL must have a unique endpoint (e.g. core_health and core_health_api).
 - validate_no_duplicate_endpoints(app) runs after all blueprints are registered
   and raises RuntimeError with a clear message if any duplicate is found.
-- Blueprints whose routes are defined in app.py (core, journal, settings, strategies, system)
-  are registered at the end of app.py, after all @bp.route decorators have run.
+- Blueprint modules: core, journal, settings, strategies, system (each defines the blueprint;
+  routes are registered on these blueprints in app.py). They are registered at the end of app.py.
 
 This prevents future route collisions because: (1) namespacing by blueprint and
 explicit endpoint names make accidental duplicates obvious; (2) startup validation

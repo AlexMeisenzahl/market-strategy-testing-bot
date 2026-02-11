@@ -20,7 +20,7 @@ config_api = Blueprint("config_api", __name__, url_prefix="/api/config")
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config.yaml"
 
 
-@config_api.route("/", methods=["GET"])
+@config_api.route("/", methods=["GET"], endpoint="config_api_get")
 def get_config():
     """
     Get current configuration
@@ -37,7 +37,7 @@ def get_config():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@config_api.route("/", methods=["PUT"])
+@config_api.route("/", methods=["PUT"], endpoint="config_api_update")
 def update_config():
     """
     Update configuration
@@ -93,7 +93,7 @@ def update_config():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@config_api.route("/section/<section>", methods=["GET"])
+@config_api.route("/section/<section>", methods=["GET"], endpoint="config_api_get_section")
 def get_config_section(section):
     """
     Get a specific configuration section
@@ -120,7 +120,7 @@ def get_config_section(section):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@config_api.route("/section/<section>", methods=["PUT"])
+@config_api.route("/section/<section>", methods=["PUT"], endpoint="config_api_update_section")
 def update_config_section(section):
     """
     Update a specific configuration section
@@ -170,7 +170,7 @@ def update_config_section(section):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@config_api.route("/validate", methods=["POST"])
+@config_api.route("/validate", methods=["POST"], endpoint="config_api_validate")
 def validate_config():
     """
     Validate configuration without saving
@@ -202,7 +202,7 @@ def validate_config():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@config_api.route("/reset", methods=["POST"])
+@config_api.route("/reset", methods=["POST"], endpoint="config_api_reset")
 def reset_config():
     """
     Reset configuration to example defaults

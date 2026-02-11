@@ -22,7 +22,7 @@ logger = get_logger()
 leaderboard_bp = Blueprint("leaderboard", __name__, url_prefix="/api/leaderboard")
 
 
-@leaderboard_bp.route("/", methods=["GET"])
+@leaderboard_bp.route("/", methods=["GET"], endpoint="leaderboard_get")
 def get_leaderboard():
     """Get strategy leaderboard. Read-only. Optional filters: status, enabled, health."""
     try:
@@ -49,7 +49,7 @@ def get_leaderboard():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@leaderboard_bp.route("/summary", methods=["GET"])
+@leaderboard_bp.route("/summary", methods=["GET"], endpoint="leaderboard_summary")
 def get_summary():
     """Get competition summary"""
     try:
@@ -60,7 +60,7 @@ def get_summary():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@leaderboard_bp.route("/performance/<strategy_name>", methods=["GET"])
+@leaderboard_bp.route("/performance/<strategy_name>", methods=["GET"], endpoint="leaderboard_performance")
 def get_strategy_performance(strategy_name):
     """Get historical performance for a strategy"""
     try:
@@ -72,7 +72,7 @@ def get_strategy_performance(strategy_name):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@leaderboard_bp.route("/stats", methods=["GET"])
+@leaderboard_bp.route("/stats", methods=["GET"], endpoint="leaderboard_stats")
 def get_realtime_stats():
     """Get real-time statistics"""
     try:

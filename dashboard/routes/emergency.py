@@ -23,7 +23,7 @@ logger = get_logger()
 emergency_bp = Blueprint("emergency", __name__, url_prefix="/api/emergency")
 
 
-@emergency_bp.route("/kill-switch/status", methods=["GET"])
+@emergency_bp.route("/kill-switch/status", methods=["GET"], endpoint="emergency_kill_switch_status")
 def get_kill_switch_status():
     """Get kill switch status"""
     try:
@@ -34,7 +34,7 @@ def get_kill_switch_status():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@emergency_bp.route("/kill-switch/activate", methods=["POST"])
+@emergency_bp.route("/kill-switch/activate", methods=["POST"], endpoint="emergency_kill_switch_activate")
 def activate_kill_switch():
     """Activate emergency kill switch"""
     try:
@@ -53,7 +53,7 @@ def activate_kill_switch():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@emergency_bp.route("/kill-switch/deactivate", methods=["POST"])
+@emergency_bp.route("/kill-switch/deactivate", methods=["POST"], endpoint="emergency_kill_switch_deactivate")
 def deactivate_kill_switch():
     """Deactivate emergency kill switch"""
     try:
@@ -68,7 +68,7 @@ def deactivate_kill_switch():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@emergency_bp.route("/health/summary", methods=["GET"])
+@emergency_bp.route("/health/summary", methods=["GET"], endpoint="emergency_health_summary")
 def get_health_summary():
     """Get health summary"""
     try:
@@ -79,7 +79,7 @@ def get_health_summary():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@emergency_bp.route("/strategy/pause", methods=["POST"])
+@emergency_bp.route("/strategy/pause", methods=["POST"], endpoint="emergency_strategy_pause")
 def pause_strategy():
     """Pause a strategy"""
     try:
@@ -101,7 +101,7 @@ def pause_strategy():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@emergency_bp.route("/strategy/resume", methods=["POST"])
+@emergency_bp.route("/strategy/resume", methods=["POST"], endpoint="emergency_strategy_resume")
 def resume_strategy():
     """Resume a paused strategy"""
     try:
@@ -122,7 +122,7 @@ def resume_strategy():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@emergency_bp.route("/strategy/enable", methods=["POST"])
+@emergency_bp.route("/strategy/enable", methods=["POST"], endpoint="emergency_strategy_enable")
 def enable_strategy():
     """Enable a disabled strategy"""
     try:
@@ -155,7 +155,7 @@ def enable_strategy():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@emergency_bp.route("/strategy/disable", methods=["POST"])
+@emergency_bp.route("/strategy/disable", methods=["POST"], endpoint="emergency_strategy_disable")
 def disable_strategy():
     """Disable a strategy"""
     try:

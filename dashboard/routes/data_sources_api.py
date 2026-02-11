@@ -29,7 +29,7 @@ data_sources_api = Blueprint("data_sources_api", __name__, url_prefix="/api/sett
 config_manager = SecureConfigManager()
 
 
-@data_sources_api.route("/data-sources", methods=["GET"])
+@data_sources_api.route("/data-sources", methods=["GET"], endpoint="data_sources_get")
 def get_data_sources():
     """
     Get current data source settings with masked credentials
@@ -76,7 +76,7 @@ def get_data_sources():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@data_sources_api.route("/data-sources", methods=["POST"])
+@data_sources_api.route("/data-sources", methods=["POST"], endpoint="data_sources_save")
 def save_data_sources():
     """
     Save API credentials for a data source (encrypted)
@@ -140,7 +140,7 @@ def save_data_sources():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@data_sources_api.route("/test-connection", methods=["POST"])
+@data_sources_api.route("/test-connection", methods=["POST"], endpoint="data_sources_test_connection")
 def test_connection():
     """
     Test connection to a data source API
@@ -248,7 +248,7 @@ INTEGRATION_DEPENDENCIES = {
 }
 
 
-@data_sources_api.route("/integrations", methods=["GET"])
+@data_sources_api.route("/integrations", methods=["GET"], endpoint="data_sources_integrations")
 def get_integrations():
     """
     List all integrations with masked credentials only. Canonical source: SecureConfigManager.
@@ -272,7 +272,7 @@ def get_integrations():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@data_sources_api.route("/data-mode", methods=["GET"])
+@data_sources_api.route("/data-mode", methods=["GET"], endpoint="data_sources_data_mode")
 def get_data_mode():
     """
     Get current data mode and configuration status
