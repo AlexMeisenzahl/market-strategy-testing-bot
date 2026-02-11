@@ -1169,6 +1169,10 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
                         )
                     except Exception:
                         pass
+                    try:
+                        self.logger.log_logs_disk_usage()
+                    except Exception:
+                        pass
                 self._write_bot_state()
                 self._save_paper_engine_state()
                 loop_cycles += 1

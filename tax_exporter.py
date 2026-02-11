@@ -16,6 +16,11 @@ from pathlib import Path
 import csv
 from logger import get_logger
 
+try:
+    from database.trades_store import get_trades as store_get_trades
+except ImportError:
+    store_get_trades = None
+
 
 class TaxPosition:
     """Represents a tax position (acquisition and disposal)"""
@@ -101,17 +106,42 @@ class TaxExporter:
 
     def load_trades_from_logs(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
         """
-        Load trades from log files
+        Load trades from SQLite store or CSV log files.
 
         Args:
             year: Optional year to filter trades (None = all years)
 
         Returns:
-            List of trade dictionaries
+            List of trade dictionaries (timestamp, market, yes_price, no_price, profit_usd, status)
         """
         trades = []
-        trades_file = self.log_dir / "trades.csv"
+        log_dir = Path(self.log_dir)
 
+        # Prefer SQLite store (bounded; supports year filter)
+        if store_get_trades is not None:
+            try:
+                rows = store_get_trades(log_dir, limit=999999, offset=0, year=year)
+                for row in rows:
+                    ts = row.get("timestamp") or row.get("entry_time") or ""
+                    try:
+                        timestamp = datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S") if len(ts) >= 19 else datetime.min
+                    except ValueError:
+                        timestamp = datetime.min
+                    trades.append({
+                        "timestamp": timestamp,
+                        "market": row.get("symbol") or row.get("market", ""),
+                        "yes_price": float(row.get("entry_price", 0) or 0),
+                        "no_price": float(row.get("exit_price", 0) or 0),
+                        "profit_usd": float(row.get("pnl_usd", 0) or 0),
+                        "status": row.get("status", "closed"),
+                    })
+                if trades:
+                    self.logger.log_warning(f"Loaded {len(trades)} trades from store")
+                    return trades
+            except Exception as e:
+                self.logger.log_error(f"Error loading trades from store: {str(e)}")
+
+        trades_file = self.log_dir / "trades.csv"
         if not trades_file.exists():
             self.logger.log_error(f"Trades log not found: {trades_file}")
             return trades
@@ -119,15 +149,10 @@ class TaxExporter:
         try:
             with open(trades_file, "r") as f:
                 reader = csv.DictReader(f)
-
                 for row in reader:
-                    # Parse trade
                     timestamp = datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M:%S")
-
-                    # Filter by year if specified
                     if year and timestamp.year != year:
                         continue
-
                     trade = {
                         "timestamp": timestamp,
                         "market": row["market"],
@@ -136,14 +161,10 @@ class TaxExporter:
                         "profit_usd": float(row["profit_usd"]),
                         "status": row["status"],
                     }
-
                     trades.append(trade)
-
             self.logger.log_warning(f"Loaded {len(trades)} trades from logs")
-
         except Exception as e:
             self.logger.log_error(f"Error loading trades: {str(e)}")
-
         return trades
 
     def process_trades_fifo(self, trades: List[Dict[str, Any]]) -> List[TaxPosition]:

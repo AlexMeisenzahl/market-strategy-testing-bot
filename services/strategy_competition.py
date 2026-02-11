@@ -24,6 +24,11 @@ logger = get_logger()
 # Constants
 TRADING_DAYS_PER_YEAR = 252  # Standard for Sharpe ratio annualization
 
+# Bounded history for 6+ month unattended runtime (avoid silent memory growth)
+TRADE_HISTORY_MAX_LEN_PER_STRATEGY = 5000
+PNL_HISTORY_MAX_LEN = 10000
+PERFORMANCE_CACHE_MAX_ENTRIES = 100
+
 
 class StrategyCompetition:
     """
@@ -177,7 +182,10 @@ class StrategyCompetition:
                     pnl = exit_value - entry_value
 
                     portfolio["cash"] += exit_value
-                    portfolio["pnl_history"].append(pnl)
+                    pnl_list = portfolio["pnl_history"]
+                    pnl_list.append(pnl)
+                    if len(pnl_list) > PNL_HISTORY_MAX_LEN:
+                        portfolio["pnl_history"] = pnl_list[-PNL_HISTORY_MAX_LEN:]
 
                     if pnl > 0:
                         portfolio["wins"] += 1
@@ -190,14 +198,17 @@ class StrategyCompetition:
             )
             portfolio["total_value"] = portfolio["cash"] + positions_value
 
-            # Record trade
-            self.trade_history[strategy_id].append(
+            # Record trade (bounded per strategy)
+            hist = self.trade_history[strategy_id]
+            hist.append(
                 {
                     "timestamp": datetime.utcnow(),
                     "opportunity": opportunity,
                     "portfolio_value": portfolio["total_value"],
                 }
             )
+            if len(hist) > TRADE_HISTORY_MAX_LEN_PER_STRATEGY:
+                self.trade_history[strategy_id] = hist[-TRADE_HISTORY_MAX_LEN_PER_STRATEGY:]
 
         except Exception as e:
             logger.error(f"Error executing virtual trade: {e}")

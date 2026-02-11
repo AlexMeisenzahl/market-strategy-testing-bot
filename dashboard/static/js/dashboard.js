@@ -39,8 +39,8 @@ function escapeHtml(text) {
 // Initialize API client
 const apiClient = new APIClient(API_BASE);
 
-// Phase 9B: Real-time update contract — explicit polling intervals (2–5s)
-const REFRESH_INTERVAL = window.RealtimeContract ? (window.RealtimeContract.CONTRACT.POLL_PANELS_MS || 5000) : 5000;
+// Phase 9B: Real-time update contract — 15s panel refresh to avoid full history reload
+const REFRESH_INTERVAL = window.RealtimeContract ? (window.RealtimeContract.CONTRACT.POLL_PANELS_MS || 15000) : 15000;
 const SYSTEM_POLL_MS = window.RealtimeContract ? (window.RealtimeContract.CONTRACT.POLL_SYSTEM_MS || 3000) : 3000;
 const MIN_REFRESH_DELAY = 2000;
 

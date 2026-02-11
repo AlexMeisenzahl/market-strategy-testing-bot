@@ -12,6 +12,10 @@ from itertools import product
 from services.backtesting_engine import backtesting_engine
 
 
+# Bounded history for 6+ month unattended runtime (avoid silent memory growth)
+OPTIMIZATION_HISTORY_MAX_LEN = 200
+
+
 class StrategyOptimizer:
     """
     Optimizer for strategy parameters using grid search
@@ -22,7 +26,7 @@ class StrategyOptimizer:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.optimization_history = []
+        self.optimization_history: List[Dict] = []
 
     def optimize_strategy(
         self,
@@ -134,6 +138,8 @@ class StrategyOptimizer:
             "optimization_metric": optimization_metric,
         }
         self.optimization_history.append(optimization_record)
+        if len(self.optimization_history) > OPTIMIZATION_HISTORY_MAX_LEN:
+            self.optimization_history = self.optimization_history[-OPTIMIZATION_HISTORY_MAX_LEN:]
 
         return {
             "success": True,

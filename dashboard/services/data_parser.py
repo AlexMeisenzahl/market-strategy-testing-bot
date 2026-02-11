@@ -3,7 +3,8 @@ Data Parser Service
 
 Parses trading logs, opportunities, and other data files
 to provide structured data for the dashboard.
-Reads from actual CSV files with fallback to sample data.
+Reads from SQLite store (last N rows only) when available, else CSV.
+Bounded load for 6+ month unattended runtime.
 
 CRITICAL: All money calculations use Decimal for accuracy.
 """
@@ -16,6 +17,18 @@ from typing import Dict, List, Any, Optional
 from decimal import Decimal, ROUND_HALF_UP
 from collections import defaultdict
 import os
+
+# Load only last N rows for dashboard (no full-file load)
+DASHBOARD_TRADES_LIMIT = 25_000
+DASHBOARD_OPPORTUNITIES_LIMIT = 25_000
+# Cache TTL: avoid refreshing entire history every few seconds
+CACHE_TTL_SEC = 30
+
+try:
+    from database.trades_store import get_trades as store_get_trades, get_opportunities as store_get_opportunities
+except ImportError:
+    store_get_trades = None
+    store_get_opportunities = None
 
 
 class DataParser:
@@ -35,22 +48,42 @@ class DataParser:
         self.trades_csv = self.logs_dir / "trades.csv"
         self.opportunities_csv = self.logs_dir / "opportunities.csv"
 
-        # Cache for parsed data
+        # Cache for parsed data (bounded size; longer TTL to avoid full reload every 5s)
         self._trades_cache = None
         self._opportunities_cache = None
         self._cache_timestamp = None
-        self._cache_ttl = 5  # Cache TTL in seconds
+        self._cache_ttl = CACHE_TTL_SEC
 
         # Sample data for testing (used as fallback)
         self._sample_trades = self._generate_sample_trades()
         self._sample_opportunities = self._generate_sample_opportunities()
 
-    def _read_trades_from_csv(self) -> List[Dict[str, Any]]:
+    def _read_trades_from_store(self, limit: int = DASHBOARD_TRADES_LIMIT) -> Optional[List[Dict[str, Any]]]:
+        """Read last N trades from SQLite store. Returns None if store unavailable."""
+        if store_get_trades is None:
+            return None
+        try:
+            rows = store_get_trades(self.logs_dir, limit=limit, offset=0, year=None)
+            return rows if rows else None
+        except Exception:
+            return None
+
+    def _read_opportunities_from_store(self, limit: int = DASHBOARD_OPPORTUNITIES_LIMIT) -> Optional[List[Dict[str, Any]]]:
+        """Read last N opportunities from SQLite store. Returns None if store unavailable."""
+        if store_get_opportunities is None:
+            return None
+        try:
+            rows = store_get_opportunities(self.logs_dir, limit=limit, offset=0)
+            return rows if rows else None
+        except Exception:
+            return None
+
+    def _read_trades_from_csv(self, limit: Optional[int] = None) -> Optional[List[Dict[str, Any]]]:
         """
-        Read trades from CSV file
+        Read trades from CSV file (fallback). If limit set, read only last N rows.
 
         Returns:
-            List of trade dictionaries
+            List of trade dictionaries, or None if file missing
         """
         trades = []
 
@@ -60,7 +93,10 @@ class DataParser:
         try:
             with open(self.trades_csv, "r", newline="", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
-                for row in reader:
+                all_rows = list(reader)
+                if limit is not None and len(all_rows) > limit:
+                    all_rows = all_rows[-limit:]
+                for row in all_rows:
                     try:
                         # Parse the trade data with proper column mapping
                         # Handle actual CSV format: timestamp, market, yes_price, no_price, sum, profit_pct, profit_usd, status, strategy, arbitrage_type
@@ -104,22 +140,25 @@ class DataParser:
 
         return trades
 
-    def _read_opportunities_from_csv(self) -> List[Dict[str, Any]]:
+    def _read_opportunities_from_csv(self, limit: Optional[int] = None) -> Optional[List[Dict[str, Any]]]:
         """
-        Read opportunities from CSV file
+        Read opportunities from CSV file (fallback). If limit set, only last N rows.
 
         Returns:
-            List of opportunity dictionaries
+            List of opportunity dictionaries, or None if file missing
         """
         opportunities = []
 
         if not self.opportunities_csv.exists():
-            return None  # Return None to indicate file doesn't exist
+            return None
 
         try:
             with open(self.opportunities_csv, "r", newline="", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
-                for row in reader:
+                all_rows = list(reader)
+                if limit is not None and len(all_rows) > limit:
+                    all_rows = all_rows[-limit:]
+                for row in all_rows:
                     try:
                         # Parse the opportunity data
                         opportunity = {
@@ -156,34 +195,34 @@ class DataParser:
         elapsed = (datetime.now() - self._cache_timestamp).total_seconds()
         return elapsed > self._cache_ttl
 
-    def _get_trades_with_cache(self) -> List[Dict[str, Any]]:
-        """Get trades with caching"""
+    def _get_trades_with_cache(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get trades with caching. Loads only last N rows (no full file)."""
         if self._should_refresh_cache():
-            # Try to read from CSV
-            csv_trades = self._read_trades_from_csv()
-
-            if csv_trades is not None and len(csv_trades) > 0:
-                self._trades_cache = csv_trades
+            # Prefer SQLite store (bounded last N)
+            store_trades = self._read_trades_from_store(limit or DASHBOARD_TRADES_LIMIT)
+            if store_trades is not None and len(store_trades) > 0:
+                self._trades_cache = store_trades
             else:
-                # Fall back to sample data
-                self._trades_cache = self._sample_trades
-
+                csv_trades = self._read_trades_from_csv(limit=limit or DASHBOARD_TRADES_LIMIT)
+                if csv_trades is not None and len(csv_trades) > 0:
+                    self._trades_cache = csv_trades
+                else:
+                    self._trades_cache = self._sample_trades
             self._cache_timestamp = datetime.now()
-
         return self._trades_cache
 
-    def _get_opportunities_with_cache(self) -> List[Dict[str, Any]]:
-        """Get opportunities with caching"""
+    def _get_opportunities_with_cache(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get opportunities with caching. Loads only last N rows."""
         if self._opportunities_cache is None or self._should_refresh_cache():
-            # Try to read from CSV
-            csv_opportunities = self._read_opportunities_from_csv()
-
-            if csv_opportunities is not None and len(csv_opportunities) > 0:
-                self._opportunities_cache = csv_opportunities
+            store_opps = self._read_opportunities_from_store(limit or DASHBOARD_OPPORTUNITIES_LIMIT)
+            if store_opps is not None and len(store_opps) > 0:
+                self._opportunities_cache = store_opps
             else:
-                # Fall back to sample data
-                self._opportunities_cache = self._sample_opportunities
-
+                csv_opportunities = self._read_opportunities_from_csv(limit=limit or DASHBOARD_OPPORTUNITIES_LIMIT)
+                if csv_opportunities is not None and len(csv_opportunities) > 0:
+                    self._opportunities_cache = csv_opportunities
+                else:
+                    self._opportunities_cache = self._sample_opportunities
         return self._opportunities_cache
 
     def _generate_sample_trades(self) -> List[Dict[str, Any]]:

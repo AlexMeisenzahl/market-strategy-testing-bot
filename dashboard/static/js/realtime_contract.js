@@ -16,8 +16,8 @@
   const CONTRACT = {
     /** Polling: mission bar + system status (fast to show "is it running?") */
     POLL_SYSTEM_MS: 3000,
-    /** Polling: overview panels (trades, strategies, overview metrics) */
-    POLL_PANELS_MS: 5000,
+    /** Polling: overview panels (longer interval to avoid full history reload every few seconds) */
+    POLL_PANELS_MS: 15000,
     /** Data is considered stale after this many seconds */
     STALE_THRESHOLD_SEC: 30,
     /** Heartbeat is stale after this many seconds */

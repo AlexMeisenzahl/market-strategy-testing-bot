@@ -19,6 +19,23 @@ from logging.handlers import RotatingFileHandler
 from typing import Dict, Any, Optional
 from pathlib import Path
 
+try:
+    from database.trades_store import (
+        init_db as init_trades_db,
+        insert_trade as store_insert_trade,
+        insert_opportunity as store_insert_opportunity,
+        migrate_csv_to_db as migrate_trades_csv,
+        migrate_opportunities_csv_to_db as migrate_opportunities_csv,
+        get_opportunities as store_get_opportunities,
+    )
+except ImportError:
+    init_trades_db = None
+    store_insert_trade = None
+    store_insert_opportunity = None
+    migrate_trades_csv = None
+    migrate_opportunities_csv = None
+    store_get_opportunities = None
+
 # Configurable minimum log level (from env LOG_LEVEL)
 _LEVELS = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
 
@@ -75,8 +92,14 @@ class Logger:
         self._connection_handler.setFormatter(fmt)
 
     def _initialize_csv_files(self) -> None:
-        """Initialize CSV files with headers if they don't exist"""
-        # Initialize trades.csv
+        """Initialize SQLite store (primary) and legacy CSV headers if needed for migration."""
+        if init_trades_db is not None:
+            init_trades_db(self.log_dir)
+            if migrate_trades_csv is not None:
+                migrate_trades_csv(self.log_dir)
+            if migrate_opportunities_csv is not None:
+                migrate_opportunities_csv(self.log_dir)
+        # Keep CSV headers for backward compatibility (e.g. manual inspection); writes go to SQLite
         trades_file = self.log_dir / "trades.csv"
         if not trades_file.exists():
             with open(trades_file, "w", newline="") as f:
@@ -96,10 +119,7 @@ class Logger:
                     ]
                 )
         else:
-            # Check if file needs migration (add new columns if missing)
             self._migrate_trades_csv(trades_file)
-
-        # Initialize opportunities.csv
         opportunities_file = self.log_dir / "opportunities.csv"
         if not opportunities_file.exists():
             with open(opportunities_file, "w", newline="") as f:
@@ -118,7 +138,6 @@ class Logger:
                     ]
                 )
         else:
-            # Check if file needs migration
             self._migrate_opportunities_csv(opportunities_file)
 
     def _migrate_trades_csv(self, trades_file: Path) -> None:
@@ -202,7 +221,7 @@ class Logger:
         arbitrage_type: str = "Unknown",
     ) -> None:
         """
-        Log a paper trade execution
+        Log a paper trade execution (SQLite primary; no unbounded CSV append).
 
         Args:
             market: Market identifier
@@ -213,27 +232,40 @@ class Logger:
             strategy: Strategy name (e.g., 'polymarket_arbitrage')
             arbitrage_type: Type of arbitrage (e.g., 'Simple', 'Cross-Exchange')
         """
-        trades_file = self.log_dir / "trades.csv"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         price_sum = yes_price + no_price
-        profit_pct = ((1.0 - price_sum) / price_sum) * 100
-
-        with open(trades_file, "a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    timestamp,
-                    market,
-                    f"{yes_price:.3f}",
-                    f"{no_price:.3f}",
-                    f"{price_sum:.3f}",
-                    f"{profit_pct:.1f}",
-                    f"{profit_usd:.2f}",
-                    status,
-                    strategy,
-                    arbitrage_type,
-                ]
+        profit_pct = ((1.0 - price_sum) / price_sum) * 100 if price_sum else 0.0
+        if store_insert_trade is not None:
+            store_insert_trade(
+                self.log_dir,
+                timestamp=timestamp,
+                market=market,
+                yes_price=yes_price,
+                no_price=no_price,
+                profit_pct=profit_pct,
+                profit_usd=profit_usd,
+                status=status,
+                strategy=strategy,
+                arbitrage_type=arbitrage_type,
             )
+        else:
+            trades_file = self.log_dir / "trades.csv"
+            with open(trades_file, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        timestamp,
+                        market,
+                        f"{yes_price:.3f}",
+                        f"{no_price:.3f}",
+                        f"{price_sum:.3f}",
+                        f"{profit_pct:.1f}",
+                        f"{profit_usd:.2f}",
+                        status,
+                        strategy,
+                        arbitrage_type,
+                    ]
+                )
 
     def log_opportunity(
         self,
@@ -245,7 +277,7 @@ class Logger:
         arbitrage_type: str = "Unknown",
     ) -> None:
         """
-        Log an arbitrage opportunity (traded or skipped)
+        Log an arbitrage opportunity (SQLite primary; no unbounded CSV append).
 
         Args:
             market: Market identifier
@@ -255,26 +287,38 @@ class Logger:
             strategy: Strategy name (e.g., 'polymarket_arbitrage')
             arbitrage_type: Type of arbitrage (e.g., 'Simple', 'Cross-Exchange')
         """
-        opportunities_file = self.log_dir / "opportunities.csv"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         price_sum = yes_price + no_price
-        profit_pct = ((1.0 - price_sum) / price_sum) * 100
-
-        with open(opportunities_file, "a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    timestamp,
-                    market,
-                    f"{yes_price:.3f}",
-                    f"{no_price:.3f}",
-                    f"{price_sum:.3f}",
-                    f"{profit_pct:.1f}",
-                    action_taken,
-                    strategy,
-                    arbitrage_type,
-                ]
+        profit_pct = ((1.0 - price_sum) / price_sum) * 100 if price_sum else 0.0
+        if store_insert_opportunity is not None:
+            store_insert_opportunity(
+                self.log_dir,
+                timestamp=timestamp,
+                market=market,
+                yes_price=yes_price,
+                no_price=no_price,
+                profit_pct=profit_pct,
+                action_taken=action_taken,
+                strategy=strategy,
+                arbitrage_type=arbitrage_type,
             )
+        else:
+            opportunities_file = self.log_dir / "opportunities.csv"
+            with open(opportunities_file, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        timestamp,
+                        market,
+                        f"{yes_price:.3f}",
+                        f"{no_price:.3f}",
+                        f"{price_sum:.3f}",
+                        f"{profit_pct:.1f}",
+                        action_taken,
+                        strategy,
+                        arbitrage_type,
+                    ]
+                )
 
     def log_error(self, message: str, level: str = "ERROR") -> None:
         """
@@ -377,35 +421,56 @@ class Logger:
         )
         self._connection_handler.emit(record)
 
+    def log_logs_disk_usage(self) -> None:
+        """
+        Log total disk usage of the logs directory (for 6+ month unattended monitoring).
+        Call periodically from run_bot or dashboard.
+        """
+        try:
+            total = 0
+            for p in self.log_dir.rglob("*"):
+                if p.is_file():
+                    try:
+                        total += p.stat().st_size
+                    except OSError:
+                        pass
+            size_mb = total / (1024 * 1024)
+            self.log_info(
+                f"Logs dir disk usage: {size_mb:.2f} MB ({self.log_dir})"
+            )
+        except Exception as e:
+            self.log_error(f"Logs disk usage check failed: {e}")
+
     def get_recent_activities(self, count: int = 5) -> list:
         """
-        Get recent activities from logs for dashboard display
+        Get recent activities from SQLite or CSV for dashboard display.
 
         Args:
             count: Number of recent activities to retrieve
 
         Returns:
-            List of recent activity strings
+            List of recent activity dicts (timestamp, type, data)
         """
+        if store_get_opportunities is not None:
+            opps = store_get_opportunities(self.log_dir, limit=count, offset=0)
+            return [
+                {"timestamp": o.get("timestamp", ""), "type": "opportunity", "data": o}
+                for o in opps
+            ]
         activities = []
-
-        # Read recent opportunities
         opportunities_file = self.log_dir / "opportunities.csv"
         if opportunities_file.exists():
             with open(opportunities_file, "r") as f:
                 reader = csv.DictReader(f)
                 rows = list(reader)
-                # Get last N rows
                 for row in rows[-count:]:
                     activities.append(
                         {
-                            "timestamp": row["timestamp"],
+                            "timestamp": row.get("timestamp", ""),
                             "type": "opportunity",
                             "data": row,
                         }
                     )
-
-        # Sort by timestamp and return most recent
         activities.sort(key=lambda x: x["timestamp"], reverse=True)
         return activities[:count]
 

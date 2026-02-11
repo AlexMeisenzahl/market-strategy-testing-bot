@@ -16,6 +16,9 @@ Portfolio Management System
 Manages overall portfolio, risk allocation, and performance tracking
 """
 
+# Bounded history for 6+ month unattended runtime (avoid silent memory growth)
+SNAPSHOTS_MAX_LEN = 5000
+
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -119,6 +122,8 @@ class PortfolioManager:
         )
 
         self.snapshots.append(snapshot)
+        if len(self.snapshots) > SNAPSHOTS_MAX_LEN:
+            self.snapshots = self.snapshots[-SNAPSHOTS_MAX_LEN:]
         return snapshot
 
     def get_performance_metrics(self) -> Dict[str, Any]:

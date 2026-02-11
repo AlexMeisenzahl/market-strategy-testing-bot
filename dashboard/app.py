@@ -4060,15 +4060,54 @@ def page_intelligence():
 
 @core_bp.route("/api/export/trades", endpoint="core_export_trades_csv")
 def export_trades_csv():
-    """Export trades to CSV. Phase 7B: Single source logs/trades.csv."""
+    """Export trades to CSV. Uses data_parser (bounded last N) when available."""
     try:
-        trades_file = LOGS_DIR / "trades.csv"
-        if trades_file.exists():
-            csv_data = trades_file.read_text(encoding="utf-8")
-        else:
-            csv_data = (
-                "timestamp,market,yes_price,no_price,sum,profit_pct,profit_usd,status,strategy,arbitrage_type\n"
+        trades = data_parser.get_all_trades() or []
+        if trades:
+            si = io.StringIO()
+            w = csv.writer(si)
+            w.writerow(
+                [
+                    "timestamp",
+                    "market",
+                    "yes_price",
+                    "no_price",
+                    "sum",
+                    "profit_pct",
+                    "profit_usd",
+                    "status",
+                    "strategy",
+                    "arbitrage_type",
+                ]
             )
+            for t in trades:
+                ts = t.get("timestamp") or t.get("entry_time") or ""
+                sym = t.get("symbol") or ""
+                ep = float(t.get("entry_price") or 0)
+                xp = float(t.get("exit_price") or 0)
+                w.writerow(
+                    [
+                        ts,
+                        sym,
+                        f"{ep:.3f}",
+                        f"{xp:.3f}",
+                        f"{ep + xp:.3f}",
+                        f"{float(t.get('pnl_pct') or 0):.1f}",
+                        f"{float(t.get('pnl_usd') or 0):.2f}",
+                        t.get("status", "closed"),
+                        t.get("strategy", "Unknown"),
+                        t.get("arbitrage_type", "Unknown"),
+                    ]
+                )
+            csv_data = si.getvalue()
+        else:
+            trades_file = LOGS_DIR / "trades.csv"
+            if trades_file.exists():
+                csv_data = trades_file.read_text(encoding="utf-8")
+            else:
+                csv_data = (
+                    "timestamp,market,yes_price,no_price,sum,profit_pct,profit_usd,status,strategy,arbitrage_type\n"
+                )
         return Response(
             csv_data,
             mimetype="text/csv",

@@ -152,8 +152,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadOpportunities();
             
-            // Auto-refresh every 5 seconds
-            setInterval(loadOpportunities, 5000);
+            // Auto-refresh every 15 seconds (avoid full history reload)
+            setInterval(loadOpportunities, 15000);
             
             // Add event listener for Apply Filters button
             const applyFiltersBtn = document.getElementById('apply-filters-btn');
