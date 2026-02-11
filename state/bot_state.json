@@ -1,10 +1,21 @@
 {
-  "active_strategies": [
-    "strategy1",
-    "strategy2"
-  ],
-  "open_positions": [],
-  "portfolio_value": 10000.0,
-  "timestamp": "2026-02-08T07:24:34.213799",
-  "save_count": 1
+  "connection": {
+    "healthy": true,
+    "response_time_ms": 0
+  },
+  "rate_limit": {
+    "usage_pct": 0.0,
+    "remaining": 0,
+    "reset_seconds": 0
+  },
+  "trading": {
+    "opportunities_found": 0,
+    "trades_executed": 0,
+    "paper_profit": 0.0
+  },
+  "positions": [],
+  "balance": 10000.0,
+  "last_update": "2026-02-11T04:51:49.102249+00:00",
+  "status": "running",
+  "runtime_seconds": 0
 }
