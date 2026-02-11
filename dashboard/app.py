@@ -55,6 +55,12 @@ from dashboard.routes.config_api import config_api
 from dashboard.routes.leaderboard import leaderboard_bp
 from dashboard.routes.emergency import emergency_bp
 from dashboard.routes.data_sources_api import data_sources_api
+from dashboard.routes.core import core_bp
+from dashboard.routes.journal import journal_bp
+from dashboard.routes.settings import settings_bp
+from dashboard.routes.strategies import strategies_bp
+from dashboard.routes.system import system_bp
+from dashboard.routes import validate_no_duplicate_endpoints
 from version_manager import VersionManager
 from services.update_service import UpdateService
 from services.process_manager import ProcessManager
@@ -109,11 +115,13 @@ except Exception as e:
     logger_instance.warning(f"Could not initialize metrics collector: {e}")
     metrics_collector = None
 
-# Register blueprints
+# Register blueprints that have all routes defined in their own modules
 app.register_blueprint(config_api)
 app.register_blueprint(leaderboard_bp)
 app.register_blueprint(emergency_bp)
 app.register_blueprint(data_sources_api)
+# core_bp, journal_bp, settings_bp, strategies_bp, system_bp are registered at end of file
+# after all their routes are defined below (Flask does not allow adding routes after register)
 
 # Configuration
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -264,8 +272,8 @@ def handle_exception(error):
 # ============================================================================
 
 
-@app.route("/health")
-@app.route("/api/health")
+@core_bp.route("/health", endpoint="core_health")
+@core_bp.route("/api/health", endpoint="core_health_api")
 def health_check():
     """
     Comprehensive health check endpoint.
@@ -315,8 +323,8 @@ def health_check():
         )
 
 
-@app.route("/metrics")
-@app.route("/api/metrics")
+@core_bp.route("/metrics", endpoint="core_prometheus_metrics")
+@core_bp.route("/api/metrics", endpoint="core_prometheus_metrics_api")
 def prometheus_metrics():
     """
     Prometheus metrics endpoint.
@@ -336,7 +344,7 @@ def prometheus_metrics():
         return jsonify({"error": "Metrics generation failed"}), 500
 
 
-@app.route("/api/metrics/stats")
+@core_bp.route("/api/metrics/stats", endpoint="core_metrics_stats")
 def metrics_stats():
     """
     Get human-readable metrics statistics.
@@ -366,19 +374,19 @@ bot_status = {
 }
 
 
-@app.route("/")
+@core_bp.route("/", endpoint="core_index")
 def index():
     """Render main dashboard page"""
     return render_template("index.html")
 
 
-@app.route("/opportunities")
+@core_bp.route("/opportunities", endpoint="core_opportunities_page")
 def opportunities_page():
     """Render opportunities page"""
     return render_template("opportunities.html")
 
 
-@app.route("/leaderboard")
+@core_bp.route("/leaderboard", endpoint="core_leaderboard_page")
 def leaderboard_page():
     """Render leaderboard page"""
     return render_template("leaderboard.html")
@@ -388,7 +396,7 @@ def leaderboard_page():
 
 
 # PWA Routes
-@app.route("/manifest.json")
+@core_bp.route("/manifest.json", endpoint="core_manifest")
 def manifest():
     """Serve PWA manifest file"""
     return send_file(
@@ -397,7 +405,7 @@ def manifest():
     )
 
 
-@app.route("/service-worker.js")
+@core_bp.route("/service-worker.js", endpoint="core_service_worker")
 def service_worker():
     """Serve service worker file"""
     return send_file(
@@ -406,14 +414,14 @@ def service_worker():
     )
 
 
-@app.route("/offline")
-@app.route("/offline.html")
+@core_bp.route("/offline", endpoint="core_offline")
+@core_bp.route("/offline.html", endpoint="core_offline_html")
 def offline():
     """Serve offline fallback page"""
     return render_template("offline.html")
 
 
-@app.route("/api/overview")
+@core_bp.route("/api/overview", endpoint="core_get_overview")
 def get_overview():
     """
     Get overview dashboard summary statistics.
@@ -447,7 +455,7 @@ def get_overview():
         )
 
 
-@app.route("/api/trades")
+@core_bp.route("/api/trades", endpoint="core_get_trades")
 def get_trades():
     """Get filtered trades data"""
     try:
@@ -476,7 +484,7 @@ def get_trades():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/opportunities")
+@core_bp.route("/api/opportunities", endpoint="core_get_opportunities")
 def get_opportunities():
     """Get opportunities data with filters"""
     try:
@@ -500,7 +508,7 @@ def get_opportunities():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/charts/cumulative-pnl")
+@core_bp.route("/api/charts/cumulative-pnl", endpoint="core_get_cumulative_pnl")
 def get_cumulative_pnl():
     """Get cumulative P&L chart data"""
     try:
@@ -512,7 +520,7 @@ def get_cumulative_pnl():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/charts/daily-pnl")
+@core_bp.route("/api/charts/daily-pnl", endpoint="core_get_daily_pnl")
 def get_daily_pnl():
     """Get daily P&L chart data"""
     try:
@@ -523,7 +531,7 @@ def get_daily_pnl():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/charts/strategy-performance")
+@core_bp.route("/api/charts/strategy-performance", endpoint="core_get_strategy_performance")
 def get_strategy_performance():
     """Get strategy performance comparison data"""
     try:
@@ -534,7 +542,7 @@ def get_strategy_performance():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/strategies")
+@core_bp.route("/api/strategies", endpoint="core_get_strategies")
 def get_strategies():
     """Get list of all strategy names"""
     try:
@@ -545,7 +553,7 @@ def get_strategies():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/strategies/<strategy_name>/performance")
+@core_bp.route("/api/strategies/<strategy_name>/performance", endpoint="core_get_strategy_details")
 def get_strategy_details(strategy_name):
     """Get detailed performance for a specific strategy"""
     try:
@@ -559,7 +567,7 @@ def get_strategy_details(strategy_name):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings", methods=["GET"])
+@core_bp.route("/api/settings", methods=["GET"], endpoint="core_get_settings")
 def get_settings():
     """Get all settings from config.yaml"""
     try:
@@ -570,7 +578,7 @@ def get_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/notifications", methods=["GET", "PUT"])
+@core_bp.route("/api/settings/notifications", methods=["GET", "PUT"], endpoint="core_handle_notification_settings")
 def handle_notification_settings():
     """Get or update notification settings"""
     if request.method == "GET":
@@ -608,7 +616,7 @@ def handle_notification_settings():
             return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/strategies", methods=["PUT"])
+@core_bp.route("/api/settings/strategies", methods=["PUT"], endpoint="core_update_strategy_settings")
 def update_strategy_settings():
     """Update strategy configuration"""
     try:
@@ -620,7 +628,7 @@ def update_strategy_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/overview")
+@core_bp.route("/api/analytics/overview", endpoint="core_analytics_overview")
 def analytics_overview():
     """
     Get dashboard overview analytics statistics
@@ -693,7 +701,7 @@ def analytics_overview():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/charts")
+@core_bp.route("/api/analytics/charts", endpoint="core_analytics_charts")
 def analytics_charts():
     """
     Get chart data for visualizations
@@ -745,7 +753,7 @@ def analytics_charts():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/export/trades", methods=["POST"])
+@core_bp.route("/api/export/trades", methods=["POST"], endpoint="core_export_trades")
 def export_trades():
     """
     Export trades to CSV for external analysis
@@ -831,7 +839,7 @@ def export_trades():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/notifications/test", methods=["POST"])
+@core_bp.route("/api/notifications/test", methods=["POST"], endpoint="core_test_notification")
 def test_notification():
     """Send test notification"""
     try:
@@ -869,7 +877,7 @@ def test_notification():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/notifications/history")
+@core_bp.route("/api/notifications/history", endpoint="core_get_notification_history")
 def get_notification_history():
     """Get notification history"""
     try:
@@ -881,7 +889,7 @@ def get_notification_history():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/bot/status")
+@core_bp.route("/api/bot/status", endpoint="core_get_bot_status")
 def get_bot_status():
     """Get current engine status. Prefers engine state (state/bot_state.json). Phase 7B: Engine = main.py only."""
     try:
@@ -950,7 +958,7 @@ def get_bot_status():
         )  # Return 200 even on error to avoid breaking frontend
 
 
-@app.route("/api/bot/start", methods=["POST"])
+@core_bp.route("/api/bot/start", methods=["POST"], endpoint="core_start_bot")
 def start_bot():
     """Start the engine (main.py). Phase 7B: Actually starts process."""
     try:
@@ -966,7 +974,7 @@ def start_bot():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/bot/stop", methods=["POST"])
+@core_bp.route("/api/bot/stop", methods=["POST"], endpoint="core_stop_bot")
 def stop_bot():
     """Stop the engine (main.py). Phase 7B: Actually stops process."""
     try:
@@ -979,7 +987,7 @@ def stop_bot():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/bot/restart", methods=["POST"])
+@core_bp.route("/api/bot/restart", methods=["POST"], endpoint="core_restart_bot")
 def restart_bot():
     """Restart the engine (main.py). Phase 7B: Actually restarts process."""
     try:
@@ -994,7 +1002,7 @@ def restart_bot():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/logs/recent")
+@core_bp.route("/api/logs/recent", endpoint="core_get_recent_logs")
 def get_recent_logs():
     """Get recent log entries"""
     try:
@@ -1042,7 +1050,7 @@ def update_bot_status_from_instance(status_dict):
     bot_status.update(status_dict)
 
 
-@app.route("/api/tax/summary")
+@core_bp.route("/api/tax/summary", endpoint="core_get_tax_summary")
 def get_tax_summary():
     """Get tax summary data from tax_exporter"""
     try:
@@ -1065,7 +1073,7 @@ def get_tax_summary():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/tax/positions")
+@core_bp.route("/api/tax/positions", endpoint="core_get_tax_positions")
 def get_tax_positions():
     """Get detailed tax positions for Form 8949"""
     try:
@@ -1095,7 +1103,7 @@ def get_tax_positions():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/tax/export/<format>")
+@core_bp.route("/api/tax/export/<format>", endpoint="core_export_tax_report")
 def export_tax_report(format):
     """Export tax report in various formats"""
     try:
@@ -1149,7 +1157,7 @@ def export_tax_report(format):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/risk")
+@core_bp.route("/api/analytics/risk", endpoint="core_get_risk_analytics")
 def get_risk_analytics():
     """Get risk analytics metrics"""
     try:
@@ -1235,7 +1243,7 @@ def get_risk_analytics():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/strategy-breakdown")
+@core_bp.route("/api/analytics/strategy-breakdown", endpoint="core_get_strategy_breakdown")
 def get_strategy_breakdown():
     """Get detailed per-strategy performance breakdown"""
     try:
@@ -1317,7 +1325,7 @@ def get_strategy_breakdown():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/data/verify")
+@core_bp.route("/api/data/verify", endpoint="core_verify_data_quality")
 def verify_data_quality():
     """
     Run comprehensive data quality checks
@@ -1424,7 +1432,7 @@ def verify_data_quality():
         )  # Return 200 instead of 500
 
 
-@app.route("/api/recent_activity")
+@core_bp.route("/api/recent_activity", endpoint="core_get_recent_activity")
 def get_recent_activity():
     """
     Get recent activity from logs/activity.json (engine-written).
@@ -1447,7 +1455,7 @@ def get_recent_activity():
 # ============================================================================
 
 
-@app.route("/api/crypto/current_prices")
+@core_bp.route("/api/crypto/current_prices", endpoint="core_get_crypto_current_prices")
 def get_crypto_current_prices():
     """Get current prices for all tracked crypto symbols"""
     try:
@@ -1480,7 +1488,7 @@ def get_crypto_current_prices():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/crypto/price_history")
+@core_bp.route("/api/crypto/price_history", endpoint="core_get_crypto_price_history")
 def get_crypto_price_history():
     """Get historical prices for a specific symbol"""
     try:
@@ -1527,7 +1535,7 @@ def get_crypto_price_history():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/crypto/alerts")
+@core_bp.route("/api/crypto/alerts", endpoint="core_get_crypto_alerts")
 def get_crypto_alerts():
     """Get recently triggered price alerts"""
     try:
@@ -1548,7 +1556,7 @@ def get_crypto_alerts():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/market_reality/status")
+@core_bp.route("/api/market_reality/status", endpoint="core_get_market_reality_status")
 def get_market_reality_status():
     """Get validation status of all crypto prediction markets"""
     try:
@@ -1633,7 +1641,7 @@ def get_market_reality_status():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/crypto/price_check")
+@core_bp.route("/api/crypto/price_check", endpoint="core_check_specific_price")
 def check_specific_price():
     """Check if a specific price threshold has been crossed"""
     try:
@@ -1671,7 +1679,7 @@ def check_specific_price():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/analytics")
+@core_bp.route("/analytics", endpoint="core_analytics_page")
 def analytics_page():
     """Render analytics page"""
     return render_template("analytics.html")
@@ -1682,7 +1690,7 @@ def analytics_page():
 # ========================
 
 
-@app.route("/api/analytics/strategy_performance")
+@core_bp.route("/api/analytics/strategy_performance", endpoint="core_get_strategy_performance_analytics")
 def get_strategy_performance_analytics():
     """Get comprehensive strategy performance metrics (Phase 7E: regime slicing)."""
     try:
@@ -1713,7 +1721,7 @@ def get_strategy_performance_analytics():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/market_performance")
+@core_bp.route("/api/analytics/market_performance", endpoint="core_get_market_performance_analytics")
 def get_market_performance_analytics():
     """Get market performance analysis"""
     try:
@@ -1742,7 +1750,7 @@ def get_market_performance_analytics():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/market_performance/top")
+@core_bp.route("/api/analytics/market_performance/top", endpoint="core_get_top_markets")
 def get_top_markets():
     """Get top N markets by specified metric"""
     try:
@@ -1761,7 +1769,7 @@ def get_top_markets():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/market_performance/worst")
+@core_bp.route("/api/analytics/market_performance/worst", endpoint="core_get_worst_markets")
 def get_worst_markets():
     """Get worst N markets by specified metric"""
     try:
@@ -1780,7 +1788,7 @@ def get_worst_markets():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/time/hour_analysis")
+@core_bp.route("/api/analytics/time/hour_analysis", endpoint="core_get_hour_analysis")
 def get_hour_analysis():
     """Get hour of day analysis"""
     try:
@@ -1795,7 +1803,7 @@ def get_hour_analysis():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/time/day_analysis")
+@core_bp.route("/api/analytics/time/day_analysis", endpoint="core_get_day_analysis")
 def get_day_analysis():
     """Get day of week analysis"""
     try:
@@ -1810,7 +1818,7 @@ def get_day_analysis():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/time/monthly")
+@core_bp.route("/api/analytics/time/monthly", endpoint="core_get_monthly_performance")
 def get_monthly_performance():
     """Get monthly performance"""
     try:
@@ -1825,7 +1833,7 @@ def get_monthly_performance():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/time/best_times")
+@core_bp.route("/api/analytics/time/best_times", endpoint="core_get_best_trading_times")
 def get_best_trading_times():
     """Get best trading times"""
     try:
@@ -1840,7 +1848,7 @@ def get_best_trading_times():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/risk_metrics")
+@core_bp.route("/api/analytics/risk_metrics", endpoint="core_get_risk_metrics_analytics")
 def get_risk_metrics_analytics():
     """Get comprehensive risk metrics"""
     try:
@@ -1858,7 +1866,7 @@ def get_risk_metrics_analytics():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/drawdown_history")
+@core_bp.route("/api/analytics/drawdown_history", endpoint="core_get_drawdown_history")
 def get_drawdown_history():
     """Get drawdown history for visualization"""
     try:
@@ -1876,7 +1884,7 @@ def get_drawdown_history():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/analytics/export")
+@core_bp.route("/api/analytics/export", endpoint="core_export_analytics")
 def export_analytics():
     """Export analytics data to CSV or JSON (Phase 7E: regime params supported)."""
     try:
@@ -1934,25 +1942,25 @@ def export_analytics():
 # ==================== SETTINGS & NOTIFICATIONS API ====================
 
 
-@app.route("/settings")
+@settings_bp.route("/settings", endpoint="settings_settings_page")
 def settings_page():
     """Render settings page"""
     return render_template("settings.html")
 
 
-@app.route("/system-settings")
+@settings_bp.route("/system-settings", endpoint="settings_system_settings_page")
 def system_settings_page():
     """Phase 6B: Centralized System & Settings (trading mode, API keys, updates)."""
     return render_template("system_settings.html")
 
 
-@app.route("/settings/advanced")
+@settings_bp.route("/settings/advanced", endpoint="settings_advanced_settings_page")
 def advanced_settings_page():
     """Render advanced settings page"""
     return render_template("advanced_settings.html")
 
 
-@app.route("/api/settings", methods=["GET", "POST"])
+@settings_bp.route("/api/settings", methods=["GET", "POST"], endpoint="settings_manage_settings")
 def manage_settings():
     """
     Manage user settings.
@@ -2011,7 +2019,7 @@ def manage_settings():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/settings/reset", methods=["POST"])
+@settings_bp.route("/api/settings/reset", methods=["POST"], endpoint="settings_reset_settings")
 def reset_settings():
     """Reset user settings to defaults"""
     try:
@@ -2027,7 +2035,7 @@ def reset_settings():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/notifications/test/<channel_type>", methods=["POST"])
+@core_bp.route("/api/notifications/test/<channel_type>", methods=["POST"], endpoint="core_test_notification_channel")
 def test_notification_channel(channel_type):
     """
     Send a test notification to a specific channel.
@@ -2059,7 +2067,7 @@ def test_notification_channel(channel_type):
 # ========================================
 
 
-@app.route("/api/workspaces", methods=["GET", "POST"])
+@core_bp.route("/api/workspaces", methods=["GET", "POST"], endpoint="core_manage_workspaces")
 def manage_workspaces():
     """Manage user workspaces"""
     try:
@@ -2083,7 +2091,7 @@ def manage_workspaces():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/workspaces/<int:workspace_id>/layout", methods=["GET", "POST"])
+@core_bp.route("/api/workspaces/<int:workspace_id>/layout", methods=["GET", "POST"], endpoint="core_workspace_layout")
 def workspace_layout(workspace_id):
     """Get or update workspace layout"""
     try:
@@ -2102,7 +2110,7 @@ def workspace_layout(workspace_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/tax/report")
+@core_bp.route("/api/tax/report", endpoint="core_generate_tax_report")
 def generate_tax_report():
     """Generate IRS Form 8949 tax report"""
     try:
@@ -2134,7 +2142,7 @@ def generate_tax_report():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/tax/summary")
+@core_bp.route("/api/tax/summary", endpoint="core_tax_summary")
 def tax_summary():
     """Get tax summary without generating full report"""
     try:
@@ -2155,7 +2163,7 @@ def tax_summary():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/smart-alerts/analyze", methods=["POST"])
+@core_bp.route("/api/smart-alerts/analyze", methods=["POST"], endpoint="core_analyze_patterns")
 def analyze_patterns():
     """Analyze trading patterns and suggest alerts"""
     try:
@@ -2174,7 +2182,7 @@ def analyze_patterns():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/health/debug")
+@core_bp.route("/api/health/debug", endpoint="core_api_health")
 def api_health():
     """Comprehensive health check for debug panel"""
     try:
@@ -2202,7 +2210,7 @@ def api_health():
 # Debug health endpoint moved to /api/health/debug - see line 2165
 
 
-@app.route("/api/settings/export", methods=["GET"])
+@settings_bp.route("/api/settings/export", methods=["GET"], endpoint="settings_export_settings_get")
 def export_settings():
     """
     Export all settings, channels, and preferences as JSON.
@@ -2248,7 +2256,7 @@ def export_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/import", methods=["POST"])
+@settings_bp.route("/api/settings/import", methods=["POST"], endpoint="settings_import_settings")
 def import_settings():
     """
     Import settings from JSON file.
@@ -2379,7 +2387,7 @@ if __name__ == "__main__":
 # Duplicate /metrics route removed - see line 300 for primary prometheus_metrics endpoint
 
 
-@app.route("/api/feature-flags")
+@core_bp.route("/api/feature-flags", endpoint="core_get_feature_flags")
 def get_feature_flags():
     """Get all feature flags"""
     try:
@@ -2397,7 +2405,7 @@ def get_feature_flags():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/feature-flags/<flag>", methods=["POST"])
+@core_bp.route("/api/feature-flags/<flag>", methods=["POST"], endpoint="core_toggle_feature_flag")
 def toggle_feature_flag(flag):
     """Toggle a feature flag"""
     try:
@@ -2438,7 +2446,7 @@ def toggle_feature_flag(flag):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/positions")
+@core_bp.route("/api/positions", endpoint="core_get_positions")
 def get_positions():
     """Get all positions. Prefers engine state (state/bot_state.json)."""
     try:
@@ -2477,7 +2485,7 @@ def get_positions():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/portfolio")
+@core_bp.route("/api/portfolio", endpoint="core_get_portfolio")
 def get_portfolio():
     """Get portfolio information. Prefers engine state (state/bot_state.json)."""
     try:
@@ -2495,7 +2503,7 @@ def get_portfolio():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/realtime/status")
+@core_bp.route("/api/realtime/status", endpoint="core_get_realtime_status")
 def get_realtime_status():
     """Get WebSocket server status and statistics"""
     try:
@@ -2542,25 +2550,25 @@ from database.models import TradeJournal, Alert, APIKey, init_trading_db
 init_trading_db()
 
 
-@app.route("/api_keys")
+@core_bp.route("/api_keys", endpoint="core_api_keys_page")
 def api_keys_page():
     """Render API key management page"""
     return render_template("api_keys.html")
 
 
-@app.route("/strategy_comparison")
+@strategies_bp.route("/strategy_comparison", endpoint="strategies_comparison_page")
 def comparison_page():
     """Render strategy comparison page"""
     return render_template("strategy_comparison.html")
 
 
-@app.route("/trade_journal")
+@journal_bp.route("/trade_journal", endpoint="journal_journal_page")
 def journal_page():
     """Render trade journal page"""
     return render_template("trade_journal.html")
 
 
-@app.route("/alerts")
+@core_bp.route("/alerts", endpoint="core_alerts_page")
 def alerts_page():
     """Render alerts management page"""
     return render_template("alerts.html")
@@ -2578,7 +2586,7 @@ def _mask_secret(value: str, visible_tail: int = 4) -> str:
     return "••••••••" + value[-visible_tail:]
 
 
-@app.route("/api/keys/list")
+@core_bp.route("/api/keys/list", endpoint="core_list_api_keys")
 def list_api_keys():
     """Deprecated. Use GET /api/settings/integrations. Credentials are in SecureConfigManager only."""
     return (
@@ -2591,7 +2599,7 @@ def list_api_keys():
     )
 
 
-@app.route("/api/keys/test", methods=["POST"])
+@core_bp.route("/api/keys/test", methods=["POST"], endpoint="core_test_api_key_deprecated")
 def test_api_key_deprecated():
     """Deprecated. Use POST /api/settings/test-connection. Canonical test is in System Settings."""
     return (
@@ -2604,7 +2612,7 @@ def test_api_key_deprecated():
     )
 
 
-@app.route("/api/keys/save", methods=["POST"])
+@core_bp.route("/api/keys/save", methods=["POST"], endpoint="core_save_api_key_deprecated")
 def save_api_key_deprecated():
     """Deprecated. All credential writes go to SecureConfigManager via POST /api/settings/data-sources."""
     return (
@@ -2618,7 +2626,7 @@ def save_api_key_deprecated():
 
 
 # API Routes for Strategy Comparison
-@app.route("/api/strategies/list")
+@strategies_bp.route("/api/strategies/list", endpoint="strategies_list_strategies")
 def list_strategies():
     """List available strategies"""
     try:
@@ -2634,7 +2642,7 @@ def list_strategies():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route("/api/strategies/compare", methods=["POST"])
+@strategies_bp.route("/api/strategies/compare", methods=["POST"], endpoint="strategies_compare_strategies")
 def compare_strategies():
     """Compare multiple strategies: by saved run_ids or by running backtests (Phase 7E)."""
     try:
@@ -2698,7 +2706,7 @@ def compare_strategies():
 
 
 # API Routes for Trade Journal
-@app.route("/api/trade_journal/list")
+@journal_bp.route("/api/trade_journal/list", endpoint="journal_list_journal_entries")
 def list_journal_entries():
     """List all trade journal entries"""
     try:
@@ -2709,7 +2717,7 @@ def list_journal_entries():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route("/api/trade_journal/save", methods=["POST"])
+@journal_bp.route("/api/trade_journal/save", methods=["POST"], endpoint="journal_save_journal_entry_legacy")
 def save_journal_entry():
     """Save trade journal entry"""
     try:
@@ -2735,7 +2743,7 @@ def save_journal_entry():
 
 
 # API Routes for Alerts
-@app.route("/api/alerts/list")
+@core_bp.route("/api/alerts/list", endpoint="core_list_alerts")
 def list_alerts():
     """List all alerts"""
     try:
@@ -2746,7 +2754,7 @@ def list_alerts():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route("/api/alerts/create", methods=["POST"])
+@core_bp.route("/api/alerts/create", methods=["POST"], endpoint="core_create_alert")
 def create_alert():
     """Create new alert"""
     try:
@@ -2762,7 +2770,7 @@ def create_alert():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route("/api/alerts/<int:alert_id>/toggle", methods=["POST"])
+@core_bp.route("/api/alerts/<int:alert_id>/toggle", methods=["POST"], endpoint="core_toggle_alert")
 def toggle_alert(alert_id):
     """Toggle alert enabled/disabled"""
     try:
@@ -2774,7 +2782,7 @@ def toggle_alert(alert_id):
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route("/api/alerts/<int:alert_id>/delete", methods=["DELETE"])
+@core_bp.route("/api/alerts/<int:alert_id>/delete", methods=["DELETE"], endpoint="core_delete_alert")
 def delete_alert(alert_id):
     """Delete alert"""
     try:
@@ -2786,7 +2794,7 @@ def delete_alert(alert_id):
 
 
 # API Routes for Backtesting (Phase 7E: research-grade; no execution impact)
-@app.route("/api/backtest/run", methods=["POST"])
+@core_bp.route("/api/backtest/run", methods=["POST"], endpoint="core_run_backtest")
 def run_backtest():
     """Run backtest for a strategy; result is stored for comparison/export."""
     try:
@@ -2810,7 +2818,7 @@ def run_backtest():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route("/api/backtest/runs")
+@core_bp.route("/api/backtest/runs", endpoint="core_list_backtest_runs")
 def list_backtest_runs():
     """List recent backtest runs for comparison/export (Phase 7E)."""
     try:
@@ -2822,7 +2830,7 @@ def list_backtest_runs():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route("/api/backtest/runs/<run_id>")
+@core_bp.route("/api/backtest/runs/<run_id>", endpoint="core_get_backtest_run_by_id")
 def get_backtest_run_by_id(run_id):
     """Get a single backtest run by id (Phase 7E)."""
     try:
@@ -2836,7 +2844,7 @@ def get_backtest_run_by_id(run_id):
 
 
 # Parameter sweep / optimizer (Phase 7E — read-only research)
-@app.route("/api/optimizer/run", methods=["POST"])
+@core_bp.route("/api/optimizer/run", methods=["POST"], endpoint="core_run_optimizer")
 def run_optimizer():
     """Run parameter sweep for a strategy; returns all results for visualization."""
     try:
@@ -2873,7 +2881,7 @@ def run_optimizer():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route("/api/optimizer/history")
+@core_bp.route("/api/optimizer/history", endpoint="core_get_optimizer_history")
 def get_optimizer_history():
     """Get optimization history for parameter sweep visualization (Phase 7E)."""
     try:
@@ -2885,7 +2893,7 @@ def get_optimizer_history():
 
 
 # Research export: CSV/JSON for analytics, comparison, sweep (Phase 7E)
-@app.route("/api/research/export")
+@core_bp.route("/api/research/export", endpoint="core_research_export")
 def research_export():
     """Export research data: analytics, backtest comparison, or parameter sweep (CSV/JSON)."""
     try:
@@ -2983,7 +2991,7 @@ def research_export():
 # ============================================================================
 
 
-@app.route("/api/update/check", methods=["GET"])
+@system_bp.route("/api/update/check", methods=["GET"], endpoint="system_check_for_updates")
 def check_for_updates():
     """Check if updates are available"""
     try:
@@ -2994,7 +3002,7 @@ def check_for_updates():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/update/history", methods=["GET"])
+@system_bp.route("/api/update/history", methods=["GET"], endpoint="system_get_update_history")
 def get_update_history():
     """Get past updates"""
     try:
@@ -3005,7 +3013,7 @@ def get_update_history():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/update/start", methods=["POST"])
+@system_bp.route("/api/update/start", methods=["POST"], endpoint="system_start_update")
 def start_update():
     """Start update process"""
     try:
@@ -3052,7 +3060,7 @@ def start_update():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/update/progress", methods=["GET"])
+@system_bp.route("/api/update/progress", methods=["GET"], endpoint="system_get_update_progress")
 def get_update_progress():
     """Get real-time update progress"""
     try:
@@ -3072,7 +3080,7 @@ def get_update_progress():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/update/cancel", methods=["POST"])
+@system_bp.route("/api/update/cancel", methods=["POST"], endpoint="system_cancel_update")
 def cancel_update():
     """Cancel in-progress update"""
     try:
@@ -3091,7 +3099,7 @@ def cancel_update():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/update/rollback", methods=["POST"])
+@system_bp.route("/api/update/rollback", methods=["POST"], endpoint="system_manual_rollback")
 def manual_rollback():
     """Manual rollback to previous version"""
     try:
@@ -3120,7 +3128,7 @@ def manual_rollback():
 # ============================================================================
 
 
-@app.route("/api/system/health", methods=["GET"])
+@system_bp.route("/api/system/health", methods=["GET"], endpoint="system_get_system_health")
 def get_system_health():
     """System health check"""
     try:
@@ -3164,7 +3172,7 @@ def get_system_health():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/backups/list", methods=["GET"])
+@system_bp.route("/api/backups/list", methods=["GET"], endpoint="system_list_backups")
 def list_backups():
     """List all backups"""
     try:
@@ -3211,7 +3219,7 @@ def list_backups():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/backups/restore", methods=["POST"])
+@system_bp.route("/api/backups/restore", methods=["POST"], endpoint="system_restore_backup")
 def restore_backup():
     """Restore specific backup"""
     try:
@@ -3235,7 +3243,7 @@ def restore_backup():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/system/force-stop", methods=["POST"])
+@system_bp.route("/api/system/force-stop", methods=["POST"], endpoint="system_force_stop_all")
 def force_stop_all():
     """Emergency stop all processes"""
     try:
@@ -3251,7 +3259,7 @@ def force_stop_all():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/system/unlock-update", methods=["POST"])
+@system_bp.route("/api/system/unlock-update", methods=["POST"], endpoint="system_unlock_update_system")
 def unlock_update_system():
     """Clear stuck update locks"""
     try:
@@ -3282,7 +3290,7 @@ def unlock_update_system():
 # Added as part of PR to connect frontend/backend components
 
 
-@app.route("/api/chart/pnl")
+@core_bp.route("/api/chart/pnl", endpoint="core_get_pnl_chart_data")
 def get_pnl_chart_data():
     """Return P&L data formatted for Chart.js"""
     try:
@@ -3296,7 +3304,7 @@ def get_pnl_chart_data():
 # Phase 7C: POST /api/keys removed (no set_api_key on SecureConfigManager). Writes: POST /api/settings/data-sources only.
 
 
-@app.route("/api/keys", methods=["GET"])
+@core_bp.route("/api/keys", methods=["GET"], endpoint="core_get_api_keys")
 def get_api_keys():
     """Read-only proxy to canonical credential list (SecureConfigManager). Never exposes secrets."""
     try:
@@ -3326,13 +3334,13 @@ API_KEY_DEPENDENCIES = {
 }
 
 
-@app.route("/api/keys/dependencies")
+@core_bp.route("/api/keys/dependencies", endpoint="core_get_key_dependencies")
 def get_key_dependencies():
     """Return which strategies/integrations use which API keys. Read-only."""
     return jsonify({"dependencies": API_KEY_DEPENDENCIES})
 
 
-@app.route("/api/leaderboard")
+@core_bp.route("/api/leaderboard", endpoint="core_get_leaderboard_data")
 def get_leaderboard_data():
     """Get strategy comparison data"""
     try:
@@ -3347,7 +3355,7 @@ def get_leaderboard_data():
         return jsonify({"strategies": [], "error": str(e)}), 500
 
 
-@app.route("/api/trades/<trade_id>")
+@core_bp.route("/api/trades/<trade_id>", endpoint="core_get_trade_details")
 def get_trade_details(trade_id):
     """Get detailed trade information"""
     try:
@@ -3361,7 +3369,7 @@ def get_trade_details(trade_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/reports/tax")
+@core_bp.route("/api/reports/tax", endpoint="core_download_tax_report")
 def download_tax_report():
     """Generate and download tax report CSV"""
     try:
@@ -3395,7 +3403,7 @@ def download_tax_report():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/dashboard/refresh")
+@core_bp.route("/api/dashboard/refresh", endpoint="core_refresh_dashboard_data")
 def refresh_dashboard_data():
     """Get latest dashboard data for auto-refresh. Prefers engine state."""
     try:
@@ -3437,7 +3445,7 @@ def refresh_dashboard_data():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/metrics/realized-gains")
+@core_bp.route("/api/metrics/realized-gains", endpoint="core_get_realized_gains")
 def get_realized_gains():
     """Calculate actual realized gains"""
     try:
@@ -3464,7 +3472,7 @@ def get_realized_gains():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/trading-mode", methods=["GET"])
+@core_bp.route("/api/settings/trading-mode", methods=["GET"], endpoint="core_get_trading_mode")
 def get_trading_mode():
     """Get current trading mode. Paper is default. Read-only."""
     try:
@@ -3486,7 +3494,7 @@ def get_trading_mode():
         return jsonify({"mode": "paper", "paper_trading": True, "error": str(e)}), 200
 
 
-@app.route("/api/settings/set-trading-mode", methods=["POST"])
+@core_bp.route("/api/settings/set-trading-mode", methods=["POST"], endpoint="core_set_trading_mode")
 def set_trading_mode():
     """Set trading mode. Live requires explicit confirmation (confirm_phrase='LIVE')."""
     try:
@@ -3535,7 +3543,7 @@ def set_trading_mode():
 # ============================================================================
 
 
-@app.route("/api/chart/allocation")
+@core_bp.route("/api/chart/allocation", endpoint="core_get_allocation_chart")
 def get_allocation_chart():
     """Portfolio allocation pie chart"""
     try:
@@ -3555,7 +3563,7 @@ def get_allocation_chart():
         return jsonify({"labels": [], "data": []}), 200
 
 
-@app.route("/api/chart/distribution")
+@core_bp.route("/api/chart/distribution", endpoint="core_get_distribution_chart")
 def get_distribution_chart():
     """Trade win/loss distribution. Phase 7B: Single source logs/trades.csv via data_parser."""
     try:
@@ -3570,7 +3578,7 @@ def get_distribution_chart():
         return jsonify({"labels": ["Wins", "Losses"], "data": [0, 0]}), 200
 
 
-@app.route("/api/chart/cumulative")
+@core_bp.route("/api/chart/cumulative", endpoint="core_get_cumulative_chart")
 def get_cumulative_chart():
     """Cumulative returns over time. Phase 7B: Single source logs/trades.csv via data_parser."""
     try:
@@ -3595,9 +3603,9 @@ def get_cumulative_chart():
         return jsonify([]), 200
 
 
-@app.route("/api/journal/entry", methods=["POST"])
-def save_journal_entry():
-    """Save trade journal entry"""
+@journal_bp.route("/api/journal/entry", methods=["POST"], endpoint="journal_save_journal_entry")
+def save_journal_entry_file():
+    """Save trade journal entry (file-based)"""
     try:
         data = request.json
 
@@ -3628,7 +3636,7 @@ def save_journal_entry():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/journal/entries")
+@journal_bp.route("/api/journal/entries", endpoint="journal_get_journal_entries")
 def get_journal_entries():
     """Get all journal entries"""
     try:
@@ -3653,7 +3661,7 @@ def get_journal_entries():
 # ============================================================================
 
 
-@app.route("/api/intelligence/diagnostics")
+@core_bp.route("/api/intelligence/diagnostics", endpoint="core_api_intelligence_diagnostics")
 def api_intelligence_diagnostics():
     """Get diagnostics (cached or run now). Read-only."""
     try:
@@ -3670,7 +3678,7 @@ def api_intelligence_diagnostics():
         return jsonify({"error": str(e), "sample_size": 0}), 200
 
 
-@app.route("/api/intelligence/suggestions")
+@core_bp.route("/api/intelligence/suggestions", endpoint="core_api_intelligence_suggestions")
 def api_intelligence_suggestions():
     """Get ranked suggestions (cached or run now). Read-only. No apply."""
     try:
@@ -3691,7 +3699,7 @@ def api_intelligence_suggestions():
         return jsonify({"suggestions": [], "error": str(e)}), 200
 
 
-@app.route("/api/intelligence/run", methods=["POST", "GET"])
+@core_bp.route("/api/intelligence/run", methods=["POST", "GET"], endpoint="core_api_intelligence_run")
 def api_intelligence_run():
     """Trigger analysis run (batch). Read-only; no strategy/config changes."""
     try:
@@ -3704,7 +3712,7 @@ def api_intelligence_run():
         return jsonify({"error": str(e)}), 200
 
 
-@app.route("/api/intelligence/export")
+@core_bp.route("/api/intelligence/export", endpoint="core_api_intelligence_export")
 def api_intelligence_export():
     """Export last diagnostics + suggestions as JSON. Read-only download."""
     try:
@@ -3730,13 +3738,13 @@ def api_intelligence_export():
         return jsonify({"error": str(e)}), 200
 
 
-@app.route("/intelligence")
+@core_bp.route("/intelligence", endpoint="core_page_intelligence")
 def page_intelligence():
     """Strategy Intelligence page (Phase 8E). Suggestion only; no apply buttons."""
     return render_template("strategy_intelligence.html")
 
 
-@app.route("/api/export/trades")
+@core_bp.route("/api/export/trades", endpoint="core_export_trades_csv")
 def export_trades_csv():
     """Export trades to CSV. Phase 7B: Single source logs/trades.csv."""
     try:
@@ -3757,7 +3765,7 @@ def export_trades_csv():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/export/portfolio")
+@core_bp.route("/api/export/portfolio", endpoint="core_export_portfolio_csv")
 def export_portfolio_csv():
     """Export portfolio to CSV"""
     try:
@@ -3793,7 +3801,7 @@ def export_portfolio_csv():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/notifications/send", methods=["POST"])
+@core_bp.route("/api/notifications/send", methods=["POST"], endpoint="core_send_notification")
 def send_notification():
     """Send notification (email/telegram)"""
     try:
@@ -3814,7 +3822,7 @@ def send_notification():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/market/live")
+@core_bp.route("/api/market/live", endpoint="core_get_live_market_data")
 def get_live_market_data():
     """Live market data stream"""
     try:
@@ -3850,7 +3858,7 @@ def get_live_market_data():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/portfolio")
+@core_bp.route("/api/portfolio", endpoint="core_get_portfolio_api")
 def get_portfolio_api():
     """Get current portfolio summary"""
     try:
@@ -3872,7 +3880,7 @@ def get_portfolio_api():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/strategies/performance")
+@strategies_bp.route("/api/strategies/performance", endpoint="strategies_get_strategies_performance")
 def get_strategies_performance():
     """Get performance data for all strategies. Phase 7B: Single source logs/trades.csv."""
     try:
@@ -3912,7 +3920,7 @@ def get_strategies_performance():
 # ============================================================================
 
 
-@app.route("/api/alerts/config", methods=["GET"])
+@core_bp.route("/api/alerts/config", methods=["GET"], endpoint="core_get_alerts_config")
 def get_alerts():
     """Get all configured alerts"""
     try:
@@ -3926,7 +3934,7 @@ def get_alerts():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/alerts/config", methods=["POST"])
+@core_bp.route("/api/alerts/config", methods=["POST"], endpoint="core_create_alert_config")
 def create_alert():
     """Create a new alert"""
     try:
@@ -3951,7 +3959,7 @@ def create_alert():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/alerts/config/<alert_id>", methods=["PUT"])
+@core_bp.route("/api/alerts/config/<alert_id>", methods=["PUT"], endpoint="core_update_alert")
 def update_alert(alert_id):
     """Update an alert"""
     try:
@@ -3971,7 +3979,7 @@ def update_alert(alert_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/alerts/config/<alert_id>", methods=["DELETE"])
+@core_bp.route("/api/alerts/config/<alert_id>", methods=["DELETE"], endpoint="core_delete_alert_config")
 def delete_alert(alert_id):
     """Delete an alert"""
     try:
@@ -3990,7 +3998,7 @@ def delete_alert(alert_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/alerts/test", methods=["POST"])
+@core_bp.route("/api/alerts/test", methods=["POST"], endpoint="core_test_alert")
 def test_alert():
     """Test an alert configuration"""
     try:
@@ -4012,7 +4020,7 @@ def test_alert():
 # ============================================================================
 
 
-@app.route("/api/settings/config", methods=["GET"])
+@core_bp.route("/api/settings/config", methods=["GET"], endpoint="core_get_config_settings")
 def get_config_settings():
     """Get current configuration settings"""
     try:
@@ -4026,7 +4034,7 @@ def get_config_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/config", methods=["POST"])
+@core_bp.route("/api/settings/config", methods=["POST"], endpoint="core_update_config_settings")
 def update_config_settings():
     """Update configuration settings"""
     try:
@@ -4048,7 +4056,7 @@ def update_config_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/reset", methods=["POST"])
+@core_bp.route("/api/settings/reset", methods=["POST"], endpoint="core_reset_settings_mgr")
 def reset_settings():
     """Reset settings to defaults"""
     try:
@@ -4067,8 +4075,8 @@ def reset_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/export", methods=["POST"])
-def export_settings():
+@core_bp.route("/api/settings/export", methods=["POST"], endpoint="core_export_settings_mgr")
+def export_settings_mgr():
     """Export settings to file"""
     try:
         from services.settings_manager import get_settings_manager
@@ -4086,8 +4094,8 @@ def export_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/import", methods=["POST"])
-def import_settings():
+@settings_bp.route("/api/settings/import", methods=["POST"], endpoint="settings_import_settings_from_path")
+def import_settings_from_path():
     """Import settings from file"""
     try:
         from services.settings_manager import get_settings_manager
@@ -4121,7 +4129,7 @@ def import_settings():
 # ============================================================================
 
 
-@app.route("/api/analytics/performance", methods=["GET"])
+@core_bp.route("/api/analytics/performance", methods=["GET"], endpoint="core_get_performance_metrics")
 def get_performance_metrics():
     """Get calculated performance metrics. Phase 7B: Single source logs/trades.csv."""
     try:
@@ -4142,7 +4150,7 @@ def get_performance_metrics():
 # ============================================================================
 
 
-@app.route("/api/tax-report/irs-8949", methods=["GET"])
+@core_bp.route("/api/tax-report/irs-8949", methods=["GET"], endpoint="core_get_irs_8949_report")
 def get_irs_8949_report():
     """Generate IRS Form 8949 CSV report. Phase 7B: Single source logs/trades.csv."""
     try:
@@ -4167,7 +4175,7 @@ def get_irs_8949_report():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/tax-report/turbotax", methods=["GET"])
+@core_bp.route("/api/tax-report/turbotax", methods=["GET"], endpoint="core_get_turbotax_report")
 def get_turbotax_report():
     """Generate TurboTax import CSV report. Phase 7B: Single source logs/trades.csv."""
     try:
@@ -4192,7 +4200,7 @@ def get_turbotax_report():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/tax-report/summary", methods=["GET"])
+@core_bp.route("/api/tax-report/summary", methods=["GET"], endpoint="core_get_tax_report_summary")
 def get_tax_summary():
     """Get tax summary with short/long-term gains. Phase 7B: Single source logs/trades.csv."""
     try:
@@ -4216,8 +4224,8 @@ def get_tax_summary():
 # ============================================================================
 
 
-@app.route("/api/alerts/config", methods=["GET"])
-def get_alerts():
+@core_bp.route("/api/alerts/config", methods=["GET"], endpoint="core_get_alerts_legacy")
+def get_alerts_legacy():
     """Get all configured alerts"""
     try:
         from services.alert_manager import alert_manager
@@ -4228,8 +4236,8 @@ def get_alerts():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/alerts/config", methods=["POST"])
-def create_alert():
+@core_bp.route("/api/alerts/config", methods=["POST"], endpoint="core_create_alert_legacy")
+def create_alert_legacy():
     """Create a new alert"""
     try:
         from services.alert_manager import alert_manager
@@ -4242,8 +4250,8 @@ def create_alert():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/alerts/config/<int:alert_id>", methods=["DELETE"])
-def delete_alert(alert_id):
+@core_bp.route("/api/alerts/config/<int:alert_id>", methods=["DELETE"], endpoint="core_delete_alert_legacy")
+def delete_alert_legacy(alert_id):
     """Delete an alert"""
     try:
         from services.alert_manager import alert_manager
@@ -4258,8 +4266,8 @@ def delete_alert(alert_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/alerts/test", methods=["POST"])
-def test_alert():
+@core_bp.route("/api/alerts/test", methods=["POST"], endpoint="core_test_alert_legacy")
+def test_alert_legacy():
     """Test telegram notification"""
     try:
         # Try to send a test notification via telegram
@@ -4295,7 +4303,7 @@ def test_alert():
 # ============================================================================
 
 
-@app.route("/api/settings", methods=["GET"])
+@core_bp.route("/api/settings", methods=["GET"], endpoint="core_get_settings_api")
 def get_settings_api():
     """Get all settings"""
     try:
@@ -4308,7 +4316,7 @@ def get_settings_api():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings", methods=["POST"])
+@core_bp.route("/api/settings", methods=["POST"], endpoint="core_save_settings_api")
 def save_settings_api():
     """Save settings"""
     try:
@@ -4323,7 +4331,7 @@ def save_settings_api():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/settings/reset", methods=["POST"])
+@core_bp.route("/api/settings/reset", methods=["POST"], endpoint="core_reset_settings_api")
 def reset_settings_api():
     """Reset settings to defaults"""
     try:
@@ -4342,7 +4350,7 @@ def reset_settings_api():
 # ============================================================================
 
 
-@app.route("/api/strategies/<name>/start", methods=["POST"])
+@strategies_bp.route("/api/strategies/<name>/start", methods=["POST"], endpoint="strategies_start_strategy")
 def start_strategy(name):
     """Start a strategy"""
     try:
@@ -4361,7 +4369,7 @@ def start_strategy(name):
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
-@app.route("/api/strategies/<name>/stop", methods=["POST"])
+@strategies_bp.route("/api/strategies/<name>/stop", methods=["POST"], endpoint="strategies_stop_strategy")
 def stop_strategy(name):
     """Stop a strategy"""
     try:
@@ -4388,8 +4396,8 @@ def stop_strategy(name):
 # ============================================================================
 
 
-@app.route("/api/analytics/performance")
-def get_performance_metrics():
+@core_bp.route("/api/analytics/performance", endpoint="core_get_performance_metrics_alt")
+def get_performance_metrics_alt():
     """Get performance metrics (Sharpe, Drawdown, Win Rate)"""
     try:
         from services.performance_calculator import get_performance_calculator
@@ -4419,6 +4427,16 @@ def get_performance_metrics():
         logger.error(f"Error getting performance metrics: {e}")
         return jsonify({"error": str(e)}), 500
 
+
+# Register blueprints whose routes are defined in this file (must be after all @bp.route decorators)
+app.register_blueprint(core_bp)
+app.register_blueprint(journal_bp)
+app.register_blueprint(settings_bp)
+app.register_blueprint(strategies_bp)
+app.register_blueprint(system_bp)
+
+# Fail fast if any duplicate endpoint names (prevents route collisions)
+validate_no_duplicate_endpoints(app)
 
 # ============================================================================
 # RUN APPLICATION
