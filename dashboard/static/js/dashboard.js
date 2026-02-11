@@ -292,25 +292,136 @@ function showPage(pageName, event) {
     }
 }
 
+// Phase 9: Load mission control, trades, strategies from dashboard API
+async function loadPhase9Dashboard() {
+    const missionBar = document.getElementById('dash-mission-bar');
+    const tradesTbody = document.getElementById('dash-trades-tbody');
+    const tradesSummary = document.getElementById('dash-trades-summary');
+    const tradesEmpty = document.getElementById('dash-trades-empty');
+    const strategiesList = document.getElementById('dash-strategies-list');
+    if (!missionBar && !tradesTbody && !strategiesList) return;
+
+    try {
+        const [systemRes, tradesRes, strategiesRes] = await Promise.all([
+            apiClient.get('/api/dashboard/system').catch(() => ({})),
+            apiClient.get('/api/dashboard/trades').catch(() => ({ open: [], closed: [], count_open: 0, count_closed: 0 })),
+            apiClient.get('/api/dashboard/strategies').catch(() => ({ strategies: [] }))
+        ]);
+
+        const sys = systemRes || {};
+        const engineStatus = (sys.engine_status || 'unknown').toLowerCase();
+        const engineLabel = sys.engine_status_label || 'Unknown';
+        const paperLabel = sys.paper_trading_label || 'Paper trading';
+        const gate = sys.execution_gate || {};
+        const gateAllowed = gate.allowed;
+        const lastHeartbeat = sys.last_heartbeat || '—';
+        const errorState = sys.error_state;
+
+        if (missionBar) {
+            const enginePill = document.getElementById('dash-engine-pill');
+            const engineLabelEl = document.getElementById('dash-engine-label');
+            const paperPill = document.getElementById('dash-paper-pill');
+            const gatePill = document.getElementById('dash-gate-pill');
+            const gateLabel = document.getElementById('dash-gate-label');
+            const heartbeatEl = document.getElementById('dash-heartbeat');
+            const errorEl = document.getElementById('dash-error-state');
+
+            if (enginePill) {
+                enginePill.className = 'dash-pill ' + (engineStatus === 'running' ? 'dash-pill-running' : engineStatus === 'paused' ? 'dash-pill-paused' : engineStatus === 'stopped' ? 'dash-pill-stopped' : 'dash-pill-error');
+            }
+            if (engineLabelEl) engineLabelEl.textContent = engineLabel;
+            if (paperPill) paperPill.textContent = paperLabel;
+            if (gatePill) gatePill.className = 'dash-pill ' + (gateAllowed ? 'dash-pill-gate-open' : 'dash-pill-gate-closed');
+            if (gateLabel) gateLabel.textContent = gateAllowed ? 'Gate open' : (gate.reason || 'Gate closed');
+            if (heartbeatEl) heartbeatEl.textContent = lastHeartbeat ? 'Last heartbeat: ' + (lastHeartbeat.length > 24 ? lastHeartbeat.slice(0, 19) : lastHeartbeat) : 'Last heartbeat: —';
+            if (errorEl) {
+                if (errorState) {
+                    errorEl.textContent = errorState;
+                    errorEl.classList.remove('hidden');
+                } else {
+                    errorEl.textContent = '';
+                    errorEl.classList.add('hidden');
+                }
+            }
+        }
+
+        const openTrades = tradesRes.open || [];
+        const closedTrades = tradesRes.closed || [];
+        const countOpen = tradesRes.count_open ?? openTrades.length;
+        const countClosed = tradesRes.count_closed ?? closedTrades.length;
+        const allTrades = openTrades.concat(closedTrades).slice(0, 100);
+
+        if (tradesSummary) tradesSummary.textContent = countOpen + ' open, ' + countClosed + ' closed';
+
+        if (tradesTbody) {
+            if (allTrades.length === 0) {
+                tradesTbody.innerHTML = '<tr><td colspan="7" class="dash-empty"><span class="dash-empty-icon">📋</span><p>No trades yet — engine running. Trades appear here as they open and close.</p></td></tr>';
+            } else {
+                tradesTbody.innerHTML = allTrades.map(t => {
+                    const lifecycle = t.lifecycle || 'CLOSED';
+                    const pnl = t.pnl_usd != null ? (t.pnl_usd >= 0 ? '<span class="dash-pnl-positive">' + formatCurrency(t.pnl_usd) + '</span>' : '<span class="dash-pnl-negative">' + formatCurrency(t.pnl_usd) + '</span>') : '—';
+                    const entryTime = (t.entry_time || '').slice(0, 19).replace('T', ' ');
+                    const exitTime = (t.exit_time || '').slice(0, 19).replace('T', ' ');
+                    const lcClass = 'dash-lifecycle-' + lifecycle.toLowerCase();
+                    return '<tr>' +
+                        '<td><span class="' + lcClass + '">' + lifecycle + '</span></td>' +
+                        '<td>' + escapeHtml(t.symbol || '—') + '</td>' +
+                        '<td>' + escapeHtml(t.strategy || '—') + '</td>' +
+                        '<td>' + entryTime + '</td>' +
+                        '<td>' + exitTime + '</td>' +
+                        '<td>' + escapeHtml(t.exit_reason || '—') + '</td>' +
+                        '<td class="text-right">' + pnl + '</td></tr>';
+                }).join('');
+            }
+        }
+        if (tradesEmpty) tradesEmpty.classList.add('hidden');
+
+        const strategies = strategiesRes.strategies || [];
+        if (strategiesList) {
+            if (strategies.length === 0) {
+                strategiesList.innerHTML = '<div class="dash-empty py-8"><span class="dash-empty-icon">⚙️</span><p>No strategy data yet.</p></div>';
+            } else {
+                strategiesList.innerHTML = strategies.map(s => {
+                    const lastSignal = (s.last_signal || '').slice(0, 19).replace('T', ' ');
+                    const pnl = s.total_pnl != null ? formatCurrency(s.total_pnl) : '—';
+                    const wr = s.win_rate != null ? s.win_rate.toFixed(1) + '%' : '—';
+                    return '<div class="dash-strategy-row">' +
+                        '<div><span class="dash-strategy-name">' + escapeHtml(s.name) + '</span><br><span class="dash-strategy-meta">Open: ' + (s.open_positions || 0) + ' · Trades: ' + (s.trades_executed || 0) + ' · Win rate: ' + wr + ' · P&L: ' + pnl + '</span></div>' +
+                        (lastSignal ? '<span class="dash-strategy-meta">Last signal: ' + lastSignal + '</span>' : '') +
+                        '</div>';
+                }).join('');
+            }
+        }
+    } catch (e) {
+        console.error('Phase 9 dashboard load failed:', e);
+    }
+}
+
 // Load Overview Data
 async function loadOverviewData() {
     try {
+        await loadPhase9Dashboard();
         const data = await apiClient.get('/api/overview');
         
-        // Update key metrics
-        document.getElementById('total-pnl').textContent = formatCurrency(data.total_pnl);
-        document.getElementById('total-pnl').className = data.total_pnl >= 0 ? 'text-3xl font-bold mb-1 text-profit' : 'text-3xl font-bold mb-1 text-loss';
+        const totalPnlEl = document.getElementById('total-pnl');
+        if (totalPnlEl) {
+            totalPnlEl.textContent = formatCurrency(data.total_pnl);
+            totalPnlEl.className = 'text-xl font-semibold dash-numeric ' + (data.total_pnl >= 0 ? 'text-profit' : 'text-loss');
+        }
+        const pnlChangeEl = document.getElementById('pnl-change');
+        if (pnlChangeEl) {
+            pnlChangeEl.textContent = formatPercentage(data.pnl_change_pct);
+            pnlChangeEl.className = data.pnl_change_pct >= 0 ? 'text-profit' : 'text-loss';
+        }
+        const winRateBar = document.getElementById('win-rate-bar');
+        if (winRateBar) winRateBar.style.width = (data.win_rate || 0) + '%';
+        const winRateEl = document.getElementById('win-rate');
+        if (winRateEl) winRateEl.textContent = (data.win_rate != null ? data.win_rate.toFixed(1) : 0) + '%';
+        const activeTradesEl = document.getElementById('active-trades');
+        if (activeTradesEl) activeTradesEl.textContent = data.active_trades ?? 0;
+        const totalTradesEl = document.getElementById('total-trades');
+        if (totalTradesEl) totalTradesEl.textContent = data.total_trades ?? 0;
         
-        document.getElementById('pnl-change').textContent = formatPercentage(data.pnl_change_pct);
-        document.getElementById('pnl-change').className = data.pnl_change_pct >= 0 ? 'text-profit' : 'text-loss';
-        
-        document.getElementById('win-rate').textContent = data.win_rate.toFixed(1) + '%';
-        document.getElementById('win-rate-bar').style.width = data.win_rate + '%';
-        
-        document.getElementById('active-trades').textContent = data.active_trades;
-        document.getElementById('total-trades').textContent = data.total_trades;
-        
-        // Load charts (debounced to prevent too many updates)
         debouncedLoadCharts();
         loadRecentActivity();
         

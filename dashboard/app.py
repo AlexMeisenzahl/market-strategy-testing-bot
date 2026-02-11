@@ -38,6 +38,7 @@ from dashboard.services.analytics import AnalyticsService
 from dashboard.services.chart_data import ChartDataService
 from dashboard.services.config_manager import ConfigManager
 from dashboard.services.engine_state import EngineStateReader
+from dashboard.services.trade_adapter import get_normalized_trades
 from services.strategy_analytics import StrategyAnalytics
 from services.market_analytics import MarketAnalytics
 from services.time_analytics import TimeAnalytics
@@ -76,6 +77,7 @@ from services.strategy_intelligence import (
     get_last_run_at as strategy_intelligence_last_run_at,
     export_to_reports_dir,
 )
+from services.execution_gate import get_gate_status as execution_gate_status
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for API access
@@ -1448,6 +1450,120 @@ def get_recent_activity():
     except Exception as e:
         logger.error(f"Error getting recent activity: {str(e)}")
         return jsonify([])
+
+
+# ============================================================================
+# Phase 9: Authoritative Dashboard API (read-only)
+# ============================================================================
+
+
+@core_bp.route("/api/dashboard/system", endpoint="core_api_dashboard_system")
+def api_dashboard_system():
+    """
+    Global system overview for mission control header.
+    Engine status, paper mode, execution gate, last heartbeat, error state.
+    """
+    try:
+        state = engine_state_reader.get_bot_state()
+        bot_status_info = engine_state_reader.get_bot_status_from_engine()
+        config = config_manager.get_config()
+        gate = execution_gate_status(config or {})
+
+        status = "unknown"
+        if isinstance(state, dict) and state.get("status"):
+            status = state.get("status", "unknown")
+        elif bot_status_info:
+            status = "running" if bot_status_info.get("running") else ("paused" if bot_status_info.get("paused") else "stopped")
+
+        paper_trading = bool((config or {}).get("paper_trading", True))
+        last_update = (state or {}).get("last_update") or (bot_status_info or {}).get("last_update") or ""
+
+        return jsonify({
+            "engine_status": status,
+            "engine_status_label": (
+                "Running" if status == "running" else
+                "Paused" if status == "paused" else
+                "Stopped" if status == "stopped" else str(status)
+            ),
+            "paper_trading": paper_trading,
+            "paper_trading_label": "Paper trading" if paper_trading else "Live (config override)",
+            "execution_gate": {
+                "allowed": gate.get("allowed", False),
+                "reason": gate.get("reason", ""),
+                "paused": gate.get("paused", False),
+                "kill_switch": gate.get("kill_switch", False),
+                "emergency_kill": gate.get("emergency_kill", False),
+            },
+            "last_heartbeat": last_update,
+            "runtime_seconds": (state or {}).get("runtime_seconds"),
+            "error_state": None,
+            "source": "engine" if engine_state_reader.has_engine_state() else "none",
+        })
+    except Exception as e:
+        logger.error(f"Dashboard system API: {e}", exc_info=True)
+        return jsonify({
+            "engine_status": "unknown",
+            "engine_status_label": "Unknown",
+            "paper_trading": True,
+            "paper_trading_label": "Unknown",
+            "execution_gate": {"allowed": False, "reason": str(e), "paused": False, "kill_switch": False, "emergency_kill": False},
+            "last_heartbeat": "",
+            "runtime_seconds": None,
+            "error_state": str(e),
+            "source": "error",
+        })
+
+
+@core_bp.route("/api/dashboard/trades", endpoint="core_api_dashboard_trades")
+def api_dashboard_trades():
+    """Normalized trades for dashboard: OPEN (engine) + CLOSED (CSV). Lifecycle: OPEN, CLOSED, CANCELLED, ERROR."""
+    try:
+        data = get_normalized_trades(data_parser, engine_state_reader)
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Dashboard trades API: {e}", exc_info=True)
+        return jsonify({"open": [], "closed": [], "all": [], "count_open": 0, "count_closed": 0, "error": str(e)})
+
+
+@core_bp.route("/api/dashboard/strategies", endpoint="core_api_dashboard_strategies")
+def api_dashboard_strategies():
+    """Strategy status for dashboard: names, health (from performance), open count, last signal (from activity)."""
+    try:
+        names = data_parser.get_all_strategy_names()
+        performance = data_parser.get_strategy_performance()
+        positions = engine_state_reader.get_positions_from_engine()
+        activity = engine_state_reader.get_activity()
+
+        open_by_strategy = {}
+        for p in (positions or []):
+            if p.get("quantity") or p.get("size"):
+                s = (p.get("strategy") or "Unknown").strip() or "Unknown"
+                open_by_strategy[s] = open_by_strategy.get(s, 0) + 1
+
+        last_signal_by_strategy = {}
+        for a in (activity or [])[:200]:
+            s = (a.get("strategy") or "Unknown").strip() or "Unknown"
+            if s not in last_signal_by_strategy:
+                last_signal_by_strategy[s] = a.get("timestamp") or ""
+
+        strategies = []
+        for name in names:
+            perf = performance.get(name) or {}
+            strategies.append({
+                "name": name,
+                "enabled": True,
+                "health_score": None,
+                "last_signal": last_signal_by_strategy.get(name),
+                "open_positions": open_by_strategy.get(name, 0),
+                "trades_executed": perf.get("trades_executed", 0),
+                "win_rate": perf.get("win_rate"),
+                "total_pnl": perf.get("total_pnl"),
+                "auto_disable_reason": None,
+            })
+        return jsonify({"strategies": strategies})
+    except Exception as e:
+        logger.error(f"Dashboard strategies API: {e}", exc_info=True)
+        return jsonify({"strategies": [], "error": str(e)})
 
 
 # ============================================================================

@@ -76,3 +76,29 @@ def may_execute_trade(
         return False, "execution_gate: engine is paused"
 
     return True, ""
+
+
+def get_gate_status(
+    config: Dict[str, Any],
+    control_path: Path = None,
+) -> Dict[str, Any]:
+    """
+    Read-only status for dashboard display. Does not execute anything.
+    Returns dict with allowed, reason, and per-check flags for UI.
+    """
+    if control_path is None:
+        control_path = Path(__file__).resolve().parent.parent / "state" / "control.json"
+    paper_trading = bool(config.get("paper_trading", True) if config else True)
+    kill_switch = bool(config.get("kill_switch", False) if config else False)
+    emergency_kill = _emergency_kill_active()
+    paused = _is_paused(control_path)
+
+    allowed, reason = may_execute_trade(config, control_path)
+    return {
+        "allowed": allowed,
+        "reason": reason or ("OK" if allowed else "Unknown"),
+        "paper_trading": paper_trading,
+        "kill_switch": kill_switch,
+        "emergency_kill": emergency_kill,
+        "paused": paused,
+    }

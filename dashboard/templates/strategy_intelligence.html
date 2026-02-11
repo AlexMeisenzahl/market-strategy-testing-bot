@@ -46,8 +46,24 @@
         <div class="bg-amber-900/30 border border-amber-600/50 rounded-lg p-4 mb-6">
             <p class="text-amber-200 text-sm font-medium">
                 <i class="fas fa-info-circle mr-2"></i>
-                <strong>Suggestion only.</strong> No automatic changes to strategy, config, or code. All recommendations require human review and validation (e.g. backtest, paper run) before any change.
+                <strong>Analysis only — no automatic changes are applied.</strong> All recommendations require human review and validation (e.g. backtest, paper run) before any change to strategy, config, or code.
             </p>
+        </div>
+
+        <!-- What's working vs What's failing (Phase 9) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <section class="bg-dark-card rounded-lg p-6 border border-dark-border border-green-500/20">
+                <h2 class="text-lg font-bold mb-3 text-green-400"><i class="fas fa-check-circle mr-2"></i>What's working</h2>
+                <div id="intel-working-content" class="text-gray-300 text-sm space-y-1">
+                    <p class="text-gray-500">Loading...</p>
+                </div>
+            </section>
+            <section class="bg-dark-card rounded-lg p-6 border border-dark-border border-red-500/20">
+                <h2 class="text-lg font-bold mb-3 text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i>What's failing</h2>
+                <div id="intel-failing-content" class="text-gray-300 text-sm space-y-1">
+                    <p class="text-gray-500">Loading...</p>
+                </div>
+            </section>
         </div>
 
         <!-- Diagnostics -->
@@ -59,10 +75,10 @@
             <p id="diagnostics-meta" class="text-gray-500 text-xs mt-4"></p>
         </section>
 
-        <!-- Suggestions -->
+        <!-- Ranked improvement suggestions -->
         <section class="bg-dark-card rounded-lg p-6 border border-dark-border">
-            <h2 class="text-xl font-bold mb-4">Ranked Suggestions</h2>
-            <p class="text-gray-400 text-sm mb-4">Recommendations are ranked by confidence and evidence. No apply button — review and validate manually.</p>
+            <h2 class="text-xl font-bold mb-4">Ranked improvement suggestions</h2>
+            <p class="text-gray-400 text-sm mb-4">Recommendations by confidence and evidence. Review and validate manually — no apply button.</p>
             <div id="suggestions-content">
                 <p class="text-gray-400">Loading...</p>
             </div>
@@ -76,6 +92,8 @@
         const diagnosticsContent = document.getElementById('diagnostics-content');
         const diagnosticsMeta = document.getElementById('diagnostics-meta');
         const suggestionsContent = document.getElementById('suggestions-content');
+        const workingContent = document.getElementById('intel-working-content');
+        const failingContent = document.getElementById('intel-failing-content');
 
         function query(strategy) {
             const s = strategy ? '?strategy=' + encodeURIComponent(strategy) : '';
@@ -91,6 +109,7 @@
                 .catch(e => { diagnosticsContent.innerHTML = '<p class="text-red-400">Error: ' + e.message + '</p>'; });
         }
 
+        let lastDiagnostics = null;
         function loadDiagnostics() {
             const strategy = strategyFilter.value || '';
             fetch('/api/intelligence/diagnostics' + query(strategy))
@@ -123,8 +142,47 @@
                     html += '</ul>';
                     diagnosticsContent.innerHTML = html;
                     diagnosticsMeta.textContent = 'Generated: ' + (data.generated_at || '—');
+                    lastDiagnostics = data;
+                    updateWorkingFailing(data, null);
                 })
                 .catch(e => { diagnosticsContent.innerHTML = '<p class="text-red-400">Error: ' + e.message + '</p>'; });
+        }
+
+        function updateWorkingFailing(diagnostics, suggestions) {
+            const perf = (diagnostics && diagnostics.performance) || {};
+            const risk = (diagnostics && diagnostics.risk_adjusted) || {};
+            const failure = (diagnostics && diagnostics.failure_analysis) || {};
+            const regime = (diagnostics && diagnostics.regime) || {};
+            const n = diagnostics && diagnostics.sample_size || 0;
+            if (workingContent) {
+                if (n === 0) {
+                    workingContent.innerHTML = '<p class="text-gray-500">No trade data yet.</p>';
+                } else {
+                    let lines = [];
+                    const wr = perf.win_rate_overall != null ? (perf.win_rate_overall * 100).toFixed(1) : null;
+                    const pnl = perf.total_pnl != null ? Number(perf.total_pnl) : null;
+                    if (wr != null) lines.push('Win rate: ' + wr + '%');
+                    if (pnl != null && pnl > 0) lines.push('Total P&L: $' + pnl.toFixed(2));
+                    if (regime.volatility_regime && regime.volatility_regime !== 'unknown') lines.push('Regime: ' + regime.volatility_regime);
+                    if (regime.trending_vs_mean_reverting && regime.trending_vs_mean_reverting !== 'insufficient_data') lines.push('Trend: ' + regime.trending_vs_mean_reverting);
+                    if (risk.sharpe_ratio != null && risk.sharpe_ratio > 0) lines.push('Sharpe: ' + risk.sharpe_ratio.toFixed(2));
+                    workingContent.innerHTML = lines.length ? lines.map(l => '<p>' + l + '</p>').join('') : '<p class="text-gray-500">Run analysis to see what\'s working.</p>';
+                }
+            }
+            if (failingContent) {
+                let lines = [];
+                if (failure.max_consecutive_losses != null && failure.max_consecutive_losses > 0)
+                    lines.push('Max consecutive losses: ' + failure.max_consecutive_losses);
+                if (failure.conditions_correlated_with_drawdown && failure.conditions_correlated_with_drawdown.length)
+                    lines.push('Drawdown conditions: ' + failure.conditions_correlated_with_drawdown.length + ' pattern(s)');
+                if (suggestions && suggestions.length) {
+                    suggestions.forEach(s => { lines.push('• ' + (s.issue_detected || 'Issue')); });
+                }
+                const perf = (diagnostics && diagnostics.performance) || {};
+                const pnl = perf.total_pnl != null ? Number(perf.total_pnl) : null;
+                if (pnl != null && pnl < 0) lines.unshift('Negative total P&L: $' + pnl.toFixed(2));
+                failingContent.innerHTML = lines.length ? lines.map(l => '<p>' + l + '</p>').join('') : '<p class="text-gray-500">No major failures detected.</p>';
+            }
         }
 
         function loadSuggestions() {
@@ -158,8 +216,8 @@
                         }
                         html += '</div>';
                     });
-                    html += '</div>';
                     suggestionsContent.innerHTML = html;
+                    if (failingContent && lastDiagnostics) updateWorkingFailing(lastDiagnostics, list);
                 })
                 .catch(e => { suggestionsContent.innerHTML = '<p class="text-red-400">Error: ' + e.message + '</p>'; });
         }

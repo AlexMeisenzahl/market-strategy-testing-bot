@@ -42,6 +42,7 @@
     <!-- Core CSS -->
     <link rel="stylesheet" href="/static/css/charts-fixed.css">
     <link rel="stylesheet" href="/static/css/crypto_ticker.css">
+    <link rel="stylesheet" href="/static/css/phase9-dashboard.css">
     
     <!-- New UX Feature CSS -->
     <link rel="stylesheet" href="/static/css/mobile.css">
@@ -391,147 +392,142 @@
     </div>
     
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        <!-- Overview Page -->
+        <!-- Phase 9: Mission Control Header (always visible on overview) -->
+        <div id="dash-mission-bar" class="dash-mission-bar rounded-lg mb-6 flex flex-wrap items-center gap-3">
+            <span class="text-sm font-medium text-slate-400 mr-2">System</span>
+            <span id="dash-engine-pill" class="dash-pill dash-pill-stopped">
+                <span class="dash-pill-dot"></span>
+                <span id="dash-engine-label">Stopped</span>
+            </span>
+            <span id="dash-paper-pill" class="dash-pill bg-slate-700/50 text-slate-300">Paper trading</span>
+            <span id="dash-gate-pill" class="dash-pill dash-pill-gate-closed">
+                <span id="dash-gate-label">Gate closed</span>
+            </span>
+            <span class="text-slate-500 text-sm" id="dash-heartbeat">Last heartbeat: —</span>
+            <span id="dash-error-state" class="dash-error-msg hidden"></span>
+        </div>
+
+        <!-- Overview Page (Phase 9: Authoritative landing view) -->
         <div id="page-overview" class="page-content">
-            <div class="mb-8 flex justify-between items-center">
+            <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
                 <div>
-                    <h2 class="text-3xl font-bold mb-2">Dashboard Overview</h2>
-                    <p class="text-gray-400">Real-time performance metrics and analytics</p>
+                    <h2 class="dash-heading text-2xl">Dashboard</h2>
+                    <p class="dash-muted text-sm">System status, live trades, and strategy performance</p>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <!-- Data Health Indicator -->
-                    <div class="data-health-indicator">
-                        <span id="health-status" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/20 text-green-400 cursor-pointer" onclick="verifyDataQuality()" title="Click to verify data quality">
-                            <span class="status-icon mr-2">🟢</span>
-                            <span class="status-text">Data Healthy</span>
-                        </span>
-                        <button id="verify-data-btn" onclick="verifyDataQuality()" class="ml-2 px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 transition">
-                            Verify Data
-                        </button>
-                    </div>
-                    <label class="flex items-center cursor-pointer">
-                        <span class="text-sm text-gray-400 mr-2">Auto-refresh (<span id="refresh-interval-display">5s</span>)</span>
-                        <input type="checkbox" id="auto-refresh-toggle" class="sr-only peer" checked>
-                        <div class="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-slate-500">Auto-refresh</span>
+                    <input type="checkbox" id="auto-refresh-toggle" class="sr-only peer" checked>
+                    <label for="auto-refresh-toggle" class="relative w-10 h-5 bg-slate-700 rounded-full peer peer-checked:bg-blue-600 cursor-pointer after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-5"></label>
+                    <button class="dash-refresh-btn px-3 py-1.5 rounded-lg text-sm bg-slate-700 hover:bg-slate-600 transition" title="Refresh data" onclick="handleManualRefresh()"><i class="fas fa-sync-alt"></i></button>
                 </div>
             </div>
-            
-            <!-- Key Metrics Cards (Clickable) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <!-- Total P&L Card -->
-                <div class="card clickable bg-dark-card rounded-xl p-6 border border-dark-border" onclick="navigateTo('/analytics?view=pnl-breakdown')" title="Click to see P&L breakdown">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-gray-400 text-sm">Total P&L</span>
-                        <i class="fas fa-dollar-sign text-blue-500"></i>
-                    </div>
-                    <div class="text-3xl font-bold mb-1" id="total-pnl">$0.00</div>
-                    <div class="flex items-center text-sm">
-                        <span id="pnl-change" class="text-profit">+0%</span>
-                        <span class="text-gray-500 ml-2">vs yesterday</span>
-                    </div>
+
+            <!-- 1) Live Trades & Positions (core panel) -->
+            <div class="dash-card mb-6">
+                <div class="dash-card-header flex justify-between items-center">
+                    <span>Live Trades &amp; Positions</span>
+                    <span class="text-xs font-normal text-slate-400" id="dash-trades-summary">0 open, 0 closed</span>
                 </div>
-                
-                <!-- Win Rate Card -->
-                <div class="card clickable bg-dark-card rounded-xl p-6 border border-dark-border" onclick="navigateTo('/analytics?view=win-loss-breakdown')" title="Click to see win/loss breakdown">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-gray-400 text-sm">Win Rate</span>
-                        <i class="fas fa-percentage text-green-500"></i>
+                <div class="dash-card-body p-0">
+                    <div class="overflow-x-auto">
+                        <table class="dash-table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Symbol</th>
+                                    <th>Strategy</th>
+                                    <th>Entry</th>
+                                    <th>Exit</th>
+                                    <th>Exit reason</th>
+                                    <th class="text-right">P&amp;L</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-trades-tbody">
+                                <tr><td colspan="7" class="dash-empty"><span class="dash-empty-icon">📊</span><p>Loading trades…</p></td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="text-3xl font-bold mb-1" id="win-rate">0%</div>
-                    <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
-                        <div id="win-rate-bar" class="bg-profit h-2 rounded-full" style="width: 0%"></div>
+                    <div id="dash-trades-empty" class="dash-empty hidden">
+                        <span class="dash-empty-icon">📋</span>
+                        <p>No trades yet — engine running. Trades appear here as they open and close.</p>
                     </div>
-                </div>
-                
-                <!-- Active Trades Card -->
-                <div class="card clickable bg-dark-card rounded-xl p-6 border border-dark-border" onclick="navigateTo('/trades?status=open')" title="Click to see active trades">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-gray-400 text-sm">Active Trades</span>
-                        <i class="fas fa-chart-line text-yellow-500"></i>
-                    </div>
-                    <div class="text-3xl font-bold mb-1" id="active-trades">0</div>
-                    <div class="text-sm text-gray-500">Currently open</div>
-                </div>
-                
-                <!-- Total Trades Card -->
-                <div class="card clickable bg-dark-card rounded-xl p-6 border border-dark-border" onclick="navigateTo('/trades')" title="Click to see all trades">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-gray-400 text-sm">Total Trades</span>
-                        <i class="fas fa-list text-purple-500"></i>
-                    </div>
-                    <div class="text-3xl font-bold mb-1" id="total-trades">0</div>
-                    <div class="text-sm text-gray-500">All time</div>
                 </div>
             </div>
-            
-            <!-- Charts Section -->
+
+            <!-- 2) Strategy Status -->
+            <div class="dash-card mb-6">
+                <div class="dash-card-header">Strategy Status</div>
+                <div id="dash-strategies-list" class="divide-y divide-slate-700/50">
+                    <div class="dash-empty py-8"><span class="dash-empty-icon">⚙️</span><p>Loading strategies…</p></div>
+                </div>
+            </div>
+
+            <!-- 3) Quick links: Intelligence, Opportunities, Logs -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <a href="/intelligence" class="dash-card block p-4 hover:border-slate-500 transition no-underline">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">🧠</span>
+                        <div>
+                            <div class="font-semibold text-slate-100">Strategy Intelligence</div>
+                            <div class="text-xs text-slate-400">Diagnostics, suggestions, what's working / failing</div>
+                        </div>
+                    </div>
+                </a>
+                <a href="#" onclick="showPage('opportunities', event); return false;" class="dash-card block p-4 hover:border-slate-500 transition no-underline">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">📡</span>
+                        <div>
+                            <div class="font-semibold text-slate-100">Opportunities &amp; Signals</div>
+                            <div class="text-xs text-slate-400">Detected opportunities, executed / skipped / rejected</div>
+                        </div>
+                    </div>
+                </a>
+                <a href="#" onclick="showPage('system', event); return false;" class="dash-card block p-4 hover:border-slate-500 transition no-underline">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">📜</span>
+                        <div>
+                            <div class="font-semibold text-slate-100">Logs &amp; Safety</div>
+                            <div class="text-xs text-slate-400">Activity, safety events, audit trail</div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Legacy metrics (compact) and charts -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="dash-card p-4">
+                    <div class="text-xs text-slate-400 uppercase tracking-wide">Total P&amp;L</div>
+                    <div class="text-xl font-semibold dash-numeric" id="total-pnl">$0.00</div>
+                </div>
+                <div class="dash-card p-4">
+                    <div class="text-xs text-slate-400 uppercase tracking-wide">Win rate</div>
+                    <div class="text-xl font-semibold dash-numeric" id="win-rate">0%</div>
+                </div>
+                <div class="dash-card p-4">
+                    <div class="text-xs text-slate-400 uppercase tracking-wide">Open</div>
+                    <div class="text-xl font-semibold dash-numeric" id="active-trades">0</div>
+                </div>
+                <div class="dash-card p-4">
+                    <div class="text-xs text-slate-400 uppercase tracking-wide">Total trades</div>
+                    <div class="text-xl font-semibold dash-numeric" id="total-trades">0</div>
+                </div>
+            </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <!-- Cumulative P&L Chart -->
-                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold">Cumulative P&L</h3>
-                        <div class="flex space-x-2">
-                            <button onclick="updateCumulativePNL('1W', event)" class="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">1W</button>
-                            <button onclick="updateCumulativePNL('1M', event)" class="px-3 py-1 text-xs rounded bg-blue-600">1M</button>
-                            <button onclick="updateCumulativePNL('3M', event)" class="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">3M</button>
-                            <button onclick="updateCumulativePNL('ALL', event)" class="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">ALL</button>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="cumulative-pnl-chart"></canvas>
-                    </div>
+                <div class="dash-card p-6">
+                    <h3 class="text-lg font-semibold mb-4">Cumulative P&amp;L</h3>
+                    <div class="chart-container"><canvas id="cumulative-pnl-chart"></canvas></div>
                 </div>
-                
-                <!-- Daily P&L Chart -->
-                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
-                    <h3 class="text-lg font-semibold mb-4">Daily P&L</h3>
-                    <div class="chart-container">
-                        <canvas id="daily-pnl-chart"></canvas>
-                    </div>
+                <div class="dash-card p-6">
+                    <h3 class="text-lg font-semibold mb-4">Daily P&amp;L</h3>
+                    <div class="chart-container"><canvas id="daily-pnl-chart"></canvas></div>
                 </div>
             </div>
-            
-            <!-- Strategy Performance & Recent Activity -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Strategy Performance -->
-                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
-                    <h3 class="text-lg font-semibold mb-4">Strategy Performance</h3>
-                    <div class="chart-container">
-                        <canvas id="strategy-performance-chart"></canvas>
-                    </div>
-                </div>
-                
-                <!-- Recent Activity Feed -->
-                <div class="card bg-dark-card rounded-xl p-6 border border-dark-border">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold">Recent Activity</h3>
-                        <button id="pause-activity" onclick="toggleActivityPause()" class="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 transition">
-                            <i class="fas fa-pause"></i> Pause
-                        </button>
-                    </div>
-                    
-                    <!-- Activity Filters -->
-                    <div class="flex space-x-2 mb-4">
-                        <button class="filter-btn active px-3 py-1 text-xs rounded bg-blue-600" data-filter="all" onclick="filterActivity('all', event)">All</button>
-                        <button class="filter-btn px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600" data-filter="trades" onclick="filterActivity('trades', event)">Trades</button>
-                        <button class="filter-btn px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600" data-filter="opportunities" onclick="filterActivity('opportunities', event)">Opportunities</button>
-                        <button class="filter-btn px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600" data-filter="errors" onclick="filterActivity('errors', event)">Errors</button>
-                    </div>
-                    
-                    <!-- Activity Search -->
-                    <input type="text" id="activity-search" placeholder="Search activity..." class="w-full px-3 py-2 mb-4 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeyup="searchActivity()">
-                    
-                    <!-- Activity Feed -->
-                    <div id="recent-activity" class="space-y-3 max-h-80 overflow-y-auto">
-                        <!-- Activity items will be inserted here -->
-                        <div class="text-center text-gray-500 py-4">
-                            <i class="fas fa-sync-alt fa-spin mb-2"></i>
-                            <p class="text-sm">Loading activity...</p>
-                        </div>
-                    </div>
+            <div class="dash-card p-6 mb-8">
+                <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+                <div id="recent-activity" class="space-y-2 max-h-64 overflow-y-auto">
+                    <div class="text-center text-slate-500 py-4 text-sm">Loading activity…</div>
                 </div>
             </div>
         </div>
