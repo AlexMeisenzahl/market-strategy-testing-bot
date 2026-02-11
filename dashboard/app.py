@@ -63,6 +63,13 @@ from services.prometheus_metrics import metrics
 from monitoring.metrics import get_metrics_collector
 from config.config_loader import get_config
 from services.data_flow_manager import DataFlowManager
+from services.strategy_intelligence import (
+    run_analysis as strategy_intelligence_run,
+    get_cached_diagnostics,
+    get_cached_suggestions,
+    get_last_run_at as strategy_intelligence_last_run_at,
+    export_to_reports_dir,
+)
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for API access
@@ -3639,6 +3646,94 @@ def get_journal_entries():
     except Exception as e:
         logger.error(f"Error getting journal entries: {e}")
         return jsonify([]), 200
+
+
+# ============================================================================
+# Phase 8: Strategy Intelligence API (read-only, no auto-apply)
+# ============================================================================
+
+
+@app.route("/api/intelligence/diagnostics")
+def api_intelligence_diagnostics():
+    """Get diagnostics (cached or run now). Read-only."""
+    try:
+        strategy = request.args.get("strategy")
+        if request.args.get("refresh"):
+            strategy_intelligence_run(data_parser, strategy_name=strategy or None)
+        diag = get_cached_diagnostics()
+        if not diag and not request.args.get("refresh"):
+            strategy_intelligence_run(data_parser, strategy_name=strategy or None)
+            diag = get_cached_diagnostics()
+        return jsonify(diag if diag else {"sample_size": 0, "message": "No trade data"})
+    except Exception as e:
+        logger.error(f"Strategy intelligence diagnostics: {e}", exc_info=True)
+        return jsonify({"error": str(e), "sample_size": 0}), 200
+
+
+@app.route("/api/intelligence/suggestions")
+def api_intelligence_suggestions():
+    """Get ranked suggestions (cached or run now). Read-only. No apply."""
+    try:
+        strategy = request.args.get("strategy")
+        if request.args.get("refresh"):
+            strategy_intelligence_run(data_parser, strategy_name=strategy or None)
+        suggestions = get_cached_suggestions()
+        if not suggestions and request.args.get("refresh") is None:
+            strategy_intelligence_run(data_parser, strategy_name=strategy or None)
+            suggestions = get_cached_suggestions()
+        return jsonify({
+            "suggestions": suggestions,
+            "generated_at": strategy_intelligence_last_run_at(),
+            "disclaimer": "Suggestion only. No automatic changes.",
+        })
+    except Exception as e:
+        logger.error(f"Strategy intelligence suggestions: {e}", exc_info=True)
+        return jsonify({"suggestions": [], "error": str(e)}), 200
+
+
+@app.route("/api/intelligence/run", methods=["POST", "GET"])
+def api_intelligence_run():
+    """Trigger analysis run (batch). Read-only; no strategy/config changes."""
+    try:
+        data = request.get_json(silent=True) or {}
+        strategy_name = data.get("strategy") or request.args.get("strategy")
+        result = strategy_intelligence_run(data_parser, strategy_name=strategy_name or None)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Strategy intelligence run: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 200
+
+
+@app.route("/api/intelligence/export")
+def api_intelligence_export():
+    """Export last diagnostics + suggestions as JSON. Read-only download."""
+    try:
+        diag = get_cached_diagnostics()
+        suggestions = get_cached_suggestions()
+        path = export_to_reports_dir(BASE_DIR, diag, suggestions)
+        if path and path.exists():
+            return send_file(
+                path,
+                mimetype="application/json",
+                as_attachment=True,
+                download_name=path.name,
+            )
+        payload = {
+            "generated_at": strategy_intelligence_last_run_at(),
+            "diagnostics": diag,
+            "suggestions": suggestions,
+            "disclaimer": "Read-only. No automatic changes.",
+        }
+        return jsonify(payload)
+    except Exception as e:
+        logger.error(f"Strategy intelligence export: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 200
+
+
+@app.route("/intelligence")
+def page_intelligence():
+    """Strategy Intelligence page (Phase 8E). Suggestion only; no apply buttons."""
+    return render_template("strategy_intelligence.html")
 
 
 @app.route("/api/export/trades")
