@@ -195,8 +195,11 @@ class PaperTradingEngine:
         self.orders: Dict[str, Order] = {}
         self.order_counter = 0
 
-        # Performance tracking
+        # Performance tracking (capped to prevent unbounded memory growth)
         self.trade_history: List[Dict[str, Any]] = []
+        self.trade_history_max_len = (
+            (config or {}).get("trade_history_max_len", 10000)
+        )
         self.total_commission_paid = 0.0
         self.total_trades = 0
         self.winning_trades = 0
@@ -419,6 +422,8 @@ class PaperTradingEngine:
             "timestamp": datetime.now().isoformat(),
         }
         self.trade_history.append(trade_record)
+        if len(self.trade_history) > self.trade_history_max_len:
+            self.trade_history = self.trade_history[-self.trade_history_max_len:]
 
         # Log trade
         if self.logger:
@@ -571,3 +576,63 @@ class PaperTradingEngine:
         if self.peak_balance > 0:
             drawdown = ((self.peak_balance - current_value) / self.peak_balance) * 100
             self.max_drawdown = max(self.max_drawdown, drawdown)
+
+    def get_state(self) -> Dict[str, Any]:
+        """Export engine state for persistence (crash recovery, restart idempotency)."""
+        positions_list = []
+        for symbol, pos in self.positions.items():
+            if pos.quantity != 0:
+                positions_list.append({
+                    "symbol": pos.symbol,
+                    "quantity": pos.quantity,
+                    "avg_price": pos.avg_price,
+                    "realized_pnl": pos.realized_pnl,
+                    "opened_at": pos.opened_at.isoformat(),
+                })
+        return {
+            "initial_balance": self.initial_balance,
+            "cash_balance": self.cash_balance,
+            "positions": positions_list,
+            "order_counter": self.order_counter,
+            "trade_history": self.trade_history[-1000:],
+            "total_commission_paid": self.total_commission_paid,
+            "total_trades": self.total_trades,
+            "winning_trades": self.winning_trades,
+            "losing_trades": self.losing_trades,
+            "max_drawdown": self.max_drawdown,
+            "peak_balance": self.peak_balance,
+        }
+
+    def set_state(self, state: Dict[str, Any]) -> None:
+        """Restore engine state from persisted dict (e.g. after restart)."""
+        if not state or not isinstance(state, dict):
+            return
+        self.cash_balance = float(state.get("cash_balance", self.initial_balance))
+        self.order_counter = int(state.get("order_counter", 0))
+        self.total_commission_paid = float(state.get("total_commission_paid", 0))
+        self.total_trades = int(state.get("total_trades", 0))
+        self.winning_trades = int(state.get("winning_trades", 0))
+        self.losing_trades = int(state.get("losing_trades", 0))
+        self.max_drawdown = float(state.get("max_drawdown", 0))
+        self.peak_balance = float(state.get("peak_balance", self.initial_balance))
+        self.positions.clear()
+        for p in state.get("positions", []):
+            if not isinstance(p, dict):
+                continue
+            symbol = str(p.get("symbol", ""))
+            if not symbol:
+                continue
+            qty = float(p.get("quantity", 0))
+            avg = float(p.get("avg_price", 0))
+            pos = Position(symbol, qty, avg)
+            pos.realized_pnl = float(p.get("realized_pnl", 0))
+            try:
+                pos.opened_at = datetime.fromisoformat(
+                    str(p.get("opened_at", datetime.now().isoformat()))
+                )
+            except (ValueError, TypeError):
+                pos.opened_at = datetime.now()
+            self.positions[symbol] = pos
+        self.trade_history = list(state.get("trade_history", []))
+        if len(self.trade_history) > self.trade_history_max_len:
+            self.trade_history = self.trade_history[-self.trade_history_max_len:]

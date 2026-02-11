@@ -2,23 +2,26 @@
 Engine State Reader - Read-only access to engine state files
 
 Reads state/bot_state.json and logs/activity.json with graceful handling
-of missing or partial data. Never raises; returns empty/default values on error.
+of missing or partial data. Uses atomic_json for corruption recovery.
+Never raises; returns empty/default values on error.
 """
 
-import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+try:
+    from utils.atomic_json import load_json
+except ImportError:
+    import json as _json
 
-def _read_json(path: Path, default: Any) -> Any:
-    """Read JSON file. Returns default on missing/invalid."""
-    try:
-        if not path.exists():
-            return default
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError, TypeError):
-        return default
+    def load_json(path: Path, default: Any = None, **kwargs: Any) -> Any:
+        try:
+            if not path.exists():
+                return default or {}
+            with open(path, "r", encoding="utf-8") as f:
+                return _json.load(f)
+        except (_json.JSONDecodeError, OSError, TypeError):
+            return default or {}
 
 
 class EngineStateReader:
@@ -29,16 +32,27 @@ class EngineStateReader:
 
     def __init__(self, base_dir: Path):
         self.base_dir = Path(base_dir)
-        self.state_path = self.base_dir / "state" / "bot_state.json"
+        self.state_dir = self.base_dir / "state"
+        self.state_path = self.state_dir / "bot_state.json"
         self.activity_path = self.base_dir / "logs" / "activity.json"
+        self.engine_health_path = self.state_dir / "engine_health.json"
 
     def get_bot_state(self) -> Dict[str, Any]:
-        """Read state/bot_state.json. Returns {} on missing/invalid."""
-        return _read_json(self.state_path, {})
+        """Read state/bot_state.json. Returns {} on missing/invalid/corrupt."""
+        out = load_json(
+            self.state_path,
+            default={},
+            backup_path=self.base_dir / "state" / "bot_state.backup.json",
+        )
+        return out if isinstance(out, dict) else {}
 
     def get_activity(self) -> List[Dict[str, Any]]:
-        """Read logs/activity.json. Returns [] on missing/invalid."""
-        data = _read_json(self.activity_path, [])
+        """Read logs/activity.json. Returns [] on missing/invalid/corrupt."""
+        data = load_json(
+            self.activity_path,
+            default=[],
+            backup_path=self.base_dir / "logs" / "activity.backup.json",
+        )
         return data if isinstance(data, list) else []
 
     def has_engine_state(self) -> bool:
@@ -123,6 +137,11 @@ class EngineStateReader:
             return []
         positions = state.get("positions", [])
         return positions if isinstance(positions, list) else []
+
+    def get_engine_health(self) -> Optional[Dict[str, Any]]:
+        """Read state/engine_health.json (last_cycle_timestamp, uptime, memory_mb, error_count)."""
+        out = load_json(self.engine_health_path, default=None)
+        return out if isinstance(out, dict) else None
 
     def get_portfolio_from_engine(self) -> Optional[Dict[str, Any]]:
         """Build portfolio from engine state. Returns None if no valid state."""

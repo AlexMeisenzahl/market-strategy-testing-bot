@@ -310,6 +310,14 @@ def health_check():
             ),
         }
 
+        # Engine health (from state/engine_health.json, no heavy imports)
+        try:
+            engine_health = engine_state_reader.get_engine_health()
+            if engine_health:
+                health_status["engine"] = engine_health
+        except Exception:
+            pass
+
         # Add metrics collector stats if available
         if metrics_collector:
             health_status["metrics"] = metrics_collector.get_comprehensive_stats()

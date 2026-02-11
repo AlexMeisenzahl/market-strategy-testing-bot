@@ -2,15 +2,21 @@
 Crash Recovery System
 
 Saves bot state periodically and recovers from crashes by restoring
-the last known good state.
+the last known good state. Uses atomic JSON writes and file locking.
 """
 
 import logging
-import json
 import os
 from datetime import datetime
 from typing import Dict, Optional
 from pathlib import Path
+
+from utils.atomic_json import (
+    atomic_write_json,
+    load_json,
+    locked_load_json,
+    locked_write_json,
+)
 
 
 class CrashRecovery:
@@ -70,30 +76,23 @@ class CrashRecovery:
         }
         """
         try:
-            # Collect state if not provided
             if state is None:
                 state = self._collect_current_state()
 
-            # Add timestamp
             state["timestamp"] = datetime.utcnow().isoformat()
             state["save_count"] = state.get("save_count", 0) + 1
 
-            # Backup existing state file
-            if self.state_file.exists():
-                import shutil
-
-                shutil.copy(self.state_file, self.backup_file)
-
-            # Write new state
-            with open(self.state_file, "w") as f:
-                json.dump(state, f, indent=2)
+            locked_write_json(
+                self.state_file,
+                state,
+                backup_path=self.backup_file,
+            )
 
             self.logger.debug(
                 f"State saved (#{state['save_count']}): "
                 f"{len(state.get('open_positions', []))} positions, "
                 f"${state.get('portfolio_value', 0):.2f} portfolio value"
             )
-
             return True
 
         except Exception as e:
@@ -175,29 +174,35 @@ class CrashRecovery:
 
     def _load_state_file(self, file_path: Path) -> Optional[Dict]:
         """
-        Load state from file
-
-        Args:
-            file_path: Path to state file
-
-        Returns:
-            State dict or None if file doesn't exist or is invalid
+        Load state from file with corruption recovery (fallback to backup).
+        Validates required keys; returns None if invalid.
         """
-        try:
-            if not file_path.exists():
-                return None
+        backup = file_path.parent / (file_path.name + ".backup")
+        if file_path.suffix == ".json":
+            backup = file_path.parent / (file_path.stem + ".backup.json")
 
-            with open(file_path, "r") as f:
-                state = json.load(f)
+        def _repair(s: Dict) -> Dict:
+            for key in ["active_strategies", "open_positions", "pending_trades"]:
+                if key not in s:
+                    s[key] = []
+            if "portfolio_value" not in s:
+                s["portfolio_value"] = 0.0
+            if "timestamp" not in s:
+                s["timestamp"] = datetime.utcnow().isoformat()
+            return s
 
-            return state
-
-        except json.JSONDecodeError as e:
-            self.logger.error(f"Invalid JSON in state file: {e}")
+        state = load_json(
+            file_path,
+            default=None,
+            required_keys={"timestamp", "active_strategies", "open_positions", "portfolio_value"},
+            backup_path=backup if file_path != self.backup_file else None,
+            repair_with_defaults=_repair,
+        )
+        if state is None:
             return None
-        except Exception as e:
-            self.logger.error(f"Error loading state file: {e}")
+        if not self._validate_state(state):
             return None
+        return state
 
     def _validate_state(self, state: Dict) -> bool:
         """

@@ -21,8 +21,15 @@ import json
 import yaml
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import traceback
+
+from utils.atomic_json import (
+    atomic_write_json,
+    load_json,
+    locked_write_json,
+    locked_load_json,
+)
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -126,6 +133,7 @@ class BotRunner:
 
         # Initialize core components (single execution engine; StrategyManager routes to it)
         self.execution_engine = ExecutionEngine(self.config)
+        self._restore_paper_engine_state()
         self.strategy_manager = StrategyManager(self.config, self.execution_engine)
         self.polymarket_api = PolymarketAPI(
             timeout=self.config.get("api_timeout_seconds", 10),
@@ -210,12 +218,22 @@ class BotRunner:
         self.state_dir.mkdir(exist_ok=True)
         self.state_path = self.state_dir / "bot_state.json"
         self.control_path = self.state_dir / "control.json"
+        self.engine_health_path = self.state_dir / "engine_health.json"
         self._last_prices_dict = {}
+        self._last_bot_state_hash: Optional[str] = None
         self.paused = False
 
-        # Statistics
+        # Statistics and health (for /health and stability)
         self.start_time = datetime.now(timezone.utc)
         self.cycles_completed = 0
+        self.error_count = 0
+        self._last_cycle_start: Optional[float] = None
+        self._cycle_timeout_seconds = int(
+            os.getenv("CYCLE_TIMEOUT_SECONDS", "300")
+        )
+        self._memory_log_interval = int(
+            os.getenv("MEMORY_LOG_INTERVAL_CYCLES", "60")
+        )
         # max_cycles: env MAX_CYCLES or config max_cycles, default None = unlimited
         _mc = os.getenv("MAX_CYCLES")
         self.max_cycles = (
@@ -417,29 +435,56 @@ class BotRunner:
         )
         self.running = False
 
+    def _restore_paper_engine_state(self) -> None:
+        """Restore paper engine state from disk if present (restart idempotency)."""
+        try:
+            path = self.state_dir / "paper_engine_state.json"
+            data = load_json(
+                path,
+                default=None,
+                backup_path=self.state_dir / "paper_engine_state.backup.json",
+            )
+            if isinstance(data, dict):
+                self.execution_engine.trading_engine.set_state(data)
+                self.logger.log_warning(
+                    "Restored paper engine state from disk (positions, balance, history)"
+                )
+        except Exception as e:
+            self.logger.log_warning(f"Could not restore paper engine state: {e}")
+
+    def _save_paper_engine_state(self) -> None:
+        """Persist paper engine state for crash recovery and restart idempotency."""
+        try:
+            path = self.state_dir / "paper_engine_state.json"
+            state = self.execution_engine.trading_engine.get_state()
+            locked_write_json(
+                path,
+                state,
+                backup_path=self.state_dir / "paper_engine_state.backup.json",
+            )
+        except Exception:
+            pass
+
     def _read_control(self) -> None:
         """
         Read state/control.json and update self.paused.
         Graceful: missing or invalid file => not paused. Never raises.
+        Uses locked load for cross-process safety (dashboard may write pause).
         """
         try:
-            if not self.control_path.exists():
-                return
-            with open(self.control_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = locked_load_json(self.control_path, default={})
             if isinstance(data, dict) and "pause" in data:
                 self.paused = bool(data["pause"])
-        except (json.JSONDecodeError, OSError, TypeError):
+        except Exception:
             pass
 
     def _write_bot_state(self) -> None:
         """
         Write state/bot_state.json with canonical schema.
-        Atomic write (temp + rename). Non-blocking: swallows errors to avoid
-        crashing the engine. Called each cycle for observability.
+        Atomic write (temp + flush + fsync + os.replace) with file locking.
+        Non-blocking: swallows errors to avoid crashing the engine.
         """
         try:
-            # Build state per agreed schema
             pe = self.execution_engine.trading_engine
             metrics = pe.get_performance_metrics(self._last_prices_dict)
             positions = self.execution_engine.get_positions(self._last_prices_dict)
@@ -475,48 +520,69 @@ class BotRunner:
                 "runtime_seconds": runtime_seconds,
             }
 
-            payload = json.dumps(state, indent=2)
-            # Atomic write: write to temp, then rename
-            tmp_path = self.state_path.with_suffix(".tmp")
-            tmp_path.write_text(payload, encoding="utf-8")
-            tmp_path.replace(self.state_path)
+            state_str = json.dumps(state, sort_keys=True)
+            state_hash = str(hash(state_str))
+            if state_hash != self._last_bot_state_hash:
+                self._last_bot_state_hash = state_hash
+                backup_path = self.state_dir / "bot_state.backup.json"
+                locked_write_json(
+                    self.state_path,
+                    state,
+                    backup_path=backup_path,
+                )
         except Exception:
             # Non-blocking: do not crash engine on state write failure
             pass
 
+    def _write_engine_health(
+        self,
+        last_cycle_timestamp: Optional[str] = None,
+        cycle_duration_seconds: Optional[float] = None,
+    ) -> None:
+        """Write engine_health.json for /health endpoint (lightweight, no heavy imports)."""
+        try:
+            now = datetime.now(timezone.utc)
+            uptime_seconds = int((now - self.start_time).total_seconds())
+            memory_mb: Optional[float] = None
+            try:
+                import psutil
+                proc = psutil.Process()
+                memory_mb = proc.memory_info().rss / (1024 * 1024)
+            except Exception:
+                pass
+            health = {
+                "status": "running" if self.running else "stopped",
+                "last_cycle_timestamp": last_cycle_timestamp or now.isoformat(),
+                "uptime_seconds": uptime_seconds,
+                "error_count": self.error_count,
+                "cycle_duration_seconds": cycle_duration_seconds,
+                "cycles_completed": self.cycles_completed,
+                "memory_mb": memory_mb,
+            }
+            atomic_write_json(self.engine_health_path, health)
+        except Exception:
+            pass
+
     def _log_activity(self, activity: Dict[str, Any]) -> None:
         """
-        Log activity to activity.json for dashboard consumption
-
-        Args:
-            activity: Activity data to log
+        Log activity to activity.json for dashboard consumption.
+        Uses atomic write + lock; recovers from corrupt JSON via backup/default.
         """
         try:
-            # Load existing activities
-            activities = []
-            if self.activity_log_path.exists():
-                with open(self.activity_log_path, "r") as f:
-                    try:
-                        activities = json.load(f)
-                        if not isinstance(activities, list):
-                            activities = []
-                    except json.JSONDecodeError:
-                        activities = []
+            activities = load_json(
+                self.activity_log_path,
+                default=[],
+                backup_path=self.logs_dir / "activity.backup.json",
+            )
+            if not isinstance(activities, list):
+                activities = []
 
-            # Add timestamp if not present
             if "timestamp" not in activity:
                 activity["timestamp"] = datetime.now(timezone.utc).isoformat()
-
-            # Append new activity
             activities.append(activity)
-
-            # Keep only last 1000 activities to prevent file from growing too large
             activities = activities[-1000:]
 
-            # Write back to file
-            with open(self.activity_log_path, "w") as f:
-                json.dump(activities, f, indent=2)
-
+            locked_write_json(self.activity_log_path, activities)
         except Exception as e:
             self.logger.log_error(f"Failed to log activity: {str(e)}")
 
@@ -1001,6 +1067,7 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
 
         except Exception as e:
             self._last_prices_dict = {}
+            self.error_count += 1
             self.logger.log_error(f"❌ Error in bot cycle: {str(e)}")
             self.logger.log_error(traceback.format_exc())
 
@@ -1046,7 +1113,8 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
             }
         )
 
-        # Initial state snapshot (engine started)
+        # Initial state and health snapshot
+        self._write_engine_health()
         self._write_bot_state()
 
         # Main loop
@@ -1056,15 +1124,29 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
                 self._read_control()
                 if self.paused:
                     self.logger.log_warning("⏸ Engine PAUSED – skipping cycle")
+                    self._write_engine_health()
                     self._write_bot_state()
                     if self.running:
                         time.sleep(self.scan_interval_seconds)
                     continue
                 self.logger.log_warning("Bot heartbeat – cycle started")
                 print("❤️ Bot heartbeat – cycle started", flush=True)
+                cycle_start = time.time()
+                self._last_cycle_start = cycle_start
                 opp_before = self.total_opportunities_found
                 trades_before = self.total_trades_executed
                 self.run_cycle()
+                cycle_duration = time.time() - cycle_start
+                if cycle_duration > self._cycle_timeout_seconds:
+                    self.logger.log_warning(
+                        f"Cycle timeout: cycle #{self.cycles_completed} took "
+                        f"{cycle_duration:.1f}s (threshold {self._cycle_timeout_seconds}s)"
+                    )
+                now_iso = datetime.now(timezone.utc).isoformat()
+                self._write_engine_health(
+                    last_cycle_timestamp=now_iso,
+                    cycle_duration_seconds=round(cycle_duration, 2),
+                )
                 opp_this_cycle = self.total_opportunities_found - opp_before
                 trades_this_cycle = self.total_trades_executed - trades_before
                 cash = self.execution_engine.get_balance()
@@ -1075,7 +1157,20 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
                     f"total_trades={self.total_trades_executed} "
                     f"cash_balance={cash:.2f}"
                 )
+                if (
+                    self._memory_log_interval
+                    and self.cycles_completed % self._memory_log_interval == 0
+                ):
+                    try:
+                        import psutil
+                        rss_mb = psutil.Process().memory_info().rss / (1024 * 1024)
+                        self.logger.log_info(
+                            f"Memory: RSS={rss_mb:.1f} MB (cycle {self.cycles_completed})"
+                        )
+                    except Exception:
+                        pass
                 self._write_bot_state()
+                self._save_paper_engine_state()
                 loop_cycles += 1
                 if self.max_cycles is not None and loop_cycles >= self.max_cycles:
                     self.logger.log_warning("Max cycles reached, shutting down")
@@ -1092,8 +1187,10 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
                 self.logger.log_warning("\n🛑 Keyboard interrupt received")
                 break
             except Exception as e:
+                self.error_count += 1
                 self.logger.log_error(f"❌ Unexpected error in main loop: {str(e)}")
                 self.logger.log_error(traceback.format_exc())
+                self._write_engine_health()
                 self._write_bot_state()
 
                 # Wait before retrying to avoid rapid error loops
@@ -1106,6 +1203,8 @@ Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"""
     def shutdown(self) -> None:
         """Gracefully shutdown the bot"""
         self.running = False
+        self._write_engine_health()
+        self._save_paper_engine_state()
         self._write_bot_state()
         self.logger.log_warning("\n" + "=" * 60)
         self.logger.log_warning("🛑 Bot Shutdown Summary")

@@ -25,6 +25,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "portalocker>=2.8,<4",
     "Flask>=2.3.0,<4",
     "Flask-Cors>=4.0.0",
     "requests>=2.28.0,<3",

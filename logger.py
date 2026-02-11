@@ -12,8 +12,10 @@ Default: INFO.
 """
 
 import csv
+import logging
 import os
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from typing import Dict, Any, Optional
 from pathlib import Path
 
@@ -31,20 +33,46 @@ def _min_level() -> int:
 class Logger:
     """Central logging system for all bot activities"""
 
+    # Rotating log limits (prevent unbounded growth)
+    ROTATE_MAX_BYTES = 10 * 1024 * 1024  # 10MB
+    ROTATE_BACKUP_COUNT = 5
+
     def __init__(self, log_dir: str = "logs"):
         """
-        Initialize logger with automatic log directory creation
-
-        Args:
-            log_dir: Directory to store log files (default: logs/)
+        Initialize logger with automatic log directory creation.
+        errors.log and connection.log use RotatingFileHandler (10MB, 5 backups).
         """
         self.log_dir = Path(log_dir)
         self._ensure_log_directory()
         self._initialize_csv_files()
+        self._init_rotating_handlers()
 
     def _ensure_log_directory(self) -> None:
         """Create logs directory if it doesn't exist"""
         self.log_dir.mkdir(exist_ok=True)
+
+    def _init_rotating_handlers(self) -> None:
+        """Set up RotatingFileHandler for errors.log and connection.log."""
+        fmt = logging.Formatter(
+            "[%(asctime)s] %(levelname)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+        errors_file = self.log_dir / "errors.log"
+        self._errors_handler = RotatingFileHandler(
+            errors_file,
+            maxBytes=self.ROTATE_MAX_BYTES,
+            backupCount=self.ROTATE_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        self._errors_handler.setFormatter(fmt)
+        conn_file = self.log_dir / "connection.log"
+        self._connection_handler = RotatingFileHandler(
+            conn_file,
+            maxBytes=self.ROTATE_MAX_BYTES,
+            backupCount=self.ROTATE_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        self._connection_handler.setFormatter(fmt)
 
     def _initialize_csv_files(self) -> None:
         """Initialize CSV files with headers if they don't exist"""
@@ -250,7 +278,7 @@ class Logger:
 
     def log_error(self, message: str, level: str = "ERROR") -> None:
         """
-        Log an error or warning message.
+        Log an error or warning message via RotatingFileHandler (max 10MB, 5 backups).
 
         Respects LOG_LEVEL environment variable: only writes if level is at or above configured minimum.
 
@@ -261,11 +289,16 @@ class Logger:
         level_num = _LEVELS.get(level.upper(), 40)
         if level_num < _min_level():
             return
-        errors_file = self.log_dir / "errors.log"
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        with open(errors_file, "a") as f:
-            f.write(f"[{timestamp}] {level}: {message}\n")
+        record = logging.LogRecord(
+            name="market_bot",
+            level=level_num,
+            pathname="",
+            lineno=0,
+            msg=message,
+            args=(),
+            exc_info=None,
+        )
+        self._errors_handler.emit(record)
 
     def log_warning(self, message: str) -> None:
         """Log a warning message"""
@@ -314,7 +347,6 @@ class Logger:
             response_time_ms: Response time in milliseconds
             message: Additional message
         """
-        connection_file = self.log_dir / "connection.log"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Choose icon based on status
@@ -334,8 +366,16 @@ class Logger:
         if message:
             log_msg += f" - {message}"
 
-        with open(connection_file, "a") as f:
-            f.write(log_msg + "\n")
+        record = logging.LogRecord(
+            name="market_bot.connection",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg=log_msg,
+            args=(),
+            exc_info=None,
+        )
+        self._connection_handler.emit(record)
 
     def get_recent_activities(self, count: int = 5) -> list:
         """
