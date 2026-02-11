@@ -24,9 +24,25 @@ leaderboard_bp = Blueprint("leaderboard", __name__, url_prefix="/api/leaderboard
 
 @leaderboard_bp.route("/", methods=["GET"])
 def get_leaderboard():
-    """Get strategy leaderboard"""
+    """Get strategy leaderboard. Read-only. Optional filters: status, enabled, health."""
     try:
         leaderboard = competition.get_leaderboard()
+        # Phase 7D: optional filters (read-only)
+        status_filter = request.args.get("status", "").strip().lower()
+        enabled_filter = request.args.get("enabled")
+        health_filter = request.args.get("health", "").strip().lower()
+        if status_filter:
+            if status_filter == "winning":
+                leaderboard = [s for s in leaderboard if "WINNING" in (s.get("status") or "")]
+            elif status_filter == "marginal":
+                leaderboard = [s for s in leaderboard if "MARGINAL" in (s.get("status") or "")]
+            elif status_filter == "losing":
+                leaderboard = [s for s in leaderboard if "LOSING" in (s.get("status") or "")]
+        if enabled_filter is not None:
+            want_enabled = str(enabled_filter).lower() in ("1", "true", "yes")
+            leaderboard = [s for s in leaderboard if s.get("enabled") == want_enabled]
+        if health_filter:
+            leaderboard = [s for s in leaderboard if (s.get("health") or "").lower() == health_filter]
         return jsonify({"success": True, "leaderboard": leaderboard})
     except Exception as e:
         logger.error(f"Error getting leaderboard: {e}", exc_info=True)

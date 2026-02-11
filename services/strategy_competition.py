@@ -333,6 +333,22 @@ class StrategyCompetition:
                 else:
                     status = "❌ LOSING"
 
+                # Phase 7D: health, graduation stage, attribution (read-only)
+                health_status = "healthy"
+                if strategy.get("auto_disabled"):
+                    health_status = "auto_disabled"
+                elif not strategy.get("enabled"):
+                    health_status = "disabled"
+                elif strategy.get("paused"):
+                    health_status = "paused"
+                else:
+                    health_status = "healthy"
+
+                trading_stage = strategy.get("trading_stage") or "paper"
+                allocated_capital = strategy.get("allocated_capital")
+                if allocated_capital is None:
+                    allocated_capital = self.starting_capital
+
                 leaderboard.append(
                     {
                         "strategy_id": strategy_id,
@@ -344,10 +360,15 @@ class StrategyCompetition:
                         "sharpe_ratio": metrics.get("sharpe_ratio", 0),
                         "total_trades": metrics.get("total_trades", 0),
                         "win_rate": metrics.get("win_rate", 0),
+                        "max_drawdown": metrics.get("max_drawdown", 0),
                         "status": status,
                         "enabled": strategy["enabled"],
                         "paused": strategy["paused"],
                         "auto_disabled": strategy["auto_disabled"],
+                        "health": health_status,
+                        "trading_stage": trading_stage,
+                        "allocated_capital": allocated_capital,
+                        "attribution_note": "Capital allocation is from config or competition DB; engine uses config only (see README).",
                     }
                 )
 

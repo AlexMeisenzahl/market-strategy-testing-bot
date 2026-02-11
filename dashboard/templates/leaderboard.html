@@ -88,6 +88,36 @@
             <div class="text-xl mt-2" id="winner-return">+0%</div>
         </div>
         
+        <!-- Phase 7D: Read-only note -->
+        <div class="mb-4 text-sm text-gray-400 bg-gray-800/50 rounded-lg px-4 py-2">
+            <i class="fas fa-info-circle mr-2"></i>
+            Leaderboard is read-only. Graduation stage and allocation are for tracking; execution is controlled by config and the execution gate (see docs).
+        </div>
+
+        <!-- Filters (Phase 7D) -->
+        <div class="flex flex-wrap gap-4 mb-4 items-center">
+            <label class="text-gray-400 text-sm">Status:</label>
+            <select id="filter-status" class="bg-gray-700 text-white rounded px-3 py-1.5 text-sm">
+                <option value="">All</option>
+                <option value="winning">Winning</option>
+                <option value="marginal">Marginal</option>
+                <option value="losing">Losing</option>
+            </select>
+            <label class="text-gray-400 text-sm">Health:</label>
+            <select id="filter-health" class="bg-gray-700 text-white rounded px-3 py-1.5 text-sm">
+                <option value="">All</option>
+                <option value="healthy">Healthy</option>
+                <option value="paused">Paused</option>
+                <option value="auto_disabled">Auto-disabled</option>
+                <option value="disabled">Disabled</option>
+            </select>
+            <label class="inline-flex items-center gap-2 text-sm text-gray-400">
+                <input type="checkbox" id="filter-enabled" class="rounded bg-gray-700">
+                <span>Enabled only</span>
+            </label>
+            <button type="button" id="btn-apply-filters" class="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-sm">Apply</button>
+        </div>
+
         <!-- Leaderboard Table -->
         <div class="bg-gray-800 rounded-lg overflow-hidden card mb-8">
             <div class="p-6 border-b border-gray-700">
@@ -104,6 +134,9 @@
                             <th class="px-6 py-3 text-right">Sharpe</th>
                             <th class="px-6 py-3 text-right">Trades</th>
                             <th class="px-6 py-3 text-right">Win Rate</th>
+                            <th class="px-6 py-3 text-right">Health</th>
+                            <th class="px-6 py-3 text-right">Stage</th>
+                            <th class="px-6 py-3 text-right">Allocation</th>
                             <th class="px-6 py-3 text-center">Status</th>
                         </tr>
                     </thead>
@@ -111,6 +144,17 @@
                         <!-- Populated by JavaScript -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Drill-down panel (Phase 7D) -->
+        <div id="drilldown-panel" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <div class="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto p-6 border border-gray-600">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="drilldown-title" class="text-xl font-bold">Strategy detail</h3>
+                    <button type="button" id="drilldown-close" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                </div>
+                <div id="drilldown-content" class="text-gray-300 text-sm"></div>
             </div>
         </div>
         
@@ -126,10 +170,29 @@
         // Global chart instance
         let equityChart = null;
         
+        // Build leaderboard URL with filters (Phase 7D)
+        function leaderboardUrl() {
+            const params = new URLSearchParams();
+            const status = document.getElementById('filter-status').value;
+            const health = document.getElementById('filter-health').value;
+            const enabledOnly = document.getElementById('filter-enabled').checked;
+            if (status) params.set('status', status);
+            if (health) params.set('health', health);
+            if (enabledOnly) params.set('enabled', '1');
+            const qs = params.toString();
+            return '/api/leaderboard/' + (qs ? '?' + qs : '');
+        }
+
+        function escapeHtml(t) {
+            if (t == null) return '';
+            const s = String(t);
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
         // Load leaderboard data
         async function loadLeaderboard() {
             try {
-                const response = await fetch('/api/leaderboard/');
+                const response = await fetch(leaderboardUrl());
                 const data = await response.json();
                 
                 if (data.success) {
@@ -165,23 +228,38 @@
                 // Return color
                 const returnClass = strategy.return_pct >= 0 ? 'text-green-400' : 'text-red-400';
                 
+                const health = strategy.health || 'healthy';
+                const healthClass = health === 'healthy' ? 'text-green-400' : health === 'auto_disabled' ? 'text-red-400' : health === 'paused' ? 'text-yellow-400' : 'text-gray-400';
+                const stage = (strategy.trading_stage || 'paper').replace('_', ' ');
+                const alloc = strategy.allocated_capital != null ? '$' + Number(strategy.allocated_capital).toFixed(0) : '—';
+
                 row.innerHTML = `
                     <td class="px-6 py-4">
                         ${medal}
                         <span class="ml-2">#${strategy.rank}</span>
                     </td>
-                    <td class="px-6 py-4 font-semibold">${strategy.strategy}</td>
+                    <td class="px-6 py-4 font-semibold">
+                        <button type="button" class="text-left hover:underline text-blue-300 strategy-drilldown" data-name="${escapeHtml(strategy.strategy)}">${escapeHtml(strategy.strategy)}</button>
+                    </td>
                     <td class="px-6 py-4 text-right">$${strategy.current_value.toFixed(2)}</td>
                     <td class="px-6 py-4 text-right ${returnClass}">
                         ${strategy.return_pct >= 0 ? '+' : ''}${strategy.return_pct.toFixed(2)}%
                     </td>
                     <td class="px-6 py-4 text-right">${strategy.sharpe_ratio.toFixed(2)}</td>
                     <td class="px-6 py-4 text-right">${strategy.total_trades}</td>
-                    <td class="px-6 py-4 text-right">${strategy.win_rate.toFixed(1)}%</td>
+                    <td class="px-6 py-4 text-right">${(strategy.win_rate || 0).toFixed(1)}%</td>
+                    <td class="px-6 py-4 text-right ${healthClass}">${escapeHtml(health)}</td>
+                    <td class="px-6 py-4 text-right text-gray-400">${escapeHtml(stage)}</td>
+                    <td class="px-6 py-4 text-right">${alloc}</td>
                     <td class="px-6 py-4 text-center ${statusClass}">${strategy.status}</td>
                 `;
                 
                 tbody.appendChild(row);
+            });
+
+            // Drill-down click (Phase 7D)
+            tbody.querySelectorAll('.strategy-drilldown').forEach(btn => {
+                btn.addEventListener('click', () => openDrilldown(btn.dataset.name));
             });
             
             // Show winner banner
@@ -261,6 +339,31 @@
                 }
             });
         }
+        
+        async function openDrilldown(strategyName) {
+            const panel = document.getElementById('drilldown-panel');
+            const title = document.getElementById('drilldown-title');
+            const content = document.getElementById('drilldown-content');
+            title.textContent = strategyName;
+            content.innerHTML = '<p class="text-gray-500">Loading…</p>';
+            panel.classList.remove('hidden');
+            try {
+                const r = await fetch('/api/leaderboard/performance/' + encodeURIComponent(strategyName) + '?hours=168');
+                const d = await r.json();
+                if (d.success && d.history && d.history.length) {
+                    content.innerHTML = '<p class="text-gray-400 mb-2">Last 7 days performance history (read-only):</p><pre class="bg-gray-900 p-4 rounded text-xs overflow-auto">' + escapeHtml(JSON.stringify(d.history.slice(0, 20), null, 2)) + '</pre>';
+                } else {
+                    content.innerHTML = '<p class="text-gray-400">No detailed history for this strategy yet. Data is read-only from competition DB.</p>';
+                }
+            } catch (e) {
+                content.innerHTML = '<p class="text-red-400">Could not load detail.</p>';
+            }
+        }
+
+        document.getElementById('drilldown-close').addEventListener('click', () => {
+            document.getElementById('drilldown-panel').classList.add('hidden');
+        });
+        document.getElementById('btn-apply-filters').addEventListener('click', loadLeaderboard);
         
         // Auto-refresh every 5 seconds
         setInterval(loadLeaderboard, 5000);

@@ -4,6 +4,8 @@
 
 The Strategy Graduation System is a **safe, methodical approach** to transitioning trading strategies from backtesting to live trading with real money. It ensures strategies are thoroughly tested before risking significant capital.
 
+**Phase 7D — Symbolic vs execution gating:** Graduation **stages are symbolic** for tracking and recommendations. They update the competition database (e.g. `trading_stage`, `allocated_capital`) and are shown on the leaderboard. They **do not gate execution**: which strategies run is determined by **config** (`strategies.enabled` in config.yaml) and the **execution gate** (paper/kill/pause). To have graduation actually gate which strategies can run, the engine would need to read strategy enabled/trading_stage from the DB; currently it does not. See [PHASE_7D_STRATEGY_ALIGNMENT.md](PHASE_7D_STRATEGY_ALIGNMENT.md).
+
 ## The 5 Stages
 
 ### 1. BACKTEST (7 days)

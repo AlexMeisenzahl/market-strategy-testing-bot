@@ -423,22 +423,19 @@ The bot now includes a comprehensive **Strategy Competition System** that runs m
   - Max drawdown monitoring
 
 - **🛡️ Safety Controls**
-  - **Emergency Kill Switch** - Stop all trading immediately
-  - **Auto-Disable System** - Automatically stops failing strategies
-  - **Strategy Health Monitoring** - Continuous performance checking
-  - **Data Pipeline Monitoring** - Real-time data quality validation
+  - **Emergency Kill Switch** - Stop all trading immediately (Phase 7A)
+  - **Auto-Disable System** - Can automatically disable failing strategies in the competition DB (health monitor)
+  - **Strategy Health Monitoring** - Continuous performance checking (leaderboard/dashboard)
+  - **Data pipeline:** Data validation (freshness, price discrepancy, liquidity) exists (`DataValidator`) but is **not** wired into the engine loop. Bad data does **not** automatically pause execution or trigger alerts. See [PHASE_7D_STRATEGY_ALIGNMENT.md](PHASE_7D_STRATEGY_ALIGNMENT.md).
 
-- **📈 Strategy Graduation System** - Safe progression from paper to live trading
+- **📈 Strategy Graduation System** - Tracking and recommendations only (symbolic)
   - 5 stages: Backtest → Paper → Micro Live → Mini Live → Full Live
-  - Strict requirements at each stage
-  - Automatic eligibility checking
-  - See [STRATEGY_GRADUATION.md](STRATEGY_GRADUATION.md) for details
+  - Stages are **symbolic**: they update the competition DB and recommended capital per stage. They **do not gate execution**. Which strategies run is controlled by **config** (`strategies.enabled`) and the **execution gate** (paper/kill/pause). See [STRATEGY_GRADUATION.md](STRATEGY_GRADUATION.md) and [PHASE_7D_STRATEGY_ALIGNMENT.md](PHASE_7D_STRATEGY_ALIGNMENT.md).
 
-- **💰 Capital Allocation** - Intelligent capital distribution
-  - Top strategy gets 70% of capital
-  - Second best gets 20%
-  - Third best gets 10%
-  - Weekly reallocation based on performance
+- **💰 Capital Allocation** - Config-based; dashboard can show score-based recommendations
+  - **Engine behavior:** Allocation is set in **config.yaml** (equal split among enabled strategies, or custom `capital_allocation` percentages). The engine does **not** read 70/20/10 from the database.
+  - **Dashboard / Strategy Selector:** Can show a **score-based 70/20/10 recommendation** (top 3 strategies: 70%, 20%, 10%) and write suggested allocations to the competition DB. That is for display and future use only; the running engine uses config only.
+  - See [PHASE_7D_STRATEGY_ALIGNMENT.md](PHASE_7D_STRATEGY_ALIGNMENT.md) for alignment details.
 
 ### Quick Access:
 
