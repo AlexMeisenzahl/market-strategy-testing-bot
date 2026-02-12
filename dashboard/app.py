@@ -56,6 +56,7 @@ from dashboard.routes.config_api import config_api
 from dashboard.routes.leaderboard import leaderboard_bp
 from dashboard.routes.emergency import emergency_bp
 from dashboard.routes.data_sources_api import data_sources_api
+from dashboard.routes.api import api_bp
 from dashboard.routes.core import core_bp
 from dashboard.routes.journal import journal_bp
 from dashboard.routes.settings import settings_bp
@@ -80,7 +81,7 @@ from services.strategy_intelligence import (
 from services.execution_gate import get_gate_status as execution_gate_status
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for API access
+CORS(app, origins=["http://localhost:3000"])  # CORS for API access (e.g. frontend on port 3000)
 
 # Initialize WebSocket server
 from dashboard.websocket_server import init_socketio
@@ -122,6 +123,7 @@ app.register_blueprint(config_api)
 app.register_blueprint(leaderboard_bp)
 app.register_blueprint(emergency_bp)
 app.register_blueprint(data_sources_api)
+app.register_blueprint(api_bp)
 # core_bp, journal_bp, settings_bp, strategies_bp, system_bp are registered at end of file
 # after all their routes are defined below (Flask does not allow adding routes after register)
 
