@@ -21,6 +21,7 @@ class ArbitrageOpportunity:
         yes_price: float,
         no_price: float,
         arbitrage_type: str = "Simple",
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize arbitrage opportunity
@@ -40,6 +41,7 @@ class ArbitrageOpportunity:
         self.detected_at = datetime.now()
         self.opportunity_type = "arbitrage"
         self.arbitrage_type = arbitrage_type
+        self.metadata = metadata or {}
 
     @property
     def profit_margin(self) -> float:
@@ -77,6 +79,7 @@ class ArbitrageOpportunity:
             "profit_margin": self.profit_margin,
             "opportunity_type": self.opportunity_type,
             "arbitrage_type": self.arbitrage_type,
+            "metadata": self.metadata,
             "detected_at": self.detected_at.isoformat(),
         }
 
@@ -110,6 +113,17 @@ class ArbitrageStrategy:
 
         # Arbitrage types configuration
         self.arbitrage_types_config = config.get("arbitrage_types", {})
+        self.cross_exchange_config = self.arbitrage_types_config.get(
+            "cross_exchange", {}
+        )
+        self.cross_exchange_enabled = self.cross_exchange_config.get("enabled", True)
+        self.min_cross_exchange_spread_pct = self.cross_exchange_config.get(
+            "min_spread_pct", 1.0
+        )
+        self.default_fee_bps = self.cross_exchange_config.get("fee_bps", 30)
+        self.default_max_quote_age_seconds = self.cross_exchange_config.get(
+            "max_quote_age_seconds", 15
+        )
 
         # DEPRECATED: strategies do not own execution state.
         # Kept only for backward compatibility / analytics.
@@ -211,7 +225,11 @@ class ArbitrageStrategy:
                 opportunities.append(opportunity)
 
         # 2-5. Other arbitrage types (if implemented and enabled)
-        # These would require additional detection methods
+        # Type 2: Cross-exchange arbitrage (Polymarket vs external books)
+        if self.cross_exchange_enabled:
+            opportunities.extend(
+                self.detect_cross_exchange_arbitrage(markets, prices_dict)
+            )
 
         # 6. Reality-Based Arbitrage (NEW!)
         # Check crypto markets against current prices
@@ -228,6 +246,143 @@ class ArbitrageStrategy:
                     )
 
         return opportunities
+
+    def detect_cross_exchange_arbitrage(
+        self, markets: List[Dict[str, Any]], prices_dict: Dict[str, Dict[str, float]]
+    ) -> List[ArbitrageOpportunity]:
+        """
+        Detect cross-exchange opportunities with a staged pipeline:
+        1) Match related markets
+        2) Detect odds spread
+        3) Size trade after fees/liquidity
+        4) Run risk checks
+        5) Build simultaneous execution plan
+        6) Attach post-trade validation plan
+        """
+        opportunities: List[ArbitrageOpportunity] = []
+
+        for market in markets:
+            market_id = market.get("id", market.get("market_id", "unknown"))
+            market_name = market.get("question", market.get("name", market_id))
+            prices = prices_dict.get(market_id, {})
+            polymarket_yes = prices.get("yes")
+
+            if polymarket_yes is None:
+                continue
+
+            external_quotes = market.get("external_quotes", [])
+            if not external_quotes:
+                continue
+
+            matched_quote = self._find_best_external_match(market_name, external_quotes)
+            if not matched_quote:
+                continue
+
+            external_yes = float(matched_quote.get("yes_price", 0))
+            spread_pct = abs(polymarket_yes - external_yes) * 100
+            if spread_pct < self.min_cross_exchange_spread_pct:
+                continue
+
+            trade_plan = self._build_cross_exchange_trade_plan(
+                market=market,
+                polymarket_yes=float(polymarket_yes),
+                external_quote=matched_quote,
+            )
+            if not trade_plan:
+                continue
+
+            opportunity = ArbitrageOpportunity(
+                market_id=market_id,
+                market_name=market_name,
+                yes_price=float(polymarket_yes),
+                no_price=prices.get("no", 1 - float(polymarket_yes)),
+                arbitrage_type="Cross-Exchange",
+                metadata=trade_plan,
+            )
+            opportunities.append(opportunity)
+
+        return opportunities
+
+    def _find_best_external_match(
+        self, market_name: str, external_quotes: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        """Pick the most similar external market title by token overlap."""
+        normalized = set(market_name.lower().split())
+        best = None
+        best_score = 0.0
+
+        for quote in external_quotes:
+            ext_name = quote.get("market_name", "")
+            ext_tokens = set(ext_name.lower().split())
+            if not ext_tokens:
+                continue
+
+            score = len(normalized & ext_tokens) / len(normalized | ext_tokens)
+            if score > best_score:
+                best_score = score
+                best = quote
+
+        if best and best_score >= self.cross_exchange_config.get("min_match_score", 0.35):
+            return best
+        return None
+
+    def _build_cross_exchange_trade_plan(
+        self,
+        market: Dict[str, Any],
+        polymarket_yes: float,
+        external_quote: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Apply arbitrage math + risk checks and return executable plan."""
+        external_yes = float(external_quote.get("yes_price", 0.0))
+        fee_bps = float(external_quote.get("fee_bps", self.default_fee_bps))
+        per_leg_fee = fee_bps / 10000
+
+        spread = abs(polymarket_yes - external_yes)
+        net_edge = spread - (2 * per_leg_fee)
+        if net_edge <= 0:
+            return None
+
+        max_size = min(
+            self.max_trade_size,
+            float(market.get("liquidity", self.max_trade_size)) * 0.05,
+            float(external_quote.get("liquidity", self.max_trade_size)) * 0.05,
+        )
+        if max_size <= 0:
+            return None
+
+        quote_age = float(external_quote.get("quote_age_seconds", 0))
+        if quote_age > self.default_max_quote_age_seconds:
+            return None
+
+        if net_edge * 100 < self.min_profit_margin * 100:
+            return None
+
+        buy_exchange = "polymarket" if polymarket_yes < external_yes else external_quote.get("exchange", "external")
+        hedge_exchange = external_quote.get("exchange", "external") if buy_exchange == "polymarket" else "polymarket"
+
+        return {
+            "pipeline": [
+                "match_markets",
+                "watch_odds",
+                "arbitrage_math",
+                "risk_analysis",
+                "execute",
+                "validate",
+            ],
+            "spread_pct": spread * 100,
+            "net_edge_pct": net_edge * 100,
+            "position_size": round(max_size, 4),
+            "execution_plan": {
+                "mode": "simultaneous",
+                "buy_exchange": buy_exchange,
+                "hedge_exchange": hedge_exchange,
+                "retry_failed_leg": True,
+            },
+            "validation_plan": {
+                "check_fill_timeout_seconds": 2,
+                "liquidate_unhedged": True,
+            },
+        }
 
     def should_enter(self, opportunity: ArbitrageOpportunity) -> bool:
         """
