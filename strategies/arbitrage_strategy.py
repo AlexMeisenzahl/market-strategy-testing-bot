@@ -45,14 +45,22 @@ class ArbitrageOpportunity:
 
     @property
     def profit_margin(self) -> float:
-        """Calculate profit margin as percentage"""
+        """Calculate profit margin as percentage."""
+        metadata_margin = self.metadata.get("net_edge_pct")
+        if metadata_margin is not None:
+            return float(metadata_margin)
+
         if self.price_sum == 0:
             return 0.0
         return ((1.0 - self.price_sum) / self.price_sum) * 100
 
     @property
     def expected_profit(self) -> float:
-        """Calculate expected profit per $1 invested"""
+        """Calculate expected profit per $1 invested."""
+        metadata_edge = self.metadata.get("net_edge_pct")
+        if metadata_edge is not None:
+            return float(metadata_edge) / 100
+
         return 1.0 - self.price_sum
 
     def calculate_profit_for_amount(self, amount: float) -> float:
@@ -371,6 +379,7 @@ class ArbitrageStrategy:
             ],
             "spread_pct": spread * 100,
             "net_edge_pct": net_edge * 100,
+            "expected_profit_usd": round(max_size * net_edge, 6),
             "position_size": round(max_size, 4),
             "execution_plan": {
                 "mode": "simultaneous",
@@ -386,7 +395,7 @@ class ArbitrageStrategy:
 
     def should_enter(self, opportunity: ArbitrageOpportunity) -> bool:
         """
-        Determine if we should enter a position on this opportunity
+        Determine if we should enter a position on this opportunity.
 
         Args:
             opportunity: ArbitrageOpportunity to evaluate
@@ -397,6 +406,16 @@ class ArbitrageStrategy:
         # Don't enter if we already have a position in this market
         if opportunity.market_id in self.active_positions:
             return False
+
+        # Cross-exchange opportunities are evaluated by net edge instead of YES+NO sum.
+        if opportunity.arbitrage_type == "Cross-Exchange":
+            net_edge_pct = float(opportunity.metadata.get("net_edge_pct", 0.0))
+            position_size = float(opportunity.metadata.get("position_size", 0.0))
+            if net_edge_pct < (self.min_profit_margin * 100):
+                return False
+            if position_size <= 0:
+                return False
+            return True
 
         # Check profit margin meets threshold
         if opportunity.profit_margin < (self.min_profit_margin * 100):

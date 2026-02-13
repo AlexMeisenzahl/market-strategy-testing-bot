@@ -79,3 +79,34 @@ def test_cross_exchange_skips_stale_quotes():
 
     opportunities = strategy.detect_cross_exchange_arbitrage(markets, prices)
     assert opportunities == []
+
+
+def test_cross_exchange_profit_margin_uses_net_edge_and_is_enterable():
+    strategy = ArbitrageStrategy(_base_config())
+
+    markets = [
+        {
+            "id": "m2",
+            "question": "Will SOL be above 300 this year",
+            "liquidity": 7000,
+            "external_quotes": [
+                {
+                    "exchange": "opinion",
+                    "market_name": "SOL above 300 this year",
+                    "yes_price": 0.58,
+                    "liquidity": 7000,
+                    "quote_age_seconds": 2,
+                    "fee_bps": 20,
+                }
+            ],
+        }
+    ]
+    prices = {"m2": {"yes": 0.50, "no": 0.50}}
+
+    opportunities = strategy.detect_cross_exchange_arbitrage(markets, prices)
+
+    assert len(opportunities) == 1
+    opportunity = opportunities[0]
+    assert opportunity.profit_margin > 2.0
+    assert opportunity.expected_profit > 0
+    assert strategy.should_enter(opportunity) is True
